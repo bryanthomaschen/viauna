@@ -36,7 +36,7 @@ export function useLiveUpdates(client: QueryClient, accountCount: number, onOpen
         if (!flush) flush = setTimeout(refresh, 250);
         if (data.arrived?.length && prefs.get().notifications && document.hidden && "Notification" in window && Notification.permission === "granted") {
           for (const m of data.arrived.slice(0, 3)) {
-            const n = new Notification(m.from || "New message", { body: m.subject, tag: `wren-${data.index}-${m.threadId}` });
+            const n = new Notification(m.from || "New message", { body: m.subject, tag: `viauna-${data.index}-${m.threadId}` });
             n.onclick = () => {
               window.focus();
               onOpenThread(data.index, m.threadId);

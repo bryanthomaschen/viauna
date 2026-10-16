@@ -10,7 +10,7 @@ import { readLocal, writeLocal } from "../lib/store";
 import type { Mailbox } from "../lib/types";
 import { IconButton, confirmDeleteFolder, confirmRemoveLabel } from "./common";
 
-export const THREAD_DRAG = "application/x-wren-threads";
+export const THREAD_DRAG = "application/x-viauna-threads";
 
 function NavItem({
   icon,
@@ -112,7 +112,7 @@ function placement(mb: Mailbox, listed: Set<string>): { depth: number; name: str
 export function Sidebar({ route, collapsed, open }: { route: Route; collapsed: boolean; open: boolean }) {
   const acct = useAccount();
   const client = useQueryClient();
-  const [more, setMore] = useState(() => readLocal("wren.sidebar.more", false));
+  const [more, setMore] = useState(() => readLocal("viauna.sidebar.more", false));
   const a = acct.index;
   const current = route.name === "mail" ? route.folder : null;
   const isActive = (f: FolderRoute) => !!current && sameFolder(current, f);
@@ -147,7 +147,7 @@ export function Sidebar({ route, collapsed, open }: { route: Route; collapsed: b
             onDropThreads={dropTo(s.archive, "archive")} />
         )}
         <li>
-          <button type="button" className="nav-item" onClick={() => { setMore(!more); writeLocal("wren.sidebar.more", !more); }} aria-expanded={more}>
+          <button type="button" className="nav-item" onClick={() => { setMore(!more); writeLocal("viauna.sidebar.more", !more); }} aria-expanded={more}>
             {more ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
             <span className="nav-label nav-more-label">{more ? "Less" : "More"}</span>
           </button>

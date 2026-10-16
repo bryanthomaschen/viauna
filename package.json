@@ -1,5 +1,5 @@
 {
-  "name": "wren",
+  "name": "viauna",
   "version": "0.1.0",
   "private": true,
   "description": "A fast, Gmail-style webmail client for any IMAP/SMTP server.",
@@ -19,7 +19,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p web/tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:integration": "WREN_IT=1 vitest run test/integration.test.ts"
+    "test:integration": "VIAUNA_IT=1 vitest run test/integration.test.ts"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.5",

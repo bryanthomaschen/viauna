@@ -1,7 +1,7 @@
-# Local mail server for developing Wren: `npm run dev:mail`.
+# Local mail server for developing Viauna: `npm run dev:mail`.
 # Every port is bound to 127.0.0.1 on purpose — this server accepts any user with the
 # password "pass" and must never be reachable from another machine.
-name: wren-dev
+name: viauna-dev
 
 services:
   dovecot:

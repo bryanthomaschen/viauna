@@ -86,7 +86,7 @@ describe("cleanHtml: remote content", () => {
 describe("quoted replies collapse", () => {
   it("wraps a trailing gmail_quote in <details>", () => {
     const out = clean('<div>New text</div><div class="gmail_quote">On Mon, A wrote:<blockquote>old</blockquote></div>');
-    expect(out).toMatch(/<div>New text<\/div><details class="wren-quote"><summary[^>]*>•••<\/summary><div class="gmail_quote">/);
+    expect(out).toMatch(/<div>New text<\/div><details class="viauna-quote"><summary[^>]*>•••<\/summary><div class="gmail_quote">/);
   });
 
   it("leaves an inline quote alone when the reply continues after it", () => {
@@ -96,7 +96,7 @@ describe("quoted replies collapse", () => {
 
   it("collapses the quoted tail of plain text", () => {
     const html = textToHtml("Sounds good.\n\nOn Tue, Bob wrote:\n> Lunch?\n> Noon?\n");
-    expect(html).toMatch(/^<div class="wren-plain">Sounds good\.<\/div><details/);
+    expect(html).toMatch(/^<div class="viauna-plain">Sounds good\.<\/div><details/);
     expect(html).toContain("&gt; Lunch?");
   });
 

@@ -15,7 +15,7 @@ await build({
   target: "node22",
   packages: "external",
   sourcemap: true,
-  define: { "process.env.WREN_VERSION": JSON.stringify(process.env.WREN_VERSION || pkg.version) },
-  banner: { js: "// Wren — https://github.com/ (AGPL-3.0). Built bundle; edit server/*.ts instead." },
+  define: { "process.env.VIAUNA_VERSION": JSON.stringify(process.env.VIAUNA_VERSION || pkg.version) },
+  banner: { js: "// Viauna — https://github.com/bryanthomaschen/viauna (AGPL-3.0). Built bundle; edit server/*.ts instead." },
   logLevel: "info",
 });

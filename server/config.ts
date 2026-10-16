@@ -56,7 +56,7 @@ function endpoint(prefix: "IMAP" | "SMTP", defaultPort: number): Endpoint | null
 const dataDir = path.resolve(env("DATA_DIR", "./data")!);
 
 export const config = {
-  appName: env("APP_NAME", "Wren")!,
+  appName: env("APP_NAME", "Viauna")!,
   host: env("HOST", "127.0.0.1")!,
   port: int("PORT", 3000),
   dataDir,

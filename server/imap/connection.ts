@@ -16,7 +16,7 @@ export function imapOptions(endpoint: Endpoint, creds: Credentials, extra: Parti
     tls: { rejectUnauthorized: endpoint.verify, servername: endpoint.servername },
     auth: { user: creds.user, pass: creds.pass },
     logger: false,
-    clientInfo: { name: config.appName, vendor: "Wren" },
+    clientInfo: { name: config.appName, vendor: "Viauna" },
     connectionTimeout: 30_000,
     greetingTimeout: 16_000,
     ...extra,

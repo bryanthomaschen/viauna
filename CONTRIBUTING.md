@@ -1,4 +1,4 @@
-# Contributing to Wren
+# Contributing to Viauna
 
 Thanks for helping. Bug reports, fixes and features are all welcome.
 
@@ -25,7 +25,7 @@ npm run test:integration   # needs `npm run dev:mail` running
 - Anything touching `server/mail/render.ts`, `server/crypto.ts`, `server/auth.ts` or the
   CSP/headers in `server/app.ts` gets extra review. Explain the threat you considered.
 - The UI follows Gmail's interaction model. If you change a behaviour, say what Gmail
-  does and why Wren should differ.
+  does and why Viauna should differ.
 - Don't add Google's logos, the Google Sans font or other Google brand assets.
 
 ## Licence

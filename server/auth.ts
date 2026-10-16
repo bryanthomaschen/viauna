@@ -1,4 +1,4 @@
-// Sign-in is the mailbox's own IMAP login — Wren has no user database of its own.
+// Sign-in is the mailbox's own IMAP login — Viauna has no user database of its own.
 // A browser session can hold several mailboxes (Gmail's account switcher), each
 // proven with its own password at sign-in.
 import net from "node:net";
@@ -17,7 +17,7 @@ import { markProven } from "./imap/pool.ts";
 import { connectTarget } from "./netpolicy.ts";
 import type { AccountInfo } from "./imap/runtime.ts";
 
-export const COOKIE_NAME = "wren_session";
+export const COOKIE_NAME = "viauna_session";
 const DAY = 86_400_000;
 
 export interface SessionAccount {

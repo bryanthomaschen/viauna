@@ -1,13 +1,13 @@
 // End-to-end against a real IMAP server: the dev Dovecot from dev/compose.yml and
-// the dev SMTP sink (`npm run dev:mail`). Skipped unless WREN_IT=1.
+// the dev SMTP sink (`npm run dev:mail`). Skipped unless VIAUNA_IT=1.
 //
-//   WREN_IT=1 npx vitest run test/integration.test.ts
+//   VIAUNA_IT=1 npx vitest run test/integration.test.ts
 import crypto from "node:crypto";
 import { ImapFlow } from "imapflow";
 import MailComposer from "nodemailer/lib/mail-composer";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-const enabled = process.env.WREN_IT === "1";
+const enabled = process.env.VIAUNA_IT === "1";
 
 Object.assign(process.env, {
   IMAP_HOST: process.env.IT_IMAP_HOST ?? "127.0.0.1",
@@ -77,7 +77,7 @@ describe.skipIf(!enabled)("against a real IMAP server", { timeout: 30_000 }, () 
     expect((await call("POST", "/api/auth/login", { email: user, password: "nope" })).status).toBe(401);
     const ok = await call("POST", "/api/auth/login", { email: user, password: "pass" });
     expect(ok.status).toBe(200);
-    expect(cookie).toMatch(/^wren_session=/);
+    expect(cookie).toMatch(/^viauna_session=/);
   });
 
   it("refuses cross-origin writes", async () => {

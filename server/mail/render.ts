@@ -141,7 +141,7 @@ function linkify(escaped: string): string {
 }
 
 function quoteBlock(inner: string): string {
-  return `<details class="wren-quote"><summary title="Show trimmed content" aria-label="Show trimmed content">•••</summary>${inner}</details>`;
+  return `<details class="viauna-quote"><summary title="Show trimmed content" aria-label="Show trimmed content">•••</summary>${inner}</details>`;
 }
 
 /** Plain text → HTML, collapsing the trailing quoted reply. */
@@ -161,8 +161,8 @@ export function textToHtml(text: string): string {
     if (fwd > 0) cut = fwd;
   }
   const body = linkify(escapeHtml(lines.slice(0, cut).join("\n").replace(/\n+$/, "")));
-  const tail = cut < lines.length ? quoteBlock(`<div class="wren-plain">${linkify(escapeHtml(lines.slice(cut).join("\n")))}</div>`) : "";
-  return `<div class="wren-plain">${body}</div>${tail}`;
+  const tail = cut < lines.length ? quoteBlock(`<div class="viauna-plain">${linkify(escapeHtml(lines.slice(cut).join("\n")))}</div>`) : "";
+  return `<div class="viauna-plain">${body}</div>${tail}`;
 }
 
 interface HtmlOptions {
@@ -188,7 +188,7 @@ export function cleanHtml(html: string, opts: HtmlOptions): { body: string; remo
       remote = true;
       if (!opts.allowRemote) {
         img.removeAttribute("src");
-        img.setAttribute("data-wren-blocked", "");
+        img.setAttribute("data-viauna-blocked", "");
       }
     } else if (!/^data:image\/(png|jpe?g|gif|webp|bmp);/i.test(src)) {
       img.removeAttribute("src");
@@ -238,7 +238,7 @@ function collapseQuote(document: Document) {
     const last = nodes[nodes.length - 1] as Element;
     if (hasContentAfter(last)) continue;
     const details = document.createElement("details");
-    details.setAttribute("class", "wren-quote");
+    details.setAttribute("class", "viauna-quote");
     const summary = document.createElement("summary");
     summary.setAttribute("title", "Show trimmed content");
     summary.textContent = "•••";
@@ -252,21 +252,21 @@ function collapseQuote(document: Document) {
 const BASE_CSS = `
 html,body{margin:0;padding:0;background:transparent}
 body{font-family:Roboto,"Helvetica Neue",Arial,sans-serif;font-size:14px;line-height:1.5;color:#1f1f1f;overflow-wrap:break-word;word-wrap:break-word}
-html.dark body.wren-text{color:#e3e3e3}
+html.dark body.viauna-text{color:#e3e3e3}
 html.dark-card body{padding:12px 16px}
-html.dark body.wren-text a{color:#a8c7fa}
+html.dark body.viauna-text a{color:#a8c7fa}
 img{max-width:100%;height:auto}
-img[data-wren-blocked]{display:none}
+img[data-viauna-blocked]{display:none}
 pre{white-space:pre-wrap}
 a{color:#0b57d0}
-.wren-plain{white-space:pre-wrap;font-family:inherit}
+.viauna-plain{white-space:pre-wrap;font-family:inherit}
 blockquote{margin:0 0 0 .8ex;border-left:1px solid #ccc;padding-left:1ex}
-details.wren-quote{margin:8px 0}
-details.wren-quote>summary{list-style:none;display:inline-block;cursor:pointer;user-select:none;line-height:8px;height:10px;padding:0 6px 4px;border-radius:6px;background:#e8eaed;color:#444;font-size:13px;letter-spacing:1px;outline:none}
-details.wren-quote>summary::-webkit-details-marker{display:none}
-details.wren-quote>summary:hover{background:#dadce0}
-details.wren-quote[open]>summary{margin-bottom:8px}
-html.dark details.wren-quote>summary{background:#3c4043;color:#e3e3e3}
+details.viauna-quote{margin:8px 0}
+details.viauna-quote>summary{list-style:none;display:inline-block;cursor:pointer;user-select:none;line-height:8px;height:10px;padding:0 6px 4px;border-radius:6px;background:#e8eaed;color:#444;font-size:13px;letter-spacing:1px;outline:none}
+details.viauna-quote>summary::-webkit-details-marker{display:none}
+details.viauna-quote>summary:hover{background:#dadce0}
+details.viauna-quote[open]>summary{margin-bottom:8px}
+html.dark details.viauna-quote>summary{background:#3c4043;color:#e3e3e3}
 `;
 
 export function wrapDocument(body: string, opts: { allowRemote: boolean; plain: boolean; origin: string }): string {
@@ -281,7 +281,7 @@ export function wrapDocument(body: string, opts: { allowRemote: boolean; plain: 
     "form-action 'none'",
     "base-uri 'none'",
   ].join("; ");
-  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}"><meta name="referrer" content="no-referrer"><base target="_blank"><style>${BASE_CSS}</style></head><body class="${opts.plain ? "wren-text" : "wren-html"}">${body}</body></html>`;
+  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}"><meta name="referrer" content="no-referrer"><base target="_blank"><style>${BASE_CSS}</style></head><body class="${opts.plain ? "viauna-text" : "viauna-html"}">${body}</body></html>`;
 }
 
 function unsubscribeInfo(parsed: ParsedMail): Rendered["unsubscribe"] {

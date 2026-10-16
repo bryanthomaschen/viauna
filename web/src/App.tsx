@@ -52,5 +52,5 @@ export function App() {
     return <Login config={config.data} adding={adding} accounts={accounts} />;
   }
   if (route.account >= accounts.length || route.name === "none") return null;
-  return <Shell route={route} accounts={accounts} appName={config.data?.appName ?? "Wren"} />;
+  return <Shell route={route} accounts={accounts} appName={config.data?.appName ?? "Viauna"} />;
 }

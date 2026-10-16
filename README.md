@@ -1,4 +1,4 @@
-# Wren
+# Viauna
 
 **A fast, Gmail-style webmail client for any IMAP/SMTP server.** Self-hosted, one
 container, no database server to run. Point it at the mail server you already have and
@@ -11,11 +11,11 @@ docker-mailserver). Reports from other servers are very welcome.
 
 ![Inbox](docs/screenshots/inbox.png)
 
-> Wren is an independent project. It isn't affiliated with, or endorsed by, Google.
+> Viauna is an independent project. It isn't affiliated with, or endorsed by, Google.
 
 ## Why
 
-Most open-source webmail looks and behaves like a 2009 desktop client. Wren copies the
+Most open-source webmail looks and behaves like a 2009 desktop client. Viauna copies the
 interaction model people actually use every day — conversations, archive-don't-delete,
 one-key shortcuts, inline replies — on top of plain IMAP, so it works with the mail
 server you already run.
@@ -57,14 +57,15 @@ server you already run.
 ## Quick start
 
 ```bash
-docker build -t wren .
-docker run -d --name wren \
+git clone https://github.com/bryanthomaschen/viauna.git && cd viauna
+docker build -t viauna .
+docker run -d --name viauna \
   -p 127.0.0.1:3000:3000 \
-  -v wren-data:/data \
+  -v viauna-data:/data \
   -e PUBLIC_URL=https://mail.example.com \
   -e IMAP_HOST=imap.example.com \
   -e SMTP_HOST=smtp.example.com \
-  wren
+  viauna
 ```
 
 Put it behind your TLS-terminating reverse proxy (nginx, Caddy, Traefik) and sign in
@@ -84,7 +85,7 @@ Everything is set with environment variables.
 | `IMAP_TLS_VERIFY` | `true` | Only turn off for a development server with a self-signed certificate. |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURITY`, `SMTP_TLS_SERVERNAME`, `SMTP_TLS_VERIFY` | —, `465`, `tls` | The same, for sending. |
 | `PUBLIC_URL` | — | The address people use, e.g. `https://mail.example.com`. Used for the CSRF origin check. Strongly recommended. |
-| `TRUST_PROXY` | `false` | Trust `X-Forwarded-For`/`-Host` from one reverse proxy in front of Wren (the last `X-Forwarded-For` entry is taken as the client). |
+| `TRUST_PROXY` | `false` | Trust `X-Forwarded-For`/`-Host` from one reverse proxy in front of Viauna (the last `X-Forwarded-For` entry is taken as the client). |
 | `ALLOWED_DOMAINS` | — | Comma-separated email domains allowed to sign in. Empty: any address your IMAP server accepts. |
 | `ALLOW_CUSTOM_SERVERS` | `false` | Let users enter their own IMAP/SMTP servers on the sign-in page. Private and loopback addresses stay blocked unless `ALLOW_PRIVATE_SERVERS=true`. |
 | `SECRET_KEY` | generated | Mixed into credential encryption. If unset, one is generated into the data directory on first start. |
@@ -93,14 +94,14 @@ Everything is set with environment variables.
 | `MAX_UPLOAD_MB` | `25` | Largest single attachment. |
 | `CACHE_MB` | `1024` | Disk cache for downloaded messages. |
 | `DATA_DIR` | `/data` (image) | Database, cache, uploads. Mount a volume here. |
-| `APP_NAME` | `Wren` | Shown in the title bar and on the sign-in page. |
+| `APP_NAME` | `Viauna` | Shown in the title bar and on the sign-in page. |
 | `HOST`, `PORT` | `0.0.0.0`, `3000` (image) | Where to listen. Outside Docker the default host is `127.0.0.1`. |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error`. |
 
 ### Reverse proxy
 
-Wren serves plain HTTP; terminate TLS in front of it. Server-sent events need buffering
-off. Serve it over HTTP/2: every open Wren tab keeps a live-update stream open, and
+Viauna serves plain HTTP; terminate TLS in front of it. Server-sent events need buffering
+off. Serve it over HTTP/2: every open Viauna tab keeps a live-update stream open, and
 over HTTP/1.1 browsers allow only six connections per site, so a seventh tab would
 hang. For nginx:
 
@@ -120,7 +121,7 @@ location / {
 
 ### Mail server notes
 
-- Wren files a copy of each sent message in your Sent folder itself, as most IMAP
+- Viauna files a copy of each sent message in your Sent folder itself, as most IMAP
   servers expect. (Gmail's IMAP saves its own copy; Gmail isn't a target here.)
 - Labels need a server that allows custom keywords (`PERMANENTFLAGS \*`): Dovecot,
   Cyrus, Stalwart and most others do.
@@ -132,18 +133,18 @@ location / {
 ## How it works
 
 ```
-browser ──HTTP/SSE──▶ Wren (Node) ──IMAP──▶ your mail server
+browser ──HTTP/SSE──▶ Viauna (Node) ──IMAP──▶ your mail server
                         │        └──SMTP──▶
                         └── SQLite: sessions, the index, labels, settings
 ```
 
-- Signing in is your mailbox's own IMAP login — Wren has no user database. The
+- Signing in is your mailbox's own IMAP login — Viauna has no user database. The
   password is encrypted (AES-256-GCM) with a key that exists only in your browser's
   session cookie, so the database alone opens nothing.
-- Per signed-in mailbox, Wren keeps three IMAP connections while you're active: one for
+- Per signed-in mailbox, Viauna keeps three IMAP connections while you're active: one for
   your clicks, one for background sync, one idling on the Inbox. They close after ten
   idle minutes; the index persists, so the next visit syncs only what changed.
-- The index is a cache of the server. Delete it and Wren rebuilds it; your mail is only
+- The index is a cache of the server. Delete it and Viauna rebuilds it; your mail is only
   ever on your mail server.
 
 More detail in [`docs/architecture.md`](docs/architecture.md).
@@ -180,5 +181,5 @@ reading; JMAP for servers that speak it.
 
 ## License
 
-[AGPL-3.0-only](LICENSE). If you run a modified Wren as a service for others, you must
+[AGPL-3.0-only](LICENSE). If you run a modified Viauna as a service for others, you must
 offer them your changes.

@@ -32,4 +32,4 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - run: docker build --build-arg WREN_VERSION=${GITHUB_SHA::7} -t wren:ci .
+      - run: docker build --build-arg VIAUNA_VERSION=${GITHUB_SHA::7} -t viauna:ci .

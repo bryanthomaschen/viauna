@@ -1,6 +1,6 @@
 # Security policy
 
-Wren handles people's mailboxes; we take vulnerabilities seriously.
+Viauna handles people's mailboxes; we take vulnerabilities seriously.
 
 ## Reporting
 

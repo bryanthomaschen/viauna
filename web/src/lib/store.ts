@@ -82,9 +82,9 @@ export const prefs = createStore<Prefs>({
   shortcuts: true,
   notifications: false,
   sidebarCollapsed: false,
-  ...readLocal<Partial<Prefs>>("wren.prefs", {}),
+  ...readLocal<Partial<Prefs>>("viauna.prefs", {}),
 });
-prefs.subscribe(() => writeLocal("wren.prefs", prefs.get()));
+prefs.subscribe(() => writeLocal("viauna.prefs", prefs.get()));
 
 // ---------------------------------------------------------------- toasts
 

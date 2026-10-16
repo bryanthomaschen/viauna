@@ -1,4 +1,4 @@
-// Development SMTP server for Wren. Accepts any login, and delivers every message to
+// Development SMTP server for Viauna. Accepts any login, and delivers every message to
 // each recipient's mailbox on the dev Dovecot over LMTP — so sending from
 // alice@example.test to bob@example.test lands in Bob's inbox, live, exactly as it
 // would on a real server. Nothing ever leaves the machine.

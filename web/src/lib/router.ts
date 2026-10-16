@@ -1,4 +1,4 @@
-// A tiny history router. Wren's URLs mirror Gmail's structure:
+// A tiny history router. Viauna's URLs mirror Gmail's structure:
 //
 //   /u/0/inbox                 the inbox of the first signed-in account
 //   /u/0/inbox/123             conversation 123, opened from the inbox

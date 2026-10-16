@@ -1,6 +1,6 @@
-# Wren — one image: the Node server and the built web app.
-#   docker build -t wren .
-#   docker run -p 127.0.0.1:3000:3000 -v wren-data:/data -e IMAP_HOST=… -e SMTP_HOST=… wren
+# Viauna — one image: the Node server and the built web app.
+#   docker build -t viauna .
+#   docker run -p 127.0.0.1:3000:3000 -v viauna-data:/data -e IMAP_HOST=… -e SMTP_HOST=… viauna
 #
 # Base pinned to an exact release; bump deliberately.
 FROM node:24.22.0-alpine3.24 AS build
@@ -8,8 +8,8 @@ WORKDIR /src
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY . .
-ARG WREN_VERSION
-RUN WREN_VERSION=${WREN_VERSION} npm run build
+ARG VIAUNA_VERSION
+RUN VIAUNA_VERSION=${VIAUNA_VERSION} npm run build
 
 FROM node:24.22.0-alpine3.24 AS deps
 WORKDIR /app

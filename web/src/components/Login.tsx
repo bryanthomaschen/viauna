@@ -14,7 +14,7 @@ export function Login({ config, adding, accounts }: { config: AppConfig | undefi
   const [smtp, setSmtp] = useState({ host: "", port: 465, security: "tls" });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const appName = config?.appName ?? "Wren";
+  const appName = config?.appName ?? "Viauna";
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();

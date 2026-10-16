@@ -1,8 +1,8 @@
-# Example deployment. Put Wren behind your TLS-terminating reverse proxy and set
+# Example deployment. Put Viauna behind your TLS-terminating reverse proxy and set
 # PUBLIC_URL to the address people will use.
 services:
-  wren:
-    image: wren:latest        # or build: .
+  viauna:
+    image: viauna:latest        # or build: .
     restart: unless-stopped
     ports:
       - "127.0.0.1:3000:3000"  # reverse proxy in front; don't expose directly
@@ -18,7 +18,7 @@ services:
       # SECRET_KEY: generate with `openssl rand -base64 32` (optional; one is
       # generated into the data volume on first start if unset)
     volumes:
-      - wren-data:/data
+      - viauna-data:/data
 
 volumes:
-  wren-data:
+  viauna-data:

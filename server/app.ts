@@ -41,7 +41,7 @@ type Env = {
   };
 };
 
-export const VERSION = process.env.WREN_VERSION || "0.1.0";
+export const VERSION = process.env.VIAUNA_VERSION || "0.1.0";
 
 const APP_CSP = [
   "default-src 'self'",

@@ -56,7 +56,7 @@ export function parseSessionCookie(value: string | undefined): { sid: string; ke
 
 function credentialKey(cookieKey: string, sessionHash: string, accountId: number): Buffer {
   return Buffer.from(
-    crypto.hkdfSync("sha256", Buffer.from(cookieKey, "base64url"), getServerSecret(), `wren:credential:v1:${sessionHash}:${accountId}`, 32),
+    crypto.hkdfSync("sha256", Buffer.from(cookieKey, "base64url"), getServerSecret(), `viauna:credential:v1:${sessionHash}:${accountId}`, 32),
   );
 }
 

@@ -200,7 +200,7 @@ export class Database {
 let instance: Database | null = null;
 
 export function db(): Database {
-  if (!instance) instance = new Database(path.join(config.dataDir, "wren.db"));
+  if (!instance) instance = new Database(path.join(config.dataDir, "viauna.db"));
   return instance;
 }
 

@@ -121,7 +121,7 @@ setInterval(() => void cleanUploads(), 3600_000).unref();
 function extractDataImages(html: string) {
   const inline: { cid: string; content: Buffer; contentType: string; filename: string }[] = [];
   const out = html.replace(/(<img\b[^>]*\bsrc=)(["'])data:(image\/(?:png|jpe?g|gif|webp));base64,([A-Za-z0-9+/=\s]+)\2/gi, (_, pre, q, type, data) => {
-    const cid = `${crypto.randomBytes(8).toString("hex")}@wren`;
+    const cid = `${crypto.randomBytes(8).toString("hex")}@viauna`;
     inline.push({ cid, content: Buffer.from(data.replace(/\s/g, ""), "base64"), contentType: type, filename: `image-${inline.length + 1}.${type.split("/")[1]}` });
     return `${pre}${q}cid:${cid}${q}`;
   });

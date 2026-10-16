@@ -85,7 +85,7 @@ export function get(id: number): ComposeState | undefined {
 }
 
 function signatureHtml(signature: string): string {
-  return signature.trim() ? `<p></p><div class="wren-signature">-- <br>${signature}</div>` : "";
+  return signature.trim() ? `<p></p><div class="viauna-signature">-- <br>${signature}</div>` : "";
 }
 
 export function openCompose(account: number, identity: Identity, signature: string, init: Partial<ComposeState> = {}) {
