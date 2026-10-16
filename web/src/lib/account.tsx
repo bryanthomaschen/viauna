@@ -67,15 +67,24 @@ export function useAccount(): AccountContextValue {
 
 // ---------------------------------------------------------------- shared UI state
 
+/** A destructive action waiting for the user to confirm it. */
+export interface ConfirmRequest {
+  title: string;
+  body: string;
+  action: string;
+  run: () => Promise<void>;
+}
+
 export interface UiState {
   shortcutsOpen: boolean;
   labelDialog: null | { label?: Label };
-  folderDialog: null | { mailbox?: Mailbox };
+  folderDialog: null | { mailbox?: Mailbox; parentId?: number };
+  confirm: null | ConfirmRequest;
   sidebarOpen: boolean;
   searchFocus: number;
 }
 
-export const ui = createStore<UiState>({ shortcutsOpen: false, labelDialog: null, folderDialog: null, sidebarOpen: false, searchFocus: 0 });
+export const ui = createStore<UiState>({ shortcutsOpen: false, labelDialog: null, folderDialog: null, confirm: null, sidebarOpen: false, searchFocus: 0 });
 
 /** The visible thread list, so j/k inside a conversation can move to its neighbours. */
 export const listState = createStore<{ key: string; ids: number[]; cursor: number; selected: Set<number>; total: number; offset: number }>({

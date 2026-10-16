@@ -151,8 +151,22 @@ a { color: var(--primary); }
 .nav-item.drop-target { background: var(--selected-row); }
 .sidebar.collapsed .nav { padding: 0 8px; }
 .sidebar.collapsed .nav-item { padding: 0; justify-content: center; border-radius: 16px; width: 56px; margin-left: 8px; }
-.nav-section { display: flex; align-items: center; justify-content: space-between; padding: 16px 16px 4px 26px; font-size: 16px; color: var(--text); }
+.nav-section { display: flex; align-items: center; justify-content: space-between; height: 32px; margin-top: 8px; padding: 0 16px 0 26px; font-size: 16px; color: var(--text); }
+/* An empty section is just its heading; the next heading sits right under it. */
+.nav:empty + .nav-section { margin-top: 0; }
 .nav-section .icon-btn { margin-right: -8px; }
+/* Per-item ⋮ menu: shown on hover, on keyboard focus and while open, in place of the count. */
+.nav li { position: relative; }
+.nav-menu-btn { position: absolute; right: 4px; top: 4px; opacity: 0; }
+.nav li.has-menu:hover .nav-menu-btn, .nav-menu-btn:focus-visible, .nav-menu-btn[data-state="open"] { opacity: 1; }
+.nav li.has-menu:hover .nav-count, .nav li.has-menu:has(.nav-menu-btn:focus-visible, .nav-menu-btn[data-state="open"]) .nav-count { visibility: hidden; }
+.nav li.has-menu:hover .nav-item:not(.active), .nav li.has-menu:has(.nav-menu-btn[data-state="open"]) .nav-item:not(.active) { background: var(--surface-hover); }
+.sidebar.collapsed .nav-menu-btn { display: none; }
+@media (hover: none) {
+  .nav-menu-btn { opacity: 1; }
+  .nav li.has-menu .nav-item { padding-right: 32px; }
+  .nav li.has-menu:hover .nav-count { visibility: visible; }
+}
 .label-swatch { width: 16px; height: 16px; flex-shrink: 0; }
 .nav-indent-1 { padding-left: 42px; }
 .nav-indent-2 { padding-left: 58px; }
@@ -358,6 +372,7 @@ a { color: var(--primary); }
 .dialog-overlay { position: fixed; inset: 0; background: var(--scrim); z-index: 90; animation: fade .1s; }
 .dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 64px); overflow-y: auto; background: var(--surface); border-radius: 28px; padding: 24px; z-index: 91; box-shadow: var(--shadow-2); }
 .dialog h2 { margin: 0 0 16px; font-size: 22px; font-weight: 400; }
+.dialog-text { margin: 0; color: var(--text-2); line-height: 1.5; }
 .dialog .buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; }
 .text-input { width: 100%; height: 48px; padding: 0 14px; border: 1px solid var(--border-strong); border-radius: 4px; background: transparent; outline: none; font-size: 16px; }
 .text-input:focus { border: 2px solid var(--primary); padding: 0 13px; }

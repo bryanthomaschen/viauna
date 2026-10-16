@@ -6,7 +6,7 @@ import { api } from "../lib/api";
 import { navigate } from "../lib/router";
 import { type Density, type Theme, prefs, toast } from "../lib/store";
 import type { Identity, Settings } from "../lib/types";
-import { IconButton } from "./common";
+import { IconButton, confirmDeleteFolder, confirmRemoveLabel } from "./common";
 import { EditorArea, FormatBar, useMailEditor } from "./Editor";
 
 type Tab = "general" | "accounts" | "labels" | "folders";
@@ -203,16 +203,7 @@ function Labels() {
               <td>{l.total.toLocaleString()}</td>
               <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
                 <IconButton label={`Edit ${l.name}`} onClick={() => ui.set((s) => ({ ...s, labelDialog: { label: l } }))}><Pencil size={18} /></IconButton>
-                <IconButton label={`Remove ${l.name}`} onClick={async () => {
-                  if (!confirm(`Remove the label "${l.name}" from every conversation?`)) return;
-                  try {
-                    await api.deleteLabel(acct.index, l.keyword);
-                    void client.invalidateQueries({ queryKey: ["mailboxes", acct.index] });
-                    void client.invalidateQueries({ queryKey: ["threads", acct.index] });
-                  } catch (err) {
-                    toast((err as Error).message, { error: true });
-                  }
-                }}><Trash2 size={18} /></IconButton>
+                <IconButton label={`Remove ${l.name}`} onClick={() => confirmRemoveLabel(client, acct.index, l)}><Trash2 size={18} /></IconButton>
               </td>
             </tr>
           ))}
@@ -241,15 +232,7 @@ function Folders() {
               <td>{m.total.toLocaleString()}</td>
               <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
                 <IconButton label={`Rename ${m.name}`} onClick={() => ui.set((s) => ({ ...s, folderDialog: { mailbox: m } }))}><Pencil size={18} /></IconButton>
-                <IconButton label={`Delete ${m.name}`} onClick={async () => {
-                  if (!confirm(`Delete the folder "${m.path}" and all ${m.total} messages in it? This can't be undone.`)) return;
-                  try {
-                    await api.deleteMailbox(acct.index, m.id);
-                    void client.invalidateQueries({ queryKey: ["mailboxes", acct.index] });
-                  } catch (err) {
-                    toast((err as Error).message, { error: true });
-                  }
-                }}><Trash2 size={18} /></IconButton>
+                <IconButton label={`Delete ${m.name}`} onClick={() => confirmDeleteFolder(client, acct.index, m, acct.mailboxes)}><Trash2 size={18} /></IconButton>
               </td>
             </tr>
           ))}

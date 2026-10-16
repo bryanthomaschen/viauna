@@ -136,6 +136,27 @@ describe.skipIf(!enabled)("against a real IMAP server", { timeout: 30_000 }, () 
     expect(none.json.total).toBe(0);
   });
 
+  it("renames a folder with its subfolders, and they stay listed", async () => {
+    const folders = async () =>
+      (await call("GET", "/api/u/0/mailboxes")).json.mailboxes.filter((m: any) => !m.specialUse).map((m: any) => m.path).sort();
+    await call("POST", "/api/u/0/mailboxes", { name: "Projects" });
+    const parent = await until(async () => (await call("GET", "/api/u/0/mailboxes")).json.mailboxes.find((m: any) => m.path === "Projects"));
+    await call("POST", "/api/u/0/mailboxes", { name: "2026", parentId: parent.id });
+    await until(async () => (await folders()).includes("Projects/2026"));
+    expect((await call("PATCH", `/api/u/0/mailboxes/${parent.id}`, { name: "Work" })).status).toBe(200);
+    expect(await until(async () => {
+      const now = await folders();
+      return now.includes("Work") && now.includes("Work/2026") && !now.includes("Projects") && now;
+    })).toEqual(["Work", "Work/2026"]);
+
+    const child = (await call("GET", "/api/u/0/mailboxes")).json.mailboxes.find((m: any) => m.path === "Work/2026");
+    expect((await call("PATCH", `/api/u/0/mailboxes/${child.id}`, { name: "Q4" })).status).toBe(200);
+    expect(await until(async () => {
+      const now = await folders();
+      return now.includes("Work/Q4") && !now.includes("Work/2026") && now;
+    })).toEqual(["Work", "Work/Q4"]);
+  });
+
   it("sends a reply: files it in Sent, threads it, flags the original", async () => {
     const list = (await call("GET", "/api/u/0/threads?view=inbox")).json;
     const lunch = list.threads.find((t: any) => t.subject === "Lunch?");

@@ -261,8 +261,17 @@ export function createApp() {
     const name = String(body.name ?? "").trim();
     if (!name) throw new ActionError("Enter a folder name.");
     const target = mb.parent_path ? `${mb.parent_path}${mb.delimiter ?? "/"}${name}` : name;
+    // RENAME moves the folder's subfolders too, but not every server moves the
+    // subscriptions (Dovecot leaves them on the old names), and only subscribed
+    // folders are shown: carry them over, or the renamed folders vanish.
+    const inside = `${mb.path}${mb.delimiter ?? "/"}`;
+    const subscribed = getMailboxes(rt.account.id).filter((m) => m.subscribed && (m.path === mb.path || m.path.startsWith(inside)));
     const client = await rt.fg.get();
     await client.mailboxRename(mb.path, target);
+    for (const m of subscribed) {
+      await client.mailboxSubscribe(target + m.path.slice(mb.path.length)).catch(() => {});
+      await client.mailboxUnsubscribe(m.path).catch(() => {});
+    }
     // The renamed folder is a new mailbox to us; its contents resync under the new path.
     db().run("DELETE FROM mailboxes WHERE id = ?", mb.id);
     rt.schedule("list");

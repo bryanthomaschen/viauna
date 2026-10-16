@@ -1,13 +1,14 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import * as Tooltip from "@radix-ui/react-tooltip";
-import { useQueryClient } from "@tanstack/react-query";
+import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { type ButtonHTMLAttributes, type ReactNode, forwardRef, useEffect, useState } from "react";
-import { ui, useAccount } from "../lib/account";
+import { type ConfirmRequest, ui, useAccount } from "../lib/account";
 import { api } from "../lib/api";
 import { avatarColor, initial } from "../lib/format";
+import { folderPath, navigate } from "../lib/router";
 import { dismissToast, toast, toasts } from "../lib/store";
-import type { Address } from "../lib/types";
+import type { Address, Label, Mailbox } from "../lib/types";
 
 export function Avatar({ person, size = 40 }: { person: Address | undefined; size?: number }) {
   const seed = person?.address ?? "?";
@@ -128,8 +129,73 @@ export function Dialogs() {
       </Modal>
       {state.labelDialog && <LabelDialog />}
       {state.folderDialog && <FolderDialog />}
+      {state.confirm && <ConfirmDialog request={state.confirm} />}
     </>
   );
+}
+
+function ConfirmDialog({ request }: { request: ConfirmRequest }) {
+  const [busy, setBusy] = useState(false);
+  const close = () => ui.set((s) => ({ ...s, confirm: null }));
+  const go = async () => {
+    setBusy(true);
+    try {
+      await request.run();
+      close();
+    } catch (err) {
+      toast((err as Error).message, { error: true });
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal open onClose={close} title={request.title}>
+      <p className="dialog-text">{request.body}</p>
+      <div className="buttons">
+        <button type="button" className="btn btn-text" onClick={close}>Cancel</button>
+        <button type="button" className="btn btn-primary" disabled={busy} autoFocus onClick={() => void go()}>{request.action}</button>
+      </div>
+    </Modal>
+  );
+}
+
+/** Leaves a label's or folder's view (or a conversation in it) once it no longer exists. */
+function leaveIfViewing(account: number, path: string) {
+  if (location.pathname === path || location.pathname.startsWith(`${path}/`)) navigate(folderPath(account, { kind: "inbox" }));
+}
+
+export function confirmRemoveLabel(client: QueryClient, account: number, label: Label) {
+  ui.set((s) => ({
+    ...s,
+    confirm: {
+      title: `Remove the label "${label.name}"?`,
+      body: "It comes off every conversation that has it. The conversations themselves stay where they are.",
+      action: "Remove",
+      run: async () => {
+        await api.deleteLabel(account, label.keyword);
+        leaveIfViewing(account, folderPath(account, { kind: "label", keyword: label.keyword }));
+        void client.invalidateQueries({ queryKey: ["mailboxes", account] });
+        void client.invalidateQueries({ queryKey: ["threads", account] });
+      },
+    },
+  }));
+}
+
+export function confirmDeleteFolder(client: QueryClient, account: number, folder: Mailbox, mailboxes: Mailbox[]) {
+  const children = mailboxes.some((m) => m.parentPath === folder.path);
+  const contents = folder.total ? ` and the ${folder.total.toLocaleString()} ${folder.total === 1 ? "message" : "messages"} in it` : "";
+  ui.set((s) => ({
+    ...s,
+    confirm: {
+      title: `Delete the folder "${folder.name}"?`,
+      body: `"${folder.path}"${contents} will be deleted from your mail server. This can't be undone.${children ? " Its subfolders are kept." : ""}`,
+      action: "Delete",
+      run: async () => {
+        await api.deleteMailbox(account, folder.id);
+        leaveIfViewing(account, folderPath(account, { kind: "folder", id: folder.id }));
+        void client.invalidateQueries({ queryKey: ["mailboxes", account] });
+      },
+    },
+  }));
 }
 
 export const LABEL_COLORS = [
@@ -191,8 +257,9 @@ function FolderDialog() {
   const acct = useAccount();
   const client = useQueryClient();
   const existing = ui.use((s) => s.folderDialog?.mailbox);
+  const parentId = ui.use((s) => s.folderDialog?.parentId);
   const [name, setName] = useState(existing?.name ?? "");
-  const [parent, setParent] = useState<number | "">("");
+  const [parent, setParent] = useState<number | "">(parentId ?? "");
   const [busy, setBusy] = useState(false);
   const close = () => ui.set((s) => ({ ...s, folderDialog: null }));
   const folders = acct.mailboxes.filter((m) => !m.specialUse && m.id !== existing?.id);
@@ -210,7 +277,7 @@ function FolderDialog() {
     }
   };
   return (
-    <Modal open onClose={close} title={existing ? "Rename folder" : "New folder"}>
+    <Modal open onClose={close} title={existing ? "Rename folder" : parentId ? "New subfolder" : "New folder"}>
       <input
         className="text-input"
         aria-label="Folder name"
