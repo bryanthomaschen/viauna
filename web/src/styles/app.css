@@ -180,7 +180,7 @@ a { color: var(--primary); }
 .row.unread { background: var(--surface); color: var(--text); font-weight: 700; }
 .row:hover { box-shadow: var(--shadow-row); z-index: 2; }
 .row.selected { background: var(--selected-row); }
-.row.focused::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--focus-bar); }
+:root[data-keyboard] .row.focused::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--focus-bar); }
 .row .cells-left { display: flex; align-items: center; flex-shrink: 0; }
 .row .cell-check { display: grid; place-items: center; width: 40px; height: 40px; }
 .row .cell-star { display: grid; place-items: center; width: 40px; height: 40px; }

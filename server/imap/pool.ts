@@ -22,9 +22,12 @@ function serialize<T>(accountId: number, fn: () => Promise<T>): Promise<T> {
   const prev = queues.get(accountId) ?? Promise.resolve();
   const next = prev.catch(() => {}).then(fn);
   queues.set(accountId, next);
-  void next.finally(() => {
+  // Both outcomes handled here: `finally` would return a second promise that
+  // rejects unobserved whenever fn throws.
+  const done = () => {
     if (queues.get(accountId) === next) queues.delete(accountId);
-  });
+  };
+  next.then(done, done);
   return next;
 }
 

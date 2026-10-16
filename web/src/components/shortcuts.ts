@@ -47,6 +47,15 @@ export function useViewHandlers(handlers: ViewHandlers) {
   });
 }
 
+/**
+ * The list's cursor bar is only for people steering with the keyboard: a shortcut
+ * shows it, the next click or tap hides it (like the browser's :focus-visible).
+ */
+function keyboardMode(on: boolean) {
+  if (on) document.documentElement.dataset.keyboard = "";
+  else delete document.documentElement.dataset.keyboard;
+}
+
 function typing(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null;
   if (!el) return false;
@@ -76,6 +85,7 @@ export function useShortcuts(route: Route) {
         const map: Record<string, "inbox" | "starred" | "sent" | "drafts" | "all"> = { i: "inbox", s: "starred", t: "sent", d: "drafts", a: "all" };
         if (map[k]) {
           e.preventDefault();
+          keyboardMode(true);
           go(map[k]);
           return;
         }
@@ -84,6 +94,7 @@ export function useShortcuts(route: Route) {
       const run = (fn?: () => void) => {
         if (!fn) return;
         e.preventDefault();
+        keyboardMode(true);
         fn();
       };
       switch (k) {
@@ -125,4 +136,17 @@ export function useShortcuts(route: Route) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [enabled, route]);
+
+  // Separate from the key handler, which re-subscribes on every route change: `u`
+  // back to the list must keep the bar, so only a click, a tap or turning
+  // shortcuts off clears it.
+  useEffect(() => {
+    if (!enabled) return;
+    const onPointer = () => keyboardMode(false);
+    window.addEventListener("pointerdown", onPointer, true);
+    return () => {
+      window.removeEventListener("pointerdown", onPointer, true);
+      keyboardMode(false);
+    };
+  }, [enabled]);
 }
