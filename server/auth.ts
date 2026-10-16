@@ -1,7 +1,6 @@
 // Sign-in is the mailbox's own IMAP login — Wren has no user database of its own.
 // A browser session can hold several mailboxes (Gmail's account switcher), each
 // proven with its own password at sign-in.
-import dns from "node:dns/promises";
 import net from "node:net";
 import { type Endpoint, type Security, config } from "./config.ts";
 import {
@@ -14,6 +13,7 @@ import {
 } from "./crypto.ts";
 import { db } from "./db.ts";
 import { verifyLogin } from "./imap/connection.ts";
+import { connectTarget } from "./netpolicy.ts";
 import type { AccountInfo } from "./imap/runtime.ts";
 
 export const COOKIE_NAME = "wren_session";
@@ -45,7 +45,7 @@ export function accountInfo(row: AccountRecord): AccountInfo {
 
 /** Stable JSON for an endpoint: it is part of the account's identity. */
 function endpointKey(e: Endpoint): string {
-  return JSON.stringify({ host: e.host.toLowerCase(), port: e.port, security: e.security, servername: e.servername ?? null, verify: e.verify });
+  return JSON.stringify({ host: e.host.toLowerCase(), port: e.port, security: e.security, servername: e.servername ?? null, verify: e.verify, ...(e.custom ? { custom: true } : {}) });
 }
 
 export function loadSession(cookie: string | undefined): AuthContext | null {
@@ -121,26 +121,13 @@ export type SignInResult =
   | { ok: true; cookie?: string; index: number }
   | { ok: false; status: number; error: string };
 
-function isPrivateAddress(ip: string): boolean {
-  if (net.isIPv4(ip)) {
-    const [a, b] = ip.split(".").map(Number);
-    return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) ||
-      (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) || a >= 224;
-  }
-  const v6 = ip.toLowerCase();
-  if (v6.startsWith("::ffff:")) return isPrivateAddress(v6.slice(7));
-  return v6 === "::1" || v6 === "::" || v6.startsWith("fc") || v6.startsWith("fd") || v6.startsWith("fe80");
-}
-
 /** A user-supplied server must be a public host, or it is a way to probe our network. */
 async function checkCustomHost(host: string): Promise<string | null> {
   if (!/^[a-z0-9.-]{1,253}$/i.test(host) && !net.isIP(host)) return "That server name isn't valid.";
-  if (config.allowPrivateServers) return null;
   try {
-    const found = await dns.lookup(host, { all: true });
-    if (!found.length || found.some((a) => isPrivateAddress(a.address))) return "That server isn't allowed.";
-  } catch {
-    return `Couldn't find the server "${host}".`;
+    await connectTarget({ host, port: 0, security: "tls", verify: true, custom: true });
+  } catch (err) {
+    return (err as Error).message;
   }
   return null;
 }
@@ -164,8 +151,8 @@ async function resolveEndpoints(input: SignInInput): Promise<{ imap: Endpoint; s
     }
     const sec = (s: Security): Security => (["tls", "starttls", "none"].includes(s) ? s : "tls");
     return {
-      imap: { host: imap.host, port: imap.port, security: sec(imap.security), verify: true },
-      smtp: { host: smtp.host, port: smtp.port, security: sec(smtp.security), verify: true },
+      imap: { host: imap.host, port: imap.port, security: sec(imap.security), verify: true, custom: true },
+      smtp: { host: smtp.host, port: smtp.port, security: sec(smtp.security), verify: true, custom: true },
     };
   }
   if (!config.imap || !config.smtp) {

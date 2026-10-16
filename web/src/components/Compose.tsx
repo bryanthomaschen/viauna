@@ -131,8 +131,6 @@ function ComposeBody({ c, inline }: { c: ComposeState; inline: boolean }) {
         if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
           e.preventDefault();
           doSend();
-        } else if (e.key === "Escape" && !inline) {
-          void close(c.id);
         }
       }}
     >

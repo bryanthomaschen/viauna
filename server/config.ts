@@ -12,6 +12,8 @@ export interface Endpoint {
   servername?: string;
   /** Verify the server's certificate. Only ever false for development servers. */
   verify: boolean;
+  /** Entered by a user (ALLOW_CUSTOM_SERVERS), so re-vetted before every connection. */
+  custom?: boolean;
 }
 
 function env(name: string, fallback?: string): string | undefined {

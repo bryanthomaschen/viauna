@@ -231,7 +231,7 @@ async function main() {
     text: "Claim your prize now by replying with your bank details.",
   });
 
-  await add("Drafts", ["\\Draft", "\\Seen"], now - 4 * 3600_000, {
+  await add("Drafts", ["\\Draft", "\\Seen"], now - 30 * 60_000, {
     from: me,
     to: [people[2]],
     subject: "Re: Dinner on the 24th?",

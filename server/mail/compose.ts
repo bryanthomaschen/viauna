@@ -10,6 +10,7 @@ import { config } from "../config.ts";
 import { db } from "../db.ts";
 import type { AccountRuntime } from "../imap/runtime.ts";
 import { type Address, type MailboxRow, deleteMessages, getMailbox, insertFetched, specialMailboxes } from "../imap/store.ts";
+import { connectTarget } from "../netpolicy.ts";
 import { getSettings, myAddresses } from "../settings.ts";
 import { getParsed } from "./fetch.ts";
 import { attachmentList, escapeText, sanitizeForQuote } from "./render.ts";
@@ -286,14 +287,20 @@ async function addFlag(rt: AccountRuntime, ref: { mailboxId: number; uid: number
 export async function sendMessage(rt: AccountRuntime, sessionHash: string, input: ComposeInput) {
   const built = await build(rt, sessionHash, input, false);
   const smtp = rt.account.smtp;
+  let target: { host: string; servername?: string };
+  try {
+    target = await connectTarget(smtp);
+  } catch (err) {
+    throw new ComposeError((err as Error).message, 502);
+  }
   const transport = nodemailer.createTransport({
-    host: smtp.host,
+    host: target.host,
     port: smtp.port,
     secure: smtp.security === "tls",
     requireTLS: smtp.security === "starttls",
     ignoreTLS: smtp.security === "none",
     auth: { user: rt.credentials.user, pass: rt.credentials.pass },
-    tls: { servername: smtp.servername, rejectUnauthorized: smtp.verify },
+    tls: { servername: target.servername, rejectUnauthorized: smtp.verify },
     connectionTimeout: 30_000,
     greetingTimeout: 20_000,
     socketTimeout: 120_000,

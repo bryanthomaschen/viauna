@@ -3,6 +3,7 @@ import type { Endpoint } from "../config.ts";
 import { config } from "../config.ts";
 import type { Credentials } from "../crypto.ts";
 import { log } from "../log.ts";
+import { connectTarget } from "../netpolicy.ts";
 
 export function imapOptions(endpoint: Endpoint, creds: Credentials, extra: Partial<ImapFlowOptions> = {}): ImapFlowOptions {
   return {
@@ -35,8 +36,21 @@ export function isAuthError(err: unknown): boolean {
 }
 
 /** Logs in and out again. Used at sign-in and to re-check a session's password. */
+/** Options with the host replaced by the vetted address to connect to. */
+export async function resolvedOptions(endpoint: Endpoint, creds: Credentials, extra: Partial<ImapFlowOptions> = {}): Promise<ImapFlowOptions> {
+  const target = await connectTarget(endpoint);
+  const base = imapOptions(endpoint, creds, extra);
+  return { ...base, host: target.host, servername: target.servername, tls: { ...base.tls, servername: target.servername } };
+}
+
 export async function verifyLogin(endpoint: Endpoint, creds: Credentials): Promise<LoginResult> {
-  const client = new ImapFlow(imapOptions(endpoint, creds, { verifyOnly: true, disableAutoIdle: true }));
+  let options: ImapFlowOptions;
+  try {
+    options = await resolvedOptions(endpoint, creds, { verifyOnly: true, disableAutoIdle: true });
+  } catch (err) {
+    return { ok: false, reason: "connect", message: (err as Error).message };
+  }
+  const client = new ImapFlow(options);
   client.on("error", () => {});
   try {
     await client.connect();
@@ -63,9 +77,9 @@ export class Connection {
   onAuthFailure?: () => void;
 
   private readonly label: string;
-  private readonly options: () => ImapFlowOptions;
+  private readonly options: () => Promise<ImapFlowOptions>;
 
-  constructor(label: string, options: () => ImapFlowOptions) {
+  constructor(label: string, options: () => Promise<ImapFlowOptions>) {
     this.label = label;
     this.options = options;
   }
@@ -85,7 +99,7 @@ export class Connection {
   }
 
   private async open(): Promise<ImapFlow> {
-    const client = new ImapFlow(this.options());
+    const client = new ImapFlow(await this.options());
     client.on("error", (err: Error) => log.debug("imap connection error", { conn: this.label, error: err.message }));
     client.on("close", () => {
       if (this.client === client) {

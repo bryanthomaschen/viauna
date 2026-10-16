@@ -16,7 +16,7 @@ import { db, placeholders } from "../db.ts";
 import { log } from "../log.ts";
 import { buildSnippet } from "../mail/snippet.ts";
 import type { TextPart } from "../mail/structure.ts";
-import { Connection, imapOptions } from "./connection.ts";
+import { Connection, resolvedOptions } from "./connection.ts";
 import {
   type MailboxRow,
   deleteMessages,
@@ -117,7 +117,7 @@ export class AccountRuntime extends EventEmitter {
     this.creds = creds;
     this.setMaxListeners(100);
     this.fingerprint = credentialFingerprint(creds);
-    const options = (extra = {}) => () => imapOptions(account.imap, this.creds, extra);
+    const options = (extra = {}) => () => resolvedOptions(account.imap, this.creds, extra);
     this.fg = new Connection(`${account.id}/fg`, options({ disableAutoIdle: true }));
     this.bg = new Connection(`${account.id}/bg`, options({ disableAutoIdle: true }));
     this.idle = new Connection(`${account.id}/idle`, options({ qresync: true, maxIdleTime: 5 * 60_000, autoIdleDelay: 500 }));
