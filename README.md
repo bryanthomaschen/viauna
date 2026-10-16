@@ -100,9 +100,13 @@ Everything is set with environment variables.
 ### Reverse proxy
 
 Wren serves plain HTTP; terminate TLS in front of it. Server-sent events need buffering
-off. For nginx:
+off. Serve it over HTTP/2: every open Wren tab keeps a live-update stream open, and
+over HTTP/1.1 browsers allow only six connections per site, so a seventh tab would
+hang. For nginx:
 
 ```nginx
+http2 on;                             # in the server block (nginx 1.25.1+)
+
 location / {
     proxy_pass http://127.0.0.1:3000;
     proxy_set_header Host $host;
