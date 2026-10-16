@@ -1,0 +1,18 @@
+# Local mail server for developing Wren: `npm run dev:mail`.
+# Every port is bound to 127.0.0.1 on purpose — this server accepts any user with the
+# password "pass" and must never be reachable from another machine.
+name: wren-dev
+
+services:
+  dovecot:
+    image: dovecot/dovecot:2.3.21.1
+    volumes:
+      - ./dovecot/dovecot.conf:/etc/dovecot/dovecot.conf:ro
+      - mail:/srv/mail
+    ports:
+      - "127.0.0.1:1143:143"   # IMAP (plaintext allowed in dev)
+      - "127.0.0.1:1993:993"   # IMAPS (self-signed)
+      - "127.0.0.1:1024:24"    # LMTP, used by dev/smtp-sink.mjs
+
+volumes:
+  mail:

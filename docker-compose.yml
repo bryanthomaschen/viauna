@@ -1,0 +1,24 @@
+# Example deployment. Put Wren behind your TLS-terminating reverse proxy and set
+# PUBLIC_URL to the address people will use.
+services:
+  wren:
+    image: wren:latest        # or build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"  # reverse proxy in front; don't expose directly
+    environment:
+      PUBLIC_URL: https://mail.example.com
+      TRUST_PROXY: "true"
+      IMAP_HOST: imap.example.com
+      IMAP_PORT: "993"
+      IMAP_SECURITY: tls
+      SMTP_HOST: smtp.example.com
+      SMTP_PORT: "465"
+      SMTP_SECURITY: tls
+      # SECRET_KEY: generate with `openssl rand -base64 32` (optional; one is
+      # generated into the data volume on first start if unset)
+    volumes:
+      - wren-data:/data
+
+volumes:
+  wren-data:

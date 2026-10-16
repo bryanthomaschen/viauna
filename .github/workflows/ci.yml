@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - name: Start the dev mail server
+        run: |
+          docker compose -f dev/compose.yml up -d
+          node dev/smtp-sink.mjs &
+          for i in $(seq 1 30); do nc -z 127.0.0.1 1143 && nc -z 127.0.0.1 1587 && break; sleep 1; done
+      - run: npm run test:integration
+      - run: npm run build
+
+  docker:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --build-arg WREN_VERSION=${GITHUB_SHA::7} -t wren:ci .
