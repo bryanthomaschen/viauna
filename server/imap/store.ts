@@ -24,6 +24,8 @@ export interface MailboxRow {
   keywords_allowed: number | null;
   synced_uidnext: number;
   synced_modseq: string | null;
+  /** Message count when the index last caught up; a change means expunges to find. */
+  synced_total: number | null;
   backfill_uid: number | null;
   backfill_done: number;
 }
@@ -171,7 +173,7 @@ export function insertFetched(accountId: number, mailbox: MailboxRow, msg: Fetch
   const date = messageDate(headerDate(env.date), headerDate(msg.internalDate as Date | string | undefined));
 
   return db().tx(() => {
-    const threadId = assignThread(db(), accountId, { messageId, parents: [...inReplyTo, ...refs], subject });
+    const threadId = assignThread(db(), accountId, { messageId, from: addrs.from[0]?.address ?? null, parents: [...inReplyTo, ...refs], subject });
     const row: MessageRow = {
       mailbox_id: mailbox.id,
       uid: msg.uid,

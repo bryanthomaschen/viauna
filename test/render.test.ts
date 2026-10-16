@@ -107,3 +107,32 @@ describe("quoted replies collapse", () => {
     expect(html).toContain('<a href="mailto:ann@example.org">');
   });
 });
+
+describe("editorHtml (reopening a draft)", () => {
+  it("drops remote images, keeps text, embeds the draft's own inline images", async () => {
+    const { parseMessage, editorHtml } = await import("../server/mail/render.ts");
+    const raw = Buffer.from(
+      [
+        "Content-Type: multipart/related; boundary=b",
+        "",
+        "--b",
+        "Content-Type: text/html; charset=utf-8",
+        "",
+        '<p>Hi</p><img src="https://t.example/pixel.gif"><img src="cid:img1@x"><img src="x" onerror="alert(1)"><style>p{}</style>',
+        "--b",
+        "Content-Type: image/png",
+        "Content-ID: <img1@x>",
+        "Content-Transfer-Encoding: base64",
+        "",
+        "iVBORw0KGgo=",
+        "--b--",
+        "",
+      ].join("\r\n"),
+    );
+    const html = editorHtml(await parseMessage(raw));
+    expect(html).toContain("<p>Hi</p>");
+    expect(html).not.toContain("t.example");
+    expect(html).toContain('src="data:image/png;base64,');
+    expect(html).not.toMatch(/onerror|<style/);
+  });
+});

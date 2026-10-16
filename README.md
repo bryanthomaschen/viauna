@@ -84,7 +84,7 @@ Everything is set with environment variables.
 | `IMAP_TLS_VERIFY` | `true` | Only turn off for a development server with a self-signed certificate. |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURITY`, `SMTP_TLS_SERVERNAME`, `SMTP_TLS_VERIFY` | —, `465`, `tls` | The same, for sending. |
 | `PUBLIC_URL` | — | The address people use, e.g. `https://mail.example.com`. Used for the CSRF origin check. Strongly recommended. |
-| `TRUST_PROXY` | `false` | Trust `X-Forwarded-For`/`-Proto`/`-Host` from your reverse proxy. |
+| `TRUST_PROXY` | `false` | Trust `X-Forwarded-For`/`-Host` from one reverse proxy in front of Wren (the last `X-Forwarded-For` entry is taken as the client). |
 | `ALLOWED_DOMAINS` | — | Comma-separated email domains allowed to sign in. Empty: any address your IMAP server accepts. |
 | `ALLOW_CUSTOM_SERVERS` | `false` | Let users enter their own IMAP/SMTP servers on the sign-in page. Private and loopback addresses stay blocked unless `ALLOW_PRIVATE_SERVERS=true`. |
 | `SECRET_KEY` | generated | Mixed into credential encryption. If unset, one is generated into the data directory on first start. |

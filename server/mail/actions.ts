@@ -17,6 +17,7 @@ import {
   specialUseName,
   updateFlags,
 } from "../imap/store.ts";
+import { myAddresses } from "../settings.ts";
 import { unpackKeywords } from "./keywords.ts";
 import type { View } from "./views.ts";
 
@@ -153,6 +154,13 @@ async function setFlags(rt: AccountRuntime, mb: MailboxRow, rows: MessageRow[], 
   return { kind: "flags", mailbox: mb.id, uids: rows.map((r) => r.uid), add: remove, remove: add };
 }
 
+/** Each conversation's latest message, preferring ones that pass `prefer`. Rows are in date order. */
+function latestPerThread(rows: MessageRow[], prefer: (r: MessageRow) => boolean): MessageRow[] {
+  const byThread = new Map<number, MessageRow[]>();
+  for (const r of rows) byThread.set(r.thread_id, [...(byThread.get(r.thread_id) ?? []), r]);
+  return [...byThread.values()].map((list) => [...list].reverse().find(prefer) ?? list[list.length - 1]);
+}
+
 function has(row: MessageRow, flag: string): boolean {
   switch (flag) {
     case "\\Seen": return !!row.seen;
@@ -182,6 +190,7 @@ export async function perform(rt: AccountRuntime, input: ActionInput): Promise<{
   };
   const ops: Op[] = [];
   const touched = new Set<number>();
+  const me = myAddresses(accountId, rt.account.email);
 
   const moveAll = async (selected: MessageRow[], to: MailboxRow) => {
     for (const [from, uids] of groupByMailbox(selected)) {
@@ -220,13 +229,18 @@ export async function perform(rt: AccountRuntime, input: ActionInput): Promise<{
     }
     case "trash": {
       const trash = await ensureSpecial(rt, "trash");
-      await moveAll(rows.filter((r) => r.mailbox_id !== trash.id), trash);
+      // Deleting from Drafts discards the drafts, not the conversation they answer.
+      const draftsView = viewMailbox !== null && viewMailbox === special.drafts?.id && !input.messages?.length;
+      await moveAll(rows.filter((r) => r.mailbox_id !== trash.id && (!draftsView || r.mailbox_id === viewMailbox)), trash);
       break;
     }
     case "delete": {
+      // Permanent: only ever messages already in Trash or Spam, and from a folder
+      // view only the ones in that folder.
       const selected = rows.filter((r) => {
         const u = use(r);
-        return input.messages?.length ? true : u === "trash" || u === "junk";
+        if (u !== "trash" && u !== "junk") return false;
+        return input.messages?.length || viewMailbox === null ? true : r.mailbox_id === viewMailbox;
       });
       for (const [id, uids] of groupByMailbox(selected)) {
         const mb = getMailbox(accountId, id);
@@ -270,15 +284,16 @@ export async function perform(rt: AccountRuntime, input: ActionInput): Promise<{
       await flagAll(rows.filter((r) => inScope(r) && !r.seen), ["\\Seen"], []);
       break;
     case "unread": {
-      // Gmail marks the conversation unread by its latest message.
+      // Gmail marks a conversation unread by its latest message from someone else
+      // (your own reply being unread would leave the conversation looking read).
       const scoped = rows.filter(inScope);
-      const selected = input.messages?.length ? scoped : scoped.slice(-1);
+      const selected = input.messages?.length ? scoped : latestPerThread(scoped, (r) => !me.has(r.from_addr ?? ""));
       await flagAll(selected.filter((r) => r.seen), [], ["\\Seen"]);
       break;
     }
     case "star": {
       const scoped = rows.filter(inScope);
-      const target = input.messages?.length ? scoped : scoped.slice(-1);
+      const target = input.messages?.length ? scoped : latestPerThread(scoped, () => true);
       await flagAll(target.filter((r) => !r.flagged), ["\\Flagged"], []);
       break;
     }

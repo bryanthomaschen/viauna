@@ -77,6 +77,35 @@ export function sanitizeForQuote(html: string): string {
   return sanitizeHtml(html, SANITIZE);
 }
 
+const MAX_EMBEDDED_IMAGE = 2 * 1024 * 1024;
+
+/**
+ * A saved draft's HTML, made safe to load into the composer on the main page (where
+ * images load directly): sanitized, remote images dropped so tracking pixels in a
+ * quoted newsletter don't fire, and the draft's own inline images embedded as data:
+ * URLs, which survive the next save (the composer turns them back into cid parts).
+ */
+export function editorHtml(parsed: ParsedMail): string {
+  const source = typeof parsed.html === "string" && parsed.html.trim() ? parsed.html : escapeText(parsed.text ?? "");
+  const { document } = parseHTML(`<!doctype html><html><body>${sanitizeHtml(source, SANITIZE)}</body></html>`);
+  for (const el of document.querySelectorAll("style")) el.remove();
+  for (const img of document.querySelectorAll("img")) {
+    const src = img.getAttribute("src") ?? "";
+    if (/^cid:/i.test(src)) {
+      const cid = src.slice(4).replace(/^<|>$/g, "");
+      const att = parsed.attachments.find((a) => a.cid?.replace(/^<|>$/g, "") === cid);
+      if (att && /^image\/(png|jpe?g|gif|webp)$/i.test(att.contentType) && att.content.length <= MAX_EMBEDDED_IMAGE) {
+        img.setAttribute("src", `data:${att.contentType};base64,${att.content.toString("base64")}`);
+        continue;
+      }
+    } else if (/^data:image\/(png|jpe?g|gif|webp);/i.test(src)) {
+      continue;
+    }
+    img.remove();
+  }
+  return document.body.innerHTML;
+}
+
 export function escapeText(text: string): string {
   return escapeHtml(text).replace(/\r?\n/g, "<br>");
 }

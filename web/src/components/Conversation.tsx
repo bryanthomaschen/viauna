@@ -37,7 +37,7 @@ export function ConversationView({ route }: { route: Route }) {
   const [menu, setMenu] = useState<"label" | "move" | null>(null);
   const initialised = useRef(false);
   const markedRead = useRef(false);
-  const inline = composes.use((list) => list.find((c) => c.placement === "inline" && c.threadId === threadId));
+  const inline = composes.use((list) => list.find((c) => c.placement === "inline" && c.threadId === threadId && !c.hidden));
   const { ids, total, offset } = listState.use();
   const idx = ids.indexOf(threadId);
   const listUrl = folderPath(acct.index, folder) + (route.page ? `?p=${route.page + 1}` : "");

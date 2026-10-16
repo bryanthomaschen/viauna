@@ -7,6 +7,7 @@ import { convert as htmlToText } from "html-to-text";
 import nodemailer from "nodemailer";
 import MailComposer from "nodemailer/lib/mail-composer";
 import { config } from "../config.ts";
+import type { Credentials } from "../crypto.ts";
 import { db } from "../db.ts";
 import type { AccountRuntime } from "../imap/runtime.ts";
 import { type Address, type MailboxRow, deleteMessages, getMailbox, insertFetched, specialMailboxes } from "../imap/store.ts";
@@ -260,10 +261,11 @@ async function appendAndIndex(rt: AccountRuntime, mb: MailboxRow, raw: Buffer, f
   return null;
 }
 
+/** Expunges a replaced draft — only ever from the Drafts folder, whatever the client says. */
 async function removeDraft(rt: AccountRuntime, ref: ComposeInput["draft"]) {
   if (!ref) return;
   const mb = getMailbox(rt.account.id, ref.mailboxId);
-  if (!mb) return;
+  if (!mb || mb.id !== specialMailboxes(rt.account.id).drafts?.id) return;
   await rt.withMailbox(mb.path, (client) => client.messageDelete(String(ref.uid), { uid: true }));
   deleteMessages(mb.id, [ref.uid]);
   rt.notify([mb.id]);
@@ -284,7 +286,8 @@ async function addFlag(rt: AccountRuntime, ref: { mailboxId: number; uid: number
 
 // ------------------------------------------------------------------ public
 
-export async function sendMessage(rt: AccountRuntime, sessionHash: string, input: ComposeInput) {
+/** Sends with the requesting session's own password, which it has just proven. */
+export async function sendMessage(rt: AccountRuntime, sessionHash: string, input: ComposeInput, creds: Credentials) {
   const built = await build(rt, sessionHash, input, false);
   const smtp = rt.account.smtp;
   let target: { host: string; servername?: string };
@@ -299,7 +302,7 @@ export async function sendMessage(rt: AccountRuntime, sessionHash: string, input
     secure: smtp.security === "tls",
     requireTLS: smtp.security === "starttls",
     ignoreTLS: smtp.security === "none",
-    auth: { user: rt.credentials.user, pass: rt.credentials.pass },
+    auth: { user: creds.user, pass: creds.pass },
     tls: { servername: target.servername, rejectUnauthorized: smtp.verify },
     connectionTimeout: 30_000,
     greetingTimeout: 20_000,

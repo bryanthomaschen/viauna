@@ -64,9 +64,16 @@ are looking at them.
 ## Security model
 
 - **Credentials**: AES-256-GCM, key = HKDF(cookie secret, server secret, session id,
-  account id). The database stores only the hash of the session id. A session whose
-  password differs from the one the shared runtime uses must re-prove it with a fresh
-  login (cached ten minutes), so an old session can't outlive a password change.
+  account id). The database stores only the hash of the session id.
+- **Password changes**: every session proves its own password. One whose password
+  differs from the shared runtime's logs in fresh (the proof is trusted for ten
+  minutes), and when it succeeds the runtime's own password is re-checked at once and
+  the runtime retired if it no longer works. The runtime's password is also re-proven
+  every ten minutes. So within ten minutes of a password change, sessions holding the
+  old one are refused. Mail is sent with the requesting session's own password.
+- **Malformed mail**: a message the server refuses to return (a corrupt file, an
+  unknown transfer encoding) is fetched alone, then skipped, so it can't stall sync;
+  each background task backs off on its own.
 - **CSRF**: cookies are `SameSite=Lax`, and every non-GET request must carry an `Origin`
   (or `Referer`) matching `PUBLIC_URL`.
 - **Message HTML**: sanitize-html with an allowlist; then linkedom rewrites links
@@ -77,4 +84,9 @@ are looking at them.
   attachment`, except a short list of safe types viewed inline under a sandbox CSP.
 - **SSRF**: users can't choose servers unless the operator allows it, and even then
   private and loopback addresses are refused.
-- **Brute force**: failed sign-ins are rate limited per IP and per login.
+- **Brute force**: sign-in attempts are counted before the login is tried (so
+  parallel bursts can't slip under the limit), per IP and per login; with
+  `TRUST_PROXY` the client address is the last `X-Forwarded-For` entry, the one your
+  proxy added.
+- **Live updates** stop for an account the moment it is signed out or its session
+  expires.

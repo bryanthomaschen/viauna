@@ -16,6 +16,7 @@ import {
   signOutAll,
 } from "./auth.ts";
 import { config } from "./config.ts";
+import type { Credentials } from "./crypto.ts";
 import { db } from "./db.ts";
 import { MailboxAuthError, runtimeFor } from "./imap/pool.ts";
 import { type AccountRuntime, type ChangeEvent, syncable } from "./imap/runtime.ts";
@@ -25,7 +26,7 @@ import { ActionError, type ActionInput, perform, undo } from "./mail/actions.ts"
 import { ComposeError, type ComposeInput, discardDraft, saveDraft, saveUpload, sendMessage } from "./mail/compose.ts";
 import { getParsed, getRaw } from "./mail/fetch.ts";
 import { LabelError, createLabel, deleteLabel, listLabels, searchContacts, updateLabel } from "./mail/labels.ts";
-import { attachmentList, render } from "./mail/render.ts";
+import { attachmentList, editorHtml, render } from "./mail/render.ts";
 import { parseQuery, searchThreads } from "./mail/search.ts";
 import { type View, conversation, listThreads, parseView } from "./mail/views.ts";
 import { getSettings, myAddresses, updateSettings } from "./settings.ts";
@@ -36,6 +37,7 @@ type Env = {
     auth: AuthContext | null;
     sa: SessionAccount;
     rt: AccountRuntime;
+    creds: Credentials;
   };
 };
 
@@ -59,8 +61,10 @@ const APP_CSP = [
 
 function clientIp(c: Context<Env>): string {
   if (config.trustProxy) {
+    // The last entry is the one our own proxy appended; anything to its left came
+    // from the client and can say whatever it likes.
     const fwd = c.req.header("x-forwarded-for");
-    if (fwd) return fwd.split(",")[0].trim();
+    if (fwd) return fwd.split(",").pop()!.trim();
   }
   return c.env?.incoming?.socket?.remoteAddress ?? "unknown";
 }
@@ -219,6 +223,7 @@ export function createApp() {
     const creds = credentialsFor(auth, sa);
     if (!creds) return c.json({ error: "Your session has expired. Sign in again.", reauth: true }, 401);
     c.set("sa", sa);
+    c.set("creds", creds);
     c.set("rt", await runtimeFor(sa.account, creds));
     await next();
   });
@@ -398,7 +403,7 @@ export function createApp() {
       );
       if (row) replyTo = { mailboxId: row.mailbox_id, uid: row.uid };
     }
-    const html = typeof parsed.html === "string" ? parsed.html : (parsed.textAsHtml ?? "");
+    const html = editorHtml(parsed);
     return c.json({
       from: parsed.from?.value[0]?.address?.toLowerCase() ?? null,
       to: list(parsed.to),
@@ -463,7 +468,7 @@ export function createApp() {
 
   acct.post("/send", async (c) => {
     const body = await c.req.json();
-    return c.json(await sendMessage(c.get("rt"), c.get("auth")!.sessionHash, composeInput(body)));
+    return c.json(await sendMessage(c.get("rt"), c.get("auth")!.sessionHash, composeInput(body), c.get("creds")));
   });
 
   acct.put("/drafts", async (c) => {
@@ -542,8 +547,31 @@ export function createApp() {
     if (!auth?.accounts.length) return c.json({ error: "Not signed in." }, 401);
     c.header("X-Accel-Buffering", "no");
     return streamSSE(c, async (stream) => {
-      const subscriptions: { rt: AccountRuntime; listener: (e: ChangeEvent) => void; onAuth: () => void }[] = [];
+      type Sub = { rt: AccountRuntime; listener: (e: ChangeEvent) => void; onAuth: () => void };
+      const subs = new Map<number, Sub>();
+      const unsubscribe = (accountId: number) => {
+        const s = subs.get(accountId);
+        if (!s) return;
+        subs.delete(accountId);
+        s.rt.off("change", s.listener);
+        s.rt.off("auth-failed", s.onAuth);
+        s.rt.subscribers = Math.max(0, s.rt.subscribers - 1);
+        s.rt.touch();
+      };
+      const closeAll = () => [...subs.keys()].forEach(unsubscribe);
+      // Registered before any await, so a client that drops early never leaks a subscriber.
+      stream.onAbort(closeAll);
+      // Signing out (in any tab) or the session expiring ends the feed for that account
+      // at once, so subjects of new mail stop flowing to a signed-out page.
+      const stillSignedIn = (accountId: number) =>
+        !!db().get(
+          `SELECT 1 FROM session_accounts sa JOIN sessions s ON s.id = sa.session_id
+           WHERE sa.session_id = ? AND sa.account_id = ? AND s.expires_at > ?`,
+          auth.sessionHash, accountId, Date.now(),
+        );
+
       for (const sa of auth.accounts) {
+        if (stream.aborted) break;
         const creds = credentialsFor(auth, sa);
         if (!creds) {
           await stream.writeSSE({ event: "reauth", data: JSON.stringify({ index: sa.index }) });
@@ -551,31 +579,30 @@ export function createApp() {
         }
         try {
           const rt = await runtimeFor(sa.account, creds);
+          if (stream.aborted) break;
+          const id = sa.account.id;
           const listener = (e: ChangeEvent) => {
+            if (!stillSignedIn(id)) return unsubscribe(id);
             void stream.writeSSE({ event: "change", data: JSON.stringify({ index: sa.index, mailboxIds: e.mailboxIds, arrived: e.arrived }) });
           };
           const onAuth = () => void stream.writeSSE({ event: "reauth", data: JSON.stringify({ index: sa.index }) });
           rt.on("change", listener);
           rt.on("auth-failed", onAuth);
           rt.subscribers++;
-          subscriptions.push({ rt, listener, onAuth });
+          subs.set(id, { rt, listener, onAuth });
         } catch (err) {
           if (err instanceof MailboxAuthError) await stream.writeSSE({ event: "reauth", data: JSON.stringify({ index: sa.index }) });
         }
       }
-      stream.onAbort(() => {
-        for (const s of subscriptions) {
-          s.rt.off("change", s.listener);
-          s.rt.off("auth-failed", s.onAuth);
-          s.rt.subscribers = Math.max(0, s.rt.subscribers - 1);
-          s.rt.touch();
-        }
-      });
+      if (stream.aborted) return closeAll();
       await stream.writeSSE({ event: "ready", data: "{}" });
       while (!stream.aborted) {
         await stream.sleep(25_000);
+        for (const id of [...subs.keys()]) if (!stillSignedIn(id)) unsubscribe(id);
+        if (!subs.size) break;
         if (!stream.aborted) await stream.writeSSE({ event: "ping", data: String(Date.now()) });
       }
+      closeAll();
     });
   });
 

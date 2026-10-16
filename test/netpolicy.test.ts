@@ -20,8 +20,12 @@ describe("custom server policy", () => {
     expect(ok.host).toBe("8.8.8.8");
   });
 
-  it("leaves operator-configured servers alone", async () => {
-    const t = await connectTarget({ host: "mailu-front", port: 993, security: "tls", verify: true, servername: "mail.example.com" });
-    expect(t).toEqual({ host: "mailu-front", servername: "mail.example.com" });
+  it("trusts the operator's own servers, even on internal names", async () => {
+    const t = await connectTarget({ host: "imap.internal.test", port: 993, security: "tls", verify: true, servername: "mail.example.com" });
+    expect(t).toEqual({ host: "imap.internal.test", servername: "mail.example.com" });
+  });
+
+  it("vets any server that isn't the operator's, flag or no flag", async () => {
+    await expect(connectTarget({ host: "127.0.0.1", port: 25, security: "tls", verify: true })).rejects.toThrow(/isn't allowed/);
   });
 });

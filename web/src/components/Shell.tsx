@@ -67,7 +67,7 @@ function ComposeFab() {
 function ShellInner({ route, appName }: { route: Route; appName: string }) {
   const collapsed = prefs.use((p) => p.sidebarCollapsed);
   const sidebarOpen = ui.use((s) => s.sidebarOpen);
-  const composing = composes.use((l) => l.some((c) => c.placement === "dock"));
+  const composing = composes.use((l) => l.some((c) => c.placement === "dock" && !c.hidden));
   useShortcuts(route);
   useDocumentTitle(route, appName);
   return (

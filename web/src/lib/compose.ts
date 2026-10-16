@@ -42,12 +42,16 @@ export interface ComposeState {
   status: "idle" | "saving" | "saved" | "sending" | "error";
   error?: string;
   dirty: boolean;
+  /** Closed or discarded, finishing its last save in the background. */
+  hidden?: boolean;
 }
 
 let nextId = 1;
 export const composes = createStore<ComposeState[]>([]);
 const timers = new Map<number, ReturnType<typeof setTimeout>>();
 const saving = new Map<number, Promise<void>>();
+/** Set synchronously when a send starts, so a double Ctrl+Enter can't send twice. */
+const sending = new Set<number>();
 
 function blank(account: number, from: string): ComposeState {
   return {
@@ -90,11 +94,17 @@ export function openCompose(account: number, identity: Identity, signature: stri
     state.initialHtml = signatureHtml(signature);
     state.html = state.initialHtml;
   }
+  // One inline reply per conversation: an unsent one being replaced (Reply, then
+  // Forward) is kept as a draft rather than dropped.
+  if (state.placement === "inline") {
+    for (const c of composes.get()) {
+      if (c.placement === "inline" && c.threadId === state.threadId && !c.hidden) void close(c.id);
+    }
+  }
   // Gmail keeps at most a few windows open; minimise the others.
   composes.set((list) => {
-    const docked = list.filter((c) => c.placement === "dock");
+    const docked = list.filter((c) => c.placement === "dock" && !c.hidden);
     const others = docked.length >= 3 ? list.map((c) => (c.placement === "dock" ? { ...c, minimized: true } : c)) : list;
-    if (state.placement === "inline") return [...others.filter((c) => !(c.placement === "inline" && c.threadId === state.threadId)), state];
     return [...others, state];
   });
   return state.id;
@@ -133,7 +143,7 @@ export async function saveDraft(id: number): Promise<void> {
   const pending = saving.get(id);
   if (pending) await pending;
   const c = get(id);
-  if (!c || !c.dirty || c.status === "sending") return;
+  if (!c || !c.dirty || c.status === "sending" || sending.has(id)) return;
   const empty = !c.to.length && !c.cc.length && !c.bcc.length && !c.subject.trim() && !c.html.replace(/<[^>]+>/g, "").trim() && !c.attachments.length;
   if (empty && !c.draft) return;
   const run = (async () => {
@@ -182,33 +192,34 @@ export function remove(id: number) {
   composes.set((list) => list.filter((c) => c.id !== id));
 }
 
-/** Close: keep what was written as a draft (Gmail's X). */
+/**
+ * Close: keep what was written as a draft (Gmail's X). The window disappears at
+ * once, but stays in the store until any save in flight has finished and the last
+ * edits are saved on top of it — saving from a stale copy would duplicate the draft,
+ * or lose attachments the in-flight save had just moved.
+ */
 export async function close(id: number) {
-  const c = get(id);
-  if (!c) return;
-  const t = timers.get(id);
-  if (t) clearTimeout(t);
+  if (!get(id)) return;
+  clearTimeout(timers.get(id));
+  update(id, { hidden: true }, false);
+  await saving.get(id);
+  const wasDirty = !!get(id)?.dirty;
+  await saveDraft(id);
+  const after = get(id);
   remove(id);
-  if (c.dirty) {
-    composes.set((list) => [...list]); // re-render
-    try {
-      const empty = !c.to.length && !c.subject.trim() && !c.html.replace(/<[^>]+>/g, "").trim() && !c.attachments.length;
-      if (!empty || c.draft) {
-        await api.saveDraft(c.account, payload(c));
-        toast("Draft saved");
-      }
-    } catch (err) {
-      toast(`Couldn't save the draft: ${(err as Error).message}`, { error: true });
-    }
-  }
+  if (after?.status === "error") toast(`Couldn't save the draft: ${after.error}`, { error: true });
+  else if (wasDirty && after?.draft) toast("Draft saved");
 }
 
 export async function discard(id: number) {
   const c = get(id);
   if (!c) return;
-  remove(id);
+  clearTimeout(timers.get(id));
+  update(id, { hidden: true }, false);
+  // A save in flight may be creating a newer draft; discard that one, not the old.
   await saving.get(id);
   const draft = get(id)?.draft ?? c.draft;
+  remove(id);
   if (draft) {
     try {
       await api.discardDraft(c.account, draft);
@@ -221,7 +232,7 @@ export async function discard(id: number) {
 
 export async function send(id: number, onSent?: (threadId?: number) => void): Promise<boolean> {
   const c = get(id);
-  if (!c) return false;
+  if (!c || sending.has(id) || c.status === "sending") return false;
   if (!c.to.length && !c.cc.length && !c.bcc.length) {
     toast("Please specify at least one recipient.", { error: true });
     return false;
@@ -231,11 +242,11 @@ export async function send(id: number, onSent?: (threadId?: number) => void): Pr
     return false;
   }
   if (!c.subject.trim() && !confirm("Send this message without a subject?")) return false;
-  const t = timers.get(id);
-  if (t) clearTimeout(t);
+  sending.add(id);
+  clearTimeout(timers.get(id));
+  update(id, { status: "sending" }, false);
   await saving.get(id);
   const latest = get(id)!;
-  update(id, { status: "sending" }, false);
   try {
     const res = await api.send(latest.account, payload(latest));
     remove(id);
@@ -247,6 +258,8 @@ export async function send(id: number, onSent?: (threadId?: number) => void): Pr
     toast((err as Error).message, { error: true, ms: 10000 });
     if (err instanceof ApiError && err.reauth) location.reload();
     return false;
+  } finally {
+    sending.delete(id);
   }
 }
 

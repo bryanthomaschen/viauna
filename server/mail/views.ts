@@ -95,18 +95,24 @@ function displayName(a: { name?: string; address: string } | undefined): string 
   return a.name?.trim() || a.address.split("@")[0];
 }
 
+/** Identity of a message across folders: its Message-ID, from the same sender. */
+function copyKey(row: Pick<MessageRow, "message_id" | "from_addr">): string | null {
+  return row.message_id ? `${row.message_id}\0${row.from_addr ?? ""}` : null;
+}
+
 /** One message per Message-ID: a copy in Archive and Inbox is still one message. */
-export function dedupe<T extends Pick<MessageRow, "message_id" | "mailbox_id">>(rows: T[], prefer?: (a: T, b: T) => boolean): T[] {
+export function dedupe<T extends Pick<MessageRow, "message_id" | "mailbox_id" | "from_addr">>(rows: T[], prefer?: (a: T, b: T) => boolean): T[] {
   const seen = new Map<string, number>();
   const out: T[] = [];
   for (const row of rows) {
-    if (!row.message_id) {
+    const key = copyKey(row);
+    if (!key) {
       out.push(row);
       continue;
     }
-    const at = seen.get(row.message_id);
+    const at = seen.get(key);
     if (at === undefined) {
-      seen.set(row.message_id, out.length);
+      seen.set(key, out.length);
       out.push(row);
     } else if (prefer?.(row, out[at])) {
       out[at] = row;
@@ -261,10 +267,11 @@ export function conversation(accountId: number, threadId: number, view: View): {
   if (!rows.length) return null;
   const copies = new Map<string, Set<number>>();
   for (const r of rows) {
-    if (!r.message_id) continue;
-    const set = copies.get(r.message_id) ?? new Set();
+    const key = copyKey(r);
+    if (!key) continue;
+    const set = copies.get(key) ?? new Set();
     set.add(r.mailbox_id);
-    copies.set(r.message_id, set);
+    copies.set(key, set);
   }
   const mailboxes = new Map<number, MailboxRow>();
   for (const id of new Set(rows.map((r) => r.mailbox_id))) {
@@ -297,7 +304,7 @@ export function conversation(accountId: number, threadId: number, view: View): {
       labels: kws,
       attachments: m.attachments,
       size: m.size,
-      mailboxIds: m.message_id ? [...(copies.get(m.message_id) ?? [m.mailbox_id])] : [m.mailbox_id],
+      mailboxIds: copyKey(m) ? [...(copies.get(copyKey(m)!) ?? [m.mailbox_id])] : [m.mailbox_id],
     };
   });
   return { subject: msgs[0].subject, messages, labels: [...labels] };

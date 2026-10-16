@@ -13,6 +13,7 @@ import {
 } from "./crypto.ts";
 import { db } from "./db.ts";
 import { verifyLogin } from "./imap/connection.ts";
+import { markProven } from "./imap/pool.ts";
 import { connectTarget } from "./netpolicy.ts";
 import type { AccountInfo } from "./imap/runtime.ts";
 
@@ -83,16 +84,27 @@ export function credentialsFor(ctx: AuthContext, sa: SessionAccount): Credential
 const attempts = new Map<string, { count: number; reset: number }>();
 const WINDOW = 15 * 60_000;
 
-function limited(key: string, max: number): boolean {
-  const entry = attempts.get(key);
-  return !!entry && entry.reset > Date.now() && entry.count >= max;
-}
-
-function recordFailure(key: string) {
+/**
+ * Counts an attempt *before* the login is tried, so a burst of parallel requests
+ * can't all slip under the limit while the first is still waiting on the server.
+ * Returns false when the key is over its limit.
+ */
+function take(key: string, max: number): boolean {
   const now = Date.now();
   const entry = attempts.get(key);
-  if (!entry || entry.reset < now) attempts.set(key, { count: 1, reset: now + WINDOW });
-  else entry.count++;
+  if (!entry || entry.reset < now) {
+    attempts.set(key, { count: 1, reset: now + WINDOW });
+    return true;
+  }
+  if (entry.count >= max) return false;
+  entry.count++;
+  return true;
+}
+
+/** A successful login doesn't count against the account or the address. */
+function giveBack(key: string) {
+  const entry = attempts.get(key);
+  if (entry && entry.count > 0) entry.count--;
 }
 
 setInterval(() => {
@@ -172,11 +184,17 @@ export async function signIn(
   if (!/^[^\s@]+@[^\s@]+$/.test(email) || !password) {
     return { ok: false, status: 400, error: "Enter your email address and password." };
   }
-  const domain = email.split("@")[1];
-  if (config.allowedDomains.length && !config.allowedDomains.includes(domain)) {
-    return { ok: false, status: 403, error: "That address can't sign in here." };
+  if (config.allowedDomains.length) {
+    // The login is what the mail server authenticates, so that is what must be in
+    // an allowed domain — not just the address typed in the email box.
+    const loginDomain = login.includes("@") ? login.split("@").pop()!.toLowerCase() : null;
+    const ok = (d: string | null) => !!d && config.allowedDomains.includes(d);
+    if (!ok(email.split("@")[1]) || !ok(loginDomain)) {
+      return { ok: false, status: 403, error: "That address can't sign in here." };
+    }
   }
-  if (limited(`ip:${meta.ip}`, 20) || limited(`login:${login}`, 8)) {
+  const loginKey = `login:${login.toLowerCase()}`;
+  if (!take(`ip:${meta.ip}`, 20) || !take(loginKey, 8)) {
     return { ok: false, status: 429, error: "Too many attempts. Wait a few minutes and try again." };
   }
   if (existing && existing.accounts.length >= config.maxAccountsPerSession) {
@@ -189,12 +207,12 @@ export async function signIn(
   const creds: Credentials = { user: login, pass: password };
   const result = await verifyLogin(endpoints.imap, creds);
   if (!result.ok) {
-    if (result.reason === "auth") {
-      recordFailure(`ip:${meta.ip}`);
-      recordFailure(`login:${login}`);
-    }
+    // A server we couldn't reach says nothing about the password.
+    if (result.reason !== "auth") giveBack(loginKey);
     return { ok: false, status: result.reason === "auth" ? 401 : 502, error: result.message };
   }
+  giveBack(loginKey);
+  giveBack(`ip:${meta.ip}`);
 
   const now = Date.now();
   return db().tx(() => {
@@ -205,6 +223,7 @@ export async function signIn(
       login, email, imapKey, endpointKey(endpoints.smtp), now,
     );
     const account = db().get<{ id: number }>("SELECT id FROM accounts WHERE login = ? AND imap = ?", login, imapKey)!;
+    markProven(account.id, creds);
 
     let cookie: string | undefined;
     let sessionHash: string;

@@ -41,8 +41,18 @@ export class BlockedServerError extends Error {}
  * a user's server is resolved, every address vetted, and the connection pinned to
  * one of them with the original name kept for TLS (SNI and certificate checks).
  */
+/** The operator's own servers are trusted; anything else came from a user. */
+function operatorConfigured(endpoint: Endpoint): boolean {
+  return [config.imap, config.smtp].some(
+    (c) => !!c && c.host.toLowerCase() === endpoint.host.toLowerCase() && c.port === endpoint.port,
+  );
+}
+
 export async function connectTarget(endpoint: Endpoint): Promise<{ host: string; servername?: string }> {
-  if (!endpoint.custom || config.allowPrivateServers) return { host: endpoint.host, servername: endpoint.servername };
+  // Judged by comparison with the configuration, not by a stored flag, so an account
+  // row that predates the flag (or a changed IMAP_HOST) can't skip the check.
+  const custom = endpoint.custom || !operatorConfigured(endpoint);
+  if (!custom || config.allowPrivateServers) return { host: endpoint.host, servername: endpoint.servername };
   const name = endpoint.host;
   const found = net.isIP(name) ? [{ address: name }] : await dns.lookup(name, { all: true }).catch(() => []);
   if (!found.length) throw new BlockedServerError(`Couldn't find the server "${name}".`);

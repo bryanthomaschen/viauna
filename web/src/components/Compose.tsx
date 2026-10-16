@@ -13,7 +13,7 @@ import { RecipientField } from "./RecipientField";
 
 export function ComposeDock() {
   const acct = useAccount();
-  const list = composes.use((l) => l.filter((c) => c.placement === "dock" && c.account === acct.index));
+  const list = composes.use((l) => l.filter((c) => c.placement === "dock" && c.account === acct.index && !c.hidden));
   const maximized = list.find((c) => c.maximized && !c.minimized);
   return (
     <>

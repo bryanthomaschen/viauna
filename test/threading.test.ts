@@ -72,3 +72,24 @@ describe("assignThread", () => {
     expect(b).toBe(a);
   });
 });
+
+describe("assignThread against Message-ID reuse", () => {
+  it("a stranger reusing my Message-ID doesn't join or take over my thread", () => {
+    const db = new Database(":memory:");
+    db.run("INSERT INTO accounts (id, login, email, imap, smtp, created_at) VALUES (1, 'a', 'a@x', '{}', '{}', 0)");
+    db.run("INSERT INTO mailboxes (id, account_id, path, name) VALUES (1, 1, 'INBOX', 'INBOX'), (2, 1, 'Sent', 'Sent')");
+    const put = (id: string, from: string, parents: string[], subject: string, mailbox: number, uid: number) => {
+      const t = assignThread(db, 1, { messageId: id, from, parents, subject });
+      db.run(
+        "INSERT INTO messages (mailbox_id, uid, account_id, thread_id, message_id, from_addr, subject, addresses, date) VALUES (?, ?, 1, ?, ?, ?, ?, '{}', 0)",
+        mailbox, uid, t, id, from, subject,
+      );
+      return t;
+    };
+    const mine = put("<mine@x>", "me@x", [], "Contract terms", 2, 1);
+    const spoof = put("<mine@x>", "evil@y", [], "Totally unrelated", 1, 1);
+    expect(spoof).not.toBe(mine);
+    // A genuine reply to my message still lands in my thread.
+    expect(put("<reply@z>", "bob@z", ["<mine@x>"], "Re: Contract terms", 1, 2)).toBe(mine);
+  });
+});

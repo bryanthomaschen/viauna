@@ -80,6 +80,12 @@ function syncOrder(mb: MailboxRow): number {
   }
 }
 
+/** A NO/BAD answer about particular messages, as opposed to a dead connection. */
+function isServerRefusal(err: unknown): boolean {
+  const e = err as { responseStatus?: string; serverResponseCode?: string };
+  return e?.responseStatus === "NO" || e?.responseStatus === "BAD" || !!e?.serverResponseCode;
+}
+
 export function syncable(mb: MailboxRow): boolean {
   return !!mb.selectable && (!!mb.subscribed || !!mb.special_use);
 }
@@ -90,6 +96,8 @@ export class AccountRuntime extends EventEmitter {
   readonly idle: Connection;
   readonly fingerprint: string;
   lastUsed = Date.now();
+  /** When this runtime's own password was last proven by a fresh login. */
+  verifiedAt = Date.now();
   subscribers = 0;
   authFailed = false;
   lastError: string | null = null;
@@ -98,12 +106,13 @@ export class AccountRuntime extends EventEmitter {
   private queue = new Set<Task>();
   private running = false;
   private pollTimer: NodeJS.Timeout | null = null;
-  private retryTimer: NodeJS.Timeout | null = null;
   private idleReconnect: NodeJS.Timeout | null = null;
   private idleSyncTimer: NodeJS.Timeout | null = null;
   /** UIDs below backfill_uid still to index, per mailbox (computed once per start). */
   private pending = new Map<number, number[]>();
-  private failures = 0;
+  /** Consecutive failures per task, for that task's own backoff. */
+  private failures = new Map<Task, number>();
+  private retryTimers = new Map<Task, NodeJS.Timeout>();
   private pendingChanges = new Set<number>();
   private pendingArrivals: NonNullable<ChangeEvent["arrived"]> = [];
   private emitTimer: NodeJS.Timeout | null = null;
@@ -147,9 +156,10 @@ export class AccountRuntime extends EventEmitter {
 
   async stop() {
     this.active = false;
-    for (const t of [this.pollTimer, this.retryTimer, this.idleReconnect, this.idleSyncTimer, this.emitTimer]) {
+    for (const t of [this.pollTimer, this.idleReconnect, this.idleSyncTimer, this.emitTimer, ...this.retryTimers.values()]) {
       if (t) clearTimeout(t);
     }
+    this.retryTimers.clear();
     this.pollTimer = null;
     await Promise.all([this.fg.close(), this.bg.close(), this.idle.close()]);
   }
@@ -203,17 +213,18 @@ export class AccountRuntime extends EventEmitter {
         this.queue.delete(task);
         try {
           await this.run(task);
-          this.failures = 0;
-          this.lastError = null;
+          this.failures.delete(task);
+          if (task === "list") this.lastError = null;
         } catch (err) {
-          this.failures++;
+          // Each task backs off on its own, so one that keeps failing can neither
+          // spin nor be reset by another task's success.
+          const n = (this.failures.get(task) ?? 0) + 1;
+          this.failures.set(task, n);
           this.lastError = (err as Error).message;
-          log.warn("sync task failed", { account: this.account.id, task, error: this.lastError });
-          // Back off and start over from the folder list, which re-derives everything.
-          const delay = Math.min(5 * 60_000, 2000 * 2 ** Math.min(this.failures, 7));
-          if (this.retryTimer) clearTimeout(this.retryTimer);
-          this.retryTimer = setTimeout(() => this.schedule("list"), delay);
-          break;
+          log.warn("sync task failed", { account: this.account.id, task, attempt: n, error: this.lastError });
+          const delay = Math.min(10 * 60_000, 2000 * 2 ** Math.min(n, 9));
+          clearTimeout(this.retryTimers.get(task));
+          this.retryTimers.set(task, setTimeout(() => { this.retryTimers.delete(task); this.schedule(task); }, delay));
         }
       }
     } finally {
@@ -367,7 +378,7 @@ export class AccountRuntime extends EventEmitter {
           changed = true;
         }
         // 3. Expunged messages: compare the UID set we index against the server's.
-        if (box.exists !== state.total || modseq !== state.synced_modseq || !modseq) {
+        if (box.exists !== state.synced_total || modseq !== state.synced_modseq || !modseq) {
           const server = new Set(await this.allUids(client, `${floor}:*`, floor));
           const local = db().all<{ uid: number }>("SELECT uid FROM messages WHERE mailbox_id = ? AND uid >= ?", mb.id, floor);
           const gone = local.map((r) => r.uid).filter((uid) => !server.has(uid));
@@ -380,8 +391,8 @@ export class AccountRuntime extends EventEmitter {
 
       db().run(
         `UPDATE mailboxes SET uidvalidity = ?, uidnext = ?, highestmodseq = ?, total = ?,
-           synced_uidnext = ?, synced_modseq = ? WHERE id = ?`,
-        validity, box.uidNext, modseq, box.exists, box.uidNext, modseq, mb.id,
+           synced_uidnext = ?, synced_modseq = ?, synced_total = ? WHERE id = ?`,
+        validity, box.uidNext, modseq, box.exists, box.uidNext, modseq, box.exists, mb.id,
       );
     } finally {
       lock.release();
@@ -410,10 +421,30 @@ export class AccountRuntime extends EventEmitter {
   }
 
   private async fetchInto(client: ImapFlow, mb: MailboxRow, range: string, min = 1) {
-    const rows = [];
-    for await (const msg of client.fetch(range, ENVELOPE_QUERY as never, { uid: true })) {
-      if ((msg as FetchMessageObject).uid < min) continue;
-      rows.push(insertFetched(this.account.id, mb, msg as FetchMessageObject));
+    const rows: ReturnType<typeof insertFetched>[] = [];
+    const seen = new Set<number>();
+    try {
+      for await (const msg of client.fetch(range, ENVELOPE_QUERY as never, { uid: true })) {
+        if ((msg as FetchMessageObject).uid < min) continue;
+        seen.add(msg.uid);
+        rows.push(insertFetched(this.account.id, mb, msg as FetchMessageObject));
+      }
+    } catch (err) {
+      if (!isServerRefusal(err)) throw err;
+      // One message the server can't produce (a corrupt file, a broken MIME tree)
+      // must not stall the folder: retry one by one and skip what still fails.
+      const uids = /^[\d,]+$/.test(range) ? range.split(",").map(Number) : await this.allUids(client, range, min);
+      for (const uid of uids) {
+        if (seen.has(uid)) continue;
+        try {
+          for await (const msg of client.fetch(String(uid), ENVELOPE_QUERY as never, { uid: true })) {
+            rows.push(insertFetched(this.account.id, mb, msg as FetchMessageObject));
+          }
+        } catch (inner) {
+          if (!isServerRefusal(inner)) throw inner;
+          log.warn("skipping a message the server can't fetch", { account: this.account.id, mailbox: mb.id, uid });
+        }
+      }
     }
     return rows;
   }
@@ -481,20 +512,37 @@ export class AccountRuntime extends EventEmitter {
       for (const [key, items] of byPart) {
         const parts = new Map(items.map((i) => [i.uid, i.part]));
         const query = { uid: true, bodyParts: [{ key, start: 0, maxLength: 3072 }] };
-        for await (const msg of client.fetch(items.map((i) => i.uid).join(","), query, { uid: true, binary: true })) {
+        const store = (msg: FetchMessageObject) => {
           const part = parts.get(msg.uid);
-          if (!part) continue;
+          if (!part) return;
           const [partKey, raw] = [...(msg.bodyParts ?? new Map<string, Buffer>())][0] ?? [];
+          // A refused BINARY fetch still yields the message, just without the part:
+          // leave it for the fallback below rather than recording an empty snippet.
+          if (!raw) return;
           let snippet = "";
-          if (raw) {
-            try {
-              snippet = buildSnippet(raw, part, !!msg.binaryParts?.has(partKey!));
-            } catch {
-              snippet = "";
-            }
+          try {
+            snippet = buildSnippet(raw, part, !!msg.binaryParts?.has(partKey!));
+          } catch {
+            snippet = "";
           }
           db().run("UPDATE messages SET snippet = ? WHERE mailbox_id = ? AND uid = ?", snippet, mailboxId, msg.uid);
           done.add(msg.uid);
+        };
+        try {
+          for await (const msg of client.fetch(items.map((i) => i.uid).join(","), query, { uid: true, binary: true })) store(msg);
+        } catch (err) {
+          if (!isServerRefusal(err)) throw err;
+          // BINARY is refused for parts with an encoding the server doesn't know
+          // (NO [UNKNOWN-CTE]); fetch those one at a time, undecoded. Whatever still
+          // fails is left to the empty-snippet sweep below.
+          for (const { uid } of items) {
+            if (done.has(uid)) continue;
+            try {
+              for await (const msg of client.fetch(String(uid), query, { uid: true })) store(msg);
+            } catch (inner) {
+              if (!isServerRefusal(inner)) throw inner;
+            }
+          }
         }
       }
     } finally {

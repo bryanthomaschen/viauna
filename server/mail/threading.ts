@@ -33,6 +33,9 @@ export function normalizeMessageId(value: string | null | undefined): string | n
 
 export interface ThreadInput {
   messageId: string | null;
+  /** Sender address: a "copy" must come from the same sender, or a stranger could
+   * reuse the Message-ID of a message you sent to graft theirs onto your thread. */
+  from?: string | null;
   /** In-Reply-To first, then References (any order is fine). */
   parents: string[];
   subject: string;
@@ -65,9 +68,10 @@ export function assignThread(db: Database, accountId: number, input: ThreadInput
     // placeholder claimed by a reply is an ordinary candidate.
     if (input.messageId) {
       const copy = db.get<{ thread_id: number }>(
-        "SELECT thread_id FROM messages WHERE account_id = ? AND message_id = ? LIMIT 1",
+        "SELECT thread_id FROM messages WHERE account_id = ? AND message_id = ? AND COALESCE(from_addr, '') = ? LIMIT 1",
         accountId,
         input.messageId,
+        input.from ?? "",
       );
       if (copy) chosen = copy.thread_id;
     }
@@ -100,7 +104,9 @@ export function assignThread(db: Database, accountId: number, input: ThreadInput
   for (const id of ids) {
     db.run("INSERT OR IGNORE INTO thread_refs (account_id, message_id, thread_id) VALUES (?, ?, ?)", accountId, id, chosen);
   }
-  if (input.messageId) {
+  // Take over this id's mapping only from a placeholder; an id that a real message
+  // already carries stays with that message's thread.
+  if (input.messageId && !db.get("SELECT 1 FROM messages WHERE account_id = ? AND message_id = ? LIMIT 1", accountId, input.messageId)) {
     db.run("UPDATE thread_refs SET thread_id = ? WHERE account_id = ? AND message_id = ?", chosen, accountId, input.messageId);
   }
   return chosen;

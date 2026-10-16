@@ -25,14 +25,18 @@ export function imapOptions(endpoint: Endpoint, creds: Credentials, extra: Parti
 
 export type LoginResult = { ok: true } | { ok: false; reason: "auth" | "connect"; message: string };
 
+const AUTH_CODES = new Set(["AUTHENTICATIONFAILED", "AUTHORIZATIONFAILED", "EXPIRED"]);
+
+/**
+ * The password was wrong — not "try again later". A login refused with
+ * [UNAVAILABLE] (Dovecot restarting, its auth backend down) is a connection
+ * problem, and treating it as a bad password would lock the account out.
+ */
 export function isAuthError(err: unknown): boolean {
-  const e = err as { authenticationFailed?: boolean; serverResponseCode?: string; responseText?: string; code?: string };
-  return !!(
-    e?.authenticationFailed ||
-    e?.serverResponseCode === "AUTHENTICATIONFAILED" ||
-    e?.code === "AUTHENTICATIONFAILED" ||
-    /authenticat/i.test(e?.responseText ?? "")
-  );
+  const e = err as { authenticationFailed?: boolean; serverResponseCode?: string; code?: string };
+  const code = (e?.serverResponseCode ?? "").toUpperCase();
+  if (code) return AUTH_CODES.has(code);
+  return !!e?.authenticationFailed || e?.code === "AUTHENTICATIONFAILED";
 }
 
 /** Logs in and out again. Used at sign-in and to re-check a session's password. */

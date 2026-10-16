@@ -130,6 +130,8 @@ const MIGRATIONS: string[] = [
     PRIMARY KEY (account_id, address)
   ) WITHOUT ROWID;
   `,
+  // 2: the message count at the last sync, separate from the polled `total`.
+  `ALTER TABLE mailboxes ADD COLUMN synced_total INTEGER;`,
 ];
 
 export type Row = Record<string, SQLInputValue>;
