@@ -5,7 +5,7 @@ import {
   Archive, ArchiveRestore, ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, Download, EllipsisVertical, ExternalLink,
   FileText, FolderInput, Forward, Inbox, Mail, OctagonAlert, Paperclip, Reply, ReplyAll, Star, Tag, Trash2,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { listState, useAccount } from "../lib/account";
 import { type ActionRequest, runAction } from "../lib/actions";
 import { api } from "../lib/api";
@@ -15,13 +15,13 @@ import { type Route, folderPath, navigate, threadPath, viewParam } from "../lib/
 import { toast } from "../lib/store";
 import type { AttachmentInfo, Conversation, MessageMeta, MessageRef } from "../lib/types";
 import { Avatar, IconButton } from "./common";
-import { InlineCompose } from "./Compose";
 import { EmailFrame } from "./EmailFrame";
 import { LabelPicker, MovePicker } from "./Pickers";
 import { useViewHandlers } from "./shortcuts";
 import { LabelChip } from "./ThreadList";
 
 const keyOf = (m: MessageMeta) => `${m.mailboxId}:${m.uid}`;
+const InlineCompose = lazy(() => import("./Compose").then((m) => ({ default: m.InlineCompose })));
 
 export function ConversationView({ route }: { route: Route }) {
   const acct = useAccount();
@@ -241,7 +241,9 @@ export function ConversationView({ route }: { route: Route }) {
               )}
             </div>
             {inline ? (
-              <InlineCompose compose={inline} />
+              <Suspense fallback={<div className="reply-bar"><span className="spinner" /></div>}>
+                <InlineCompose compose={inline} />
+              </Suspense>
             ) : (
               lastReal && !lastReal.draft && (
                 <div className="reply-bar">

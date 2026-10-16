@@ -1,21 +1,23 @@
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { useQueryClient } from "@tanstack/react-query";
 import { Pencil } from "lucide-react";
-import { useCallback, useEffect } from "react";
+import { Suspense, lazy, useCallback, useEffect } from "react";
 import { AccountProvider, ui, useAccount } from "../lib/account";
-import { openCompose } from "../lib/compose";
+import { composes, openCompose } from "../lib/compose";
 import { useLiveUpdates } from "../lib/live";
 import { type Route, navigate } from "../lib/router";
 import { prefs } from "../lib/store";
 import type { SessionAccount } from "../lib/types";
-import { ComposeDock } from "./Compose";
 import { ConversationView } from "./Conversation";
 import { Dialogs, Toasts } from "./common";
 import { Header } from "./Header";
-import { SettingsView } from "./Settings";
 import { useShortcuts } from "./shortcuts";
 import { Sidebar } from "./Sidebar";
 import { ThreadList } from "./ThreadList";
+
+// The rich-text editor is most of the bundle; load it with the first compose window.
+const ComposeDock = lazy(() => import("./Compose").then((m) => ({ default: m.ComposeDock })));
+const SettingsView = lazy(() => import("./Settings").then((m) => ({ default: m.SettingsView })));
 
 export function Shell({ route, accounts, appName }: { route: Route; accounts: SessionAccount[]; appName: string }) {
   const client = useQueryClient();
@@ -65,6 +67,7 @@ function ComposeFab() {
 function ShellInner({ route, appName }: { route: Route; appName: string }) {
   const collapsed = prefs.use((p) => p.sidebarCollapsed);
   const sidebarOpen = ui.use((s) => s.sidebarOpen);
+  const composing = composes.use((l) => l.some((c) => c.placement === "dock"));
   useShortcuts(route);
   useDocumentTitle(route, appName);
   return (
@@ -75,7 +78,9 @@ function ShellInner({ route, appName }: { route: Route; appName: string }) {
         {sidebarOpen && <div className="sidebar-scrim" onClick={() => ui.set((s) => ({ ...s, sidebarOpen: false }))} />}
         <main className="main">
           {route.name === "settings" ? (
-            <SettingsView />
+            <Suspense fallback={<div className="empty"><div className="spinner lg" /></div>}>
+              <SettingsView />
+            </Suspense>
           ) : route.thread !== null ? (
             <ConversationView key={`${route.account}:${route.thread}`} route={route} />
           ) : (
@@ -84,7 +89,11 @@ function ShellInner({ route, appName }: { route: Route; appName: string }) {
         </main>
       </div>
       <ComposeFab />
-      <ComposeDock />
+      {composing && (
+        <Suspense fallback={null}>
+          <ComposeDock />
+        </Suspense>
+      )}
       <Toasts />
       <Dialogs />
     </div>
