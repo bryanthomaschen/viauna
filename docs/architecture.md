@@ -61,6 +61,39 @@ message in another folder always joins its original's thread. Conversations are 
 with every copy de-duplicated by Message-ID, and with Trash and Spam hidden unless you
 are looking at them.
 
+## Backends and lock-in
+
+Whatever Viauna stores or talks to besides the mail server is the operator's choice,
+not built in.
+
+- **Standards first.** Where a protocol or format exists, use it: IMAP, SMTP, CardDAV,
+  CalDAV, ManageSieve, vCard, iCalendar. A vendor's API is only ever an optional driver.
+- **A default that needs no setup**, with alternatives picked on the admin page (or by
+  environment variable or CLI), each with a test button. A setting given in the
+  environment is locked and shown read-only.
+- **A custom method where it makes sense**: an HTTP webhook or a local command, so an
+  unusual system can be wired up without changing Viauna.
+- **Vendor drivers are separate modules**, off unless selected. Core code never imports
+  one.
+- **Data can always leave**, in open formats, and the CLI moves it between storage
+  engines.
+- **No options for internals.** The mail index is a cache rebuilt from IMAP, so it stays
+  local SQLite everywhere. Choices are offered where operators gain something.
+
+| Feature | Default | Alternatives | Custom | Status |
+|---|---|---|---|---|
+| Mail | Any IMAP/SMTP server | — | — | built |
+| Mail index, message cache | Local SQLite and disk | none, by design | — | built |
+| Accounts, sessions, settings, contacts | SQLite in `DATA_DIR` | PostgreSQL, MySQL/MariaDB | — | planned |
+| Password change | Off | Link to the mail server's own page; LDAP; vendor drivers | Webhook, command | planned |
+| Contacts | Viauna's database, vCard import/export | CardDAV sync, any server | — | planned |
+| Filters | Off | ManageSieve, when the server offers it | — | planned |
+
+The database is chosen by `DATABASE_URL`, not the admin page, because the settings
+themselves live in it. A password change first proves the current password with an IMAP
+login; a webhook then receives the address and new password signed with a shared
+secret, and a command gets them on stdin, never in its arguments.
+
 ## Security model
 
 - **Credentials**: AES-256-GCM, key = HKDF(cookie secret, server secret, session id,

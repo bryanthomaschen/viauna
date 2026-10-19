@@ -26,6 +26,10 @@ npm run test:integration   # needs `npm run dev:mail` running
   CSP/headers in `server/app.ts` gets extra review. Explain the threat you considered.
 - The UI follows Gmail's interaction model. If you change a behaviour, say what Gmail
   does and why Viauna should differ.
+- A feature that relies on anything outside Viauna (a database, an account system, a
+  sync server) follows [Backends and lock-in](docs/architecture.md#backends-and-lock-in):
+  a standard protocol where one exists, a default that needs no setup, and vendor APIs
+  only as optional drivers.
 - Don't add Google's logos, the Google Sans font or other Google brand assets.
 
 ## Licence
