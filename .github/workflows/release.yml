@@ -5,7 +5,12 @@ name: Release
 #   - a tag vX.Y.Z → X.Y.Z, X.Y and latest, plus a GitHub Release with generated notes;
 #   - a push to main → edge and sha-<short>, for trying unreleased changes.
 # The tag must match package.json's version, so the version the app shows is the one
-# that was tagged. How to cut a release: docs/development.md.
+# that was tagged. Each published image is then started on native amd64 and arm64
+# runners, and the GitHub Release waits for both. How to cut a release:
+# docs/development.md.
+#
+# Third-party actions are pinned to commits, since this job can publish images;
+# Dependabot (.github/dependabot.yml) proposes updates.
 
 on:
   push:
@@ -26,6 +31,9 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v7
 
@@ -44,16 +52,16 @@ jobs:
             echo "version=$pkg-edge.${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: docker/setup-qemu-action@v4
-      - uses: docker/setup-buildx-action@v4
-      - uses: docker/login-action@v4
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - id: meta
-        uses: docker/metadata-action@v6
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         env:
           # Multi-platform images keep their description on the index, which is what
           # the registry page shows.
@@ -76,7 +84,8 @@ jobs:
             org.opencontainers.image.description=A fast, Gmail-style webmail client for any IMAP/SMTP server.
             org.opencontainers.image.licenses=AGPL-3.0-only
 
-      - uses: docker/build-push-action@v7
+      - id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           platforms: linux/amd64,linux/arm64
@@ -91,9 +100,38 @@ jobs:
           provenance: mode=max
           sbom: true
 
+  # Pulls the image just published, without logging in (so it also proves the package is
+  # public), starts it, and checks it reports the version that was built.
+  smoke:
+    needs: image
+    strategy:
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Start the image and check it answers
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}@${{ needs.image.outputs.digest }}
+          VERSION: ${{ needs.image.outputs.version }}
+        run: |
+          docker run -d --name viauna -p 127.0.0.1:3000:3000 \
+            -e IMAP_HOST=imap.example.test -e SMTP_HOST=smtp.example.test "$IMAGE"
+          config=""
+          for i in $(seq 1 30); do
+            config=$(curl -fsS http://127.0.0.1:3000/api/config) && break
+            sleep 1
+          done
+          echo "$(docker exec viauna uname -m): $config"
+          got=$(python3 -c 'import json,sys; print(json.loads(sys.argv[1] or "{}").get("version", ""))' "$config")
+          if [[ "$got" != "$VERSION" ]]; then
+            echo "::error::Expected version $VERSION, got '$got'"
+            docker logs viauna
+            exit 1
+          fi
+
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: image
+    needs: [image, smoke]
     runs-on: ubuntu-24.04
     permissions:
       contents: write

@@ -1,0 +1,11 @@
+# Keeps the pinned GitHub Actions current (release.yml pins third-party actions to
+# commits). One grouped pull request a month.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
