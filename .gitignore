@@ -5,3 +5,6 @@ data/
 *.log
 coverage/
 data-test/
+
+# docs site (VitePress)
+docs/.vitepress/cache/

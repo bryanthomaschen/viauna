@@ -1,0 +1,35 @@
+name: Mail server report
+description: Tell us how Viauna works with your mail server, whether it worked or not.
+labels: [compatibility]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        These reports fill in the [Tested with](https://bryanthomaschen.github.io/viauna/self-hosting/mail-servers#tested-with) table. Thank you.
+  - type: input
+    id: server
+    attributes:
+      label: Mail server and version
+      placeholder: Stalwart 0.x / mailcow 2025-xx / Cyrus 3.x / a hosted provider …
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Viauna version
+      description: Shown at the foot of the sign-in page.
+  - type: dropdown
+    id: result
+    attributes:
+      label: Result
+      options:
+        - Everything I tried worked
+        - Mostly worked (details below)
+        - Didn't work
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: What you tried (sign-in, sending, labels, search, live updates) and anything you had to configure.

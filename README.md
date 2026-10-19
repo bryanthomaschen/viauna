@@ -69,66 +69,25 @@ docker run -d --name viauna \
 ```
 
 Put it behind your TLS-terminating reverse proxy (nginx, Caddy, Traefik) and sign in
-with your mailbox address and password. See [`docker-compose.yml`](docker-compose.yml)
-for a fuller example, and [Reverse proxy](#reverse-proxy) below.
+with your mailbox address and password. See [Getting started](docs/self-hosting/getting-started.md)
+for Docker Compose, and [Reverse proxy](docs/self-hosting/reverse-proxy.md) for nginx,
+Caddy and Traefik.
 
-## Configuration
+## Documentation
 
-Everything is set with environment variables.
+Everything is on **[the docs site](https://bryanthomaschen.github.io/viauna/)**, and in
+[`docs/`](docs/) here:
 
-| Variable | Default | |
-|---|---|---|
-| `IMAP_HOST` | — | Your IMAP server. Required unless `ALLOW_CUSTOM_SERVERS` is on. |
-| `IMAP_PORT` | `993` | |
-| `IMAP_SECURITY` | `tls` | `tls` (implicit TLS), `starttls`, or `none` (testing only). |
-| `IMAP_TLS_SERVERNAME` | — | Name to verify the certificate against, when `IMAP_HOST` is an internal alias or IP. |
-| `IMAP_TLS_VERIFY` | `true` | Only turn off for a development server with a self-signed certificate. |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURITY`, `SMTP_TLS_SERVERNAME`, `SMTP_TLS_VERIFY` | —, `465`, `tls` | The same, for sending. |
-| `PUBLIC_URL` | — | The address people use, e.g. `https://mail.example.com`. Used for the CSRF origin check. Strongly recommended. |
-| `TRUST_PROXY` | `false` | Trust `X-Forwarded-For`/`-Host` from one reverse proxy in front of Viauna (the last `X-Forwarded-For` entry is taken as the client). |
-| `ALLOWED_DOMAINS` | — | Comma-separated email domains allowed to sign in. Empty: any address your IMAP server accepts. |
-| `ALLOW_CUSTOM_SERVERS` | `false` | Let users enter their own IMAP/SMTP servers on the sign-in page. Private and loopback addresses stay blocked unless `ALLOW_PRIVATE_SERVERS=true`. |
-| `SECRET_KEY` | generated | Mixed into credential encryption. If unset, one is generated into the data directory on first start. |
-| `SESSION_DAYS` | `30` | Sliding session lifetime. |
-| `MAX_ACCOUNTS` | `10` | Accounts per browser session. |
-| `MAX_UPLOAD_MB` | `25` | Largest single attachment. |
-| `CACHE_MB` | `1024` | Disk cache for downloaded messages. |
-| `DATA_DIR` | `/data` (image) | Database, cache, uploads. Mount a volume here. |
-| `APP_NAME` | `Viauna` | Shown in the title bar and on the sign-in page. |
-| `HOST`, `PORT` | `0.0.0.0`, `3000` (image) | Where to listen. Outside Docker the default host is `127.0.0.1`. |
-| `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error`. |
-
-### Reverse proxy
-
-Viauna serves plain HTTP; terminate TLS in front of it. Server-sent events need buffering
-off. Serve it over HTTP/2: every open Viauna tab keeps a live-update stream open, and
-over HTTP/1.1 browsers allow only six connections per site, so a seventh tab would
-hang. For nginx:
-
-```nginx
-http2 on;                             # in the server block (nginx 1.25.1+)
-
-location / {
-    proxy_pass http://127.0.0.1:3000;
-    proxy_set_header Host $host;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_buffering off;              # live updates (/api/events)
-    proxy_read_timeout 1h;
-    client_max_body_size 30m;         # attachments
-}
-```
-
-### Mail server notes
-
-- Viauna files a copy of each sent message in your Sent folder itself, as most IMAP
-  servers expect. (Gmail's IMAP saves its own copy; Gmail isn't a target here.)
-- Labels need a server that allows custom keywords (`PERMANENTFLAGS \*`): Dovecot,
-  Cyrus, Stalwart and most others do.
-- CONDSTORE/QRESYNC, MOVE, UIDPLUS, SPECIAL-USE and IDLE are used when the server offers
-  them, with fallbacks when it doesn't.
-- Search runs on the server. Dovecot with a full-text search plugin (fts-xapian or
-  fts-flatcurve) makes body search fast on large mailboxes.
+- **Self-hosting**: [getting started](docs/self-hosting/getting-started.md) ·
+  [reverse proxy](docs/self-hosting/reverse-proxy.md) ·
+  [configuration](docs/self-hosting/configuration.md) ·
+  [mail servers](docs/self-hosting/mail-servers.md) · [Mailu](docs/self-hosting/mailu.md) ·
+  [upgrades and backups](docs/self-hosting/upgrading.md) ·
+  [troubleshooting](docs/self-hosting/troubleshooting.md)
+- **Using Viauna**: [the basics](docs/using/basics.md) · [search](docs/using/search.md) ·
+  [keyboard shortcuts](docs/using/shortcuts.md)
+- **The project**: [architecture](docs/architecture.md) · [development](docs/development.md) ·
+  [roadmap](docs/roadmap.md) · [contributing](CONTRIBUTING.md) · [security](SECURITY.md)
 
 ## How it works
 
@@ -148,36 +107,6 @@ browser ──HTTP/SSE──▶ Viauna (Node) ──IMAP──▶ your mail serv
   ever on your mail server.
 
 More detail in [`docs/architecture.md`](docs/architecture.md).
-
-## Development
-
-You need Node.js 22.13+ and Docker.
-
-```bash
-npm install
-cp .env.example .env
-npm run dev:mail      # a throwaway Dovecot + SMTP sink on localhost (any user, password "pass")
-npm run seed          # fill alice@example.test with realistic sample mail
-npm run dev           # http://127.0.0.1:5173 — sign in as alice@example.test / pass
-```
-
-`npm run seed -- bob@example.test` seeds a second mailbox; mail sent between them is
-delivered for real, so you can watch live updates arrive.
-
-```bash
-npm run typecheck
-npm test                  # unit tests
-npm run test:integration  # end-to-end against the dev mail server
-npm run build && npm start
-```
-
-See [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Roadmap
-
-Ideas, roughly in order: undo send and send later; snooze; filters (Sieve via
-ManageSieve); vacation responder; contacts (CardDAV); an installable PWA with offline
-reading; JMAP for servers that speak it.
 
 ## License
 

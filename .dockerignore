@@ -6,3 +6,4 @@ data-test
 .git
 *.log
 coverage
+docs

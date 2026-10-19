@@ -1,0 +1,24 @@
+name: Feature request
+description: Something Viauna should do.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please check the [roadmap](https://bryanthomaschen.github.io/viauna/roadmap) first.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you're trying to do
+      description: The problem, in your own words, before any solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would help
+      description: If Gmail does this, say how. If it depends on another system (a database, an account system, a sync server), say which ones you use.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do today instead

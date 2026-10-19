@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://bryanthomaschen.github.io/viauna/
+    about: Setup guides, configuration and troubleshooting.
+  - name: Report a security vulnerability
+    url: https://github.com/bryanthomaschen/viauna/security/advisories/new
+    about: Please report security problems privately.

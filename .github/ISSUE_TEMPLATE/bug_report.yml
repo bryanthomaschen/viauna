@@ -1,0 +1,44 @@
+name: Bug report
+description: Something doesn't work as the docs say it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please check [Troubleshooting](https://bryanthomaschen.github.io/viauna/self-hosting/troubleshooting) first.
+        Security problems go through [private reporting](https://github.com/bryanthomaschen/viauna/security/advisories/new), not here.
+        Remove any addresses or hostnames you don't want made public.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Viauna version
+      description: Shown at the foot of the sign-in page, or the commit you built from (`git rev-parse --short HEAD`).
+    validations:
+      required: true
+  - type: input
+    id: server
+    attributes:
+      label: Mail server
+      placeholder: Dovecot 2.3.21 / Mailu 2024.06 / Stalwart …
+  - type: input
+    id: proxy
+    attributes:
+      label: Reverse proxy
+      placeholder: nginx 1.27 / Caddy 2 / Traefik 3 …
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and device
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: The relevant lines from `docker logs viauna`, ideally with `LOG_LEVEL=debug`.
+      render: text

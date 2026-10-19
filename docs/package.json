@@ -1,0 +1,14 @@
+{
+  "name": "viauna-docs",
+  "private": true,
+  "description": "The Viauna documentation site (VitePress). The pages are plain Markdown and read fine on GitHub too.",
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev --host 127.0.0.1",
+    "build": "vitepress build",
+    "preview": "vitepress preview --host 127.0.0.1"
+  },
+  "devDependencies": {
+    "vitepress": "1.6.4"
+  }
+}

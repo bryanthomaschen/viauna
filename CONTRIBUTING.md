@@ -30,6 +30,9 @@ npm run test:integration   # needs `npm run dev:mail` running
   sync server) follows [Backends and lock-in](docs/architecture.md#backends-and-lock-in):
   a standard protocol where one exists, a default that needs no setup, and vendor APIs
   only as optional drivers.
+- Anything people will notice (a feature, a setting, a changed behaviour, a new
+  requirement) updates the docs in `docs/` in the same pull request. Preview them with
+  `cd docs && npm install && npm run dev`.
 - Don't add Google's logos, the Google Sans font or other Google brand assets.
 
 ## Licence

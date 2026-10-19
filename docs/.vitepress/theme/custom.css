@@ -1,0 +1,47 @@
+/* The app's own blues (web/src/styles/app.css: --primary), so the site matches it. */
+:root {
+  --vp-c-brand-1: #0b57d0;
+  --vp-c-brand-2: #0842a0;
+  --vp-c-brand-3: #0b57d0;
+  --vp-c-brand-soft: rgba(11, 87, 208, 0.14);
+}
+
+.dark {
+  --vp-c-brand-1: #a8c7fa;
+  --vp-c-brand-2: #d3e3fd;
+  --vp-c-brand-3: #0b57d0;
+  --vp-c-brand-soft: rgba(168, 199, 250, 0.16);
+}
+
+.vp-doc img {
+  border-radius: 8px;
+  border: 1px solid var(--vp-c-divider);
+}
+
+/* The home page's screenshot grid is a Markdown table (so it works on GitHub too);
+   drop the table chrome around it. */
+.VPHome .vp-doc table img {
+  margin: 0;
+}
+.VPHome .vp-doc thead {
+  display: none;
+}
+.VPHome .vp-doc :is(table, tr, td) {
+  border: none;
+  background: transparent;
+}
+
+/* The hero's logo sits on a soft glow in the logo's own colours. */
+:root {
+  --vp-home-hero-image-background-image: linear-gradient(-45deg, #0b57d0 50%, #f6b73c 50%);
+  --vp-home-hero-image-filter: blur(56px);
+}
+
+.VPHome .vp-doc td {
+  width: 50%;
+  vertical-align: top;
+}
+.VPHome .vp-doc img[alt="On a phone"] {
+  max-height: 340px;
+  margin: 0 auto;
+}

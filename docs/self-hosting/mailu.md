@@ -7,7 +7,7 @@ changes and upgrades independently.
 # Add to (or alongside) your Mailu docker-compose.yml
 services:
   viauna:
-    image: viauna:latest
+    image: viauna            # built as in Getting started
     restart: unless-stopped
     environment:
       PUBLIC_URL: https://webmail.example.com
@@ -30,8 +30,7 @@ volumes:
   viauna-data:
 ```
 
-Then proxy `https://webmail.example.com` to `viauna:3000` (see the README's nginx
-example). Viauna expects its own hostname: it can't yet be served under a sub-path.
+Then proxy `https://webmail.example.com` to `viauna:3000` (see [Reverse proxy](./reverse-proxy.md)). Viauna expects its own hostname: it can't yet be served under a sub-path.
 
 Notes:
 
