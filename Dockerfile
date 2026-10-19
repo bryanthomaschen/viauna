@@ -1,9 +1,13 @@
 # Viauna — one image: the Node server and the built web app.
 #   docker build -t viauna .
 #   docker run -p 127.0.0.1:3000:3000 -v viauna-data:/data -e IMAP_HOST=… -e SMTP_HOST=… viauna
+# Released images: ghcr.io/bryanthomaschen/viauna (linux/amd64, linux/arm64).
 #
 # Base pinned to an exact release; bump deliberately.
-FROM node:24.22.0-alpine3.24 AS build
+# The build stage runs on the builder's own platform: its output (the bundled server and
+# the web app) is plain JavaScript, so a multi-platform build compiles it once instead
+# of under emulation. Runtime dependencies are installed per target platform below.
+FROM --platform=$BUILDPLATFORM node:24.22.0-alpine3.24 AS build
 WORKDIR /src
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund

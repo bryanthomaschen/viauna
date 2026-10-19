@@ -33,15 +33,20 @@ Keep `viauna.db` and `secret.key`; `cache/` can be skipped.
 
 ## Upgrading
 
-Viauna is pre-1.0 and has no tagged releases yet, so upgrading means building from the
-latest `main`:
+Each release is listed on [GitHub](https://github.com/bryanthomaschen/viauna/releases)
+with notes on what changed. With Docker Compose:
 
 ```bash
-cd viauna
-git pull
-docker build -t viauna .
-docker compose up -d     # or remove the container and run it again as before
+docker compose pull
+docker compose up -d
 ```
+
+With `docker run`, pull the new image, then remove the container and run it again with
+the same options; the data volume keeps everything.
+
+Pin a minor version, such as `ghcr.io/bryanthomaschen/viauna:0.1`, and each pull brings
+that version's fixes without surprises. Move to the next one (`0.2`) after reading its
+release notes: before 1.0, a new minor version may change settings or behaviour.
 
 The database schema updates itself on start. Back up `viauna.db` first: going back to an
 older version after an upgrade isn't tested. People stay signed in across an upgrade as

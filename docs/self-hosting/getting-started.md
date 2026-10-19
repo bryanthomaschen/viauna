@@ -12,17 +12,10 @@ It needs nothing besides your mail server: no database server, no Redis.
 - A **hostname of its own**, such as `webmail.example.com`, and a reverse proxy that
   terminates TLS. Viauna can't be served under a sub-path yet.
 
-## Build the image
-
-There's no published image yet, so build it from the repository:
-
-```bash
-git clone https://github.com/bryanthomaschen/viauna.git
-cd viauna
-docker build -t viauna .
-```
-
 ## Run it
+
+Images are published for `linux/amd64` (Intel and AMD) and `linux/arm64` (ARM servers,
+and Raspberry Pis running a 64-bit system).
 
 ```bash
 docker run -d --name viauna --restart unless-stopped \
@@ -32,7 +25,7 @@ docker run -d --name viauna --restart unless-stopped \
   -e TRUST_PROXY=true \
   -e IMAP_HOST=imap.example.com \
   -e SMTP_HOST=smtp.example.com \
-  viauna
+  ghcr.io/bryanthomaschen/viauna:0.1
 ```
 
 Or with Docker Compose:
@@ -40,7 +33,7 @@ Or with Docker Compose:
 ```yaml
 services:
   viauna:
-    image: viauna
+    image: ghcr.io/bryanthomaschen/viauna:0.1
     restart: unless-stopped
     ports:
       - "127.0.0.1:3000:3000"   # only your reverse proxy should reach it
@@ -60,6 +53,18 @@ volumes:
 Keep the port bound to `127.0.0.1`, or on a Docker network shared with your proxy.
 Viauna serves plain HTTP and relies on the proxy for TLS.
 
+### Image tags
+
+| Tag | |
+|---|---|
+| `0.1` | The newest 0.1.x release. Recommended: each pull brings fixes, never a new version's changes. |
+| `0.1.0` | Exactly that release. |
+| `latest` | The newest release, whatever its version. |
+| `edge` | The current `main` branch: unreleased and less tested. |
+
+Before 1.0, a new minor version (0.2) may change settings or behaviour, so move to it
+after reading its [release notes](https://github.com/bryanthomaschen/viauna/releases).
+
 ## Put it behind your reverse proxy
 
 Point the proxy at port 3000, with response buffering off (for live updates) and HTTP/2
@@ -76,6 +81,16 @@ mail server accepts can sign in, unless you limit it with `ALLOWED_DOMAINS`.
 - [Configuration](./configuration.md): every setting.
 - [Upgrades and backups](./upgrading.md): what's in `/data` and what to keep.
 - [Troubleshooting](./troubleshooting.md), if signing in fails.
+
+## Building the image yourself
+
+```bash
+git clone https://github.com/bryanthomaschen/viauna.git
+cd viauna
+docker build -t viauna .
+```
+
+Then use `viauna` in place of `ghcr.io/bryanthomaschen/viauna:0.1` above.
 
 ## Without Docker
 

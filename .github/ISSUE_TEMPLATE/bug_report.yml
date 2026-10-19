@@ -19,7 +19,7 @@ body:
     id: version
     attributes:
       label: Viauna version
-      description: Shown at the foot of the sign-in page, or the commit you built from (`git rev-parse --short HEAD`).
+      description: Shown at the foot of the sign-in page (an `edge` build shows its commit too).
     validations:
       required: true
   - type: input

@@ -1,0 +1,113 @@
+name: Release
+
+# Publishes the container image to ghcr.io/bryanthomaschen/viauna, for linux/amd64 and
+# linux/arm64:
+#   - a tag vX.Y.Z → X.Y.Z, X.Y and latest, plus a GitHub Release with generated notes;
+#   - a push to main → edge and sha-<short>, for trying unreleased changes.
+# The tag must match package.json's version, so the version the app shows is the one
+# that was tagged. How to cut a release: docs/development.md.
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Work out the version
+        id: version
+        run: |
+          pkg=$(node -p "require('./package.json').version")
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            tag="${GITHUB_REF_NAME#v}"
+            if [[ "$tag" != "$pkg" ]]; then
+              echo "::error::Tag $GITHUB_REF_NAME doesn't match package.json version $pkg. Bump package.json first."
+              exit 1
+            fi
+            echo "version=$tag" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=$pkg-edge.${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v6
+        env:
+          # Multi-platform images keep their description on the index, which is what
+          # the registry page shows.
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}},enable=${{ !startsWith(github.ref, 'refs/tags/v0.') }}
+            type=raw,value=edge,enable={{is_default_branch}}
+            type=sha,format=short,enable={{is_default_branch}}
+          labels: |
+            org.opencontainers.image.title=Viauna
+            org.opencontainers.image.description=A fast, Gmail-style webmail client for any IMAP/SMTP server.
+            org.opencontainers.image.licenses=AGPL-3.0-only
+            org.opencontainers.image.documentation=https://bryanthomaschen.github.io/viauna/
+          annotations: |
+            org.opencontainers.image.title=Viauna
+            org.opencontainers.image.description=A fast, Gmail-style webmail client for any IMAP/SMTP server.
+            org.opencontainers.image.licenses=AGPL-3.0-only
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: VIAUNA_VERSION=${{ steps.version.outputs.version }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          # Build provenance and a software bill of materials, attached to the image.
+          provenance: mode=max
+          sbom: true
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: image
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="${TAG#v}"
+          prerelease=()
+          [[ "$version" == *-* ]] && prerelease=(--prerelease)
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes "${prerelease[@]}" \
+            --notes "\`\`\`bash
+          docker pull ghcr.io/$GITHUB_REPOSITORY:$version
+          \`\`\`
+          Upgrading: https://bryanthomaschen.github.io/viauna/self-hosting/upgrading"

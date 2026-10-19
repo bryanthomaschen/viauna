@@ -24,6 +24,18 @@ How the pieces fit together is in [Architecture](./architecture.md). Before open
 request, read
 [CONTRIBUTING.md](https://github.com/bryanthomaschen/viauna/blob/main/CONTRIBUTING.md).
 
+## Releasing
+
+1. Set the new version in `package.json` and `package-lock.json`, and commit:
+   `npm version 0.2.0 --no-git-tag-version` updates both.
+2. Tag the commit and push the tag: `git tag v0.2.0 && git push origin v0.2.0`.
+
+The [Release workflow](https://github.com/bryanthomaschen/viauna/blob/main/.github/workflows/release.yml)
+then builds the image for `linux/amd64` and `linux/arm64`, publishes `0.2.0`, `0.2` and
+`latest` to `ghcr.io/bryanthomaschen/viauna`, and creates the GitHub Release with notes
+generated from the changes since the last one. It refuses a tag that doesn't match
+`package.json`. Every push to `main` also publishes `edge`.
+
 ## These docs
 
 The docs are the Markdown files in `docs/`, published to GitHub Pages with

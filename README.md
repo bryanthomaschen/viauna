@@ -57,16 +57,16 @@ server you already run.
 ## Quick start
 
 ```bash
-git clone https://github.com/bryanthomaschen/viauna.git && cd viauna
-docker build -t viauna .
 docker run -d --name viauna \
   -p 127.0.0.1:3000:3000 \
   -v viauna-data:/data \
   -e PUBLIC_URL=https://mail.example.com \
   -e IMAP_HOST=imap.example.com \
   -e SMTP_HOST=smtp.example.com \
-  viauna
+  ghcr.io/bryanthomaschen/viauna:0.1
 ```
+
+Images are published for `linux/amd64` and `linux/arm64`.
 
 Put it behind your TLS-terminating reverse proxy (nginx, Caddy, Traefik) and sign in
 with your mailbox address and password. See [Getting started](docs/self-hosting/getting-started.md)
