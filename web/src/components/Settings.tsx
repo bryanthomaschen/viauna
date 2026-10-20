@@ -1,8 +1,9 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
 import { ui, useAccount } from "../lib/account";
 import { api } from "../lib/api";
+import { useConfig } from "../lib/config";
 import { navigate } from "../lib/router";
 import { type Density, type Theme, prefs, toast } from "../lib/store";
 import type { Identity, Settings } from "../lib/types";
@@ -15,7 +16,7 @@ type Tab = "general" | "accounts" | "labels" | "folders" | "filters";
 export function SettingsView() {
   const [tab, setTab] = useState<Tab>("general");
   const acct = useAccount();
-  const config = useQuery({ queryKey: ["config"], queryFn: api.config, staleTime: Infinity }).data;
+  const config = useConfig().data;
   const tabs: Tab[] = ["general", "accounts", "labels", "folders", ...(config?.filters ? (["filters"] as Tab[]) : [])];
   return (
     <>
@@ -146,7 +147,7 @@ function General() {
 
 /** The vacation responder, where the server has one. */
 function VacationAvailable() {
-  const config = useQuery({ queryKey: ["config"], queryFn: api.config, staleTime: Infinity }).data;
+  const config = useConfig().data;
   return config?.vacation ? <VacationSetting /> : null;
 }
 

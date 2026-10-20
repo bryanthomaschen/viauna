@@ -1,6 +1,11 @@
 // Per-mailbox settings, shared by every browser signed in to it. Kept in the state
 // store with the account, along with the senders whose images are always shown.
+import { EventEmitter } from "node:events";
 import { orIgnore, state } from "./state/db.ts";
+
+/** "changed" with the account id, when a mailbox's settings change (for other open tabs). */
+export const accountSettingsEvents = new EventEmitter();
+accountSettingsEvents.setMaxListeners(1000);
 
 export interface Identity {
   name: string;
@@ -65,6 +70,7 @@ export async function updateSettings(accountId: number, patch: Record<string, un
     next.pageSize = size === 25 || size === 100 ? size : 50;
   }
   await state().updateTable("accounts").set({ settings: JSON.stringify(next) }).where("id", "=", accountId).execute();
+  accountSettingsEvents.emit("changed", accountId);
   return next;
 }
 

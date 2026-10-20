@@ -22,6 +22,14 @@ its notes before moving to it. A patch release (0.2.0 to 0.2.1) only fixes thing
   optional last day, at most one reply every four days to each sender, sent by your
   mail server.
 
+### Fixed
+
+- A setting changed on the admin page or with the `viauna` command now applies at once
+  in every open page, including the admin's own: before, some (such as allowing
+  forwarding in filters) took effect only after reloading the page. Changes from the
+  command line, or from another instance sharing a PostgreSQL database, are announced
+  to the server rather than picked up every ten seconds.
+
 ## 0.4.1 - 2026-10-20
 
 ### Fixed

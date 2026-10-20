@@ -9,6 +9,7 @@ import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { listState, ui, useAccount } from "../lib/account";
 import { type ActionRequest, runAction } from "../lib/actions";
 import { api } from "../lib/api";
+import { useConfig } from "../lib/config";
 import { composes, openCompose, openDraft, startForward, startReply } from "../lib/compose";
 import { displayName, fileSize, fullDate, listDate } from "../lib/format";
 import { type Route, folderPath, navigate, threadPath, viewParam } from "../lib/router";
@@ -300,7 +301,7 @@ function MessageCard({
   const from = msg.from[0];
   const isMe = !!from && acct.me.has(from.address);
   const card = useRef<HTMLDivElement>(null);
-  const config = useQuery({ queryKey: ["config"], queryFn: api.config, staleTime: Infinity }).data;
+  const config = useConfig().data;
   const contactsOn = !!config?.contacts;
 
   useEffect(() => {

@@ -241,6 +241,33 @@ describe.skipIf(!enabled)("against a real IMAP server", { timeout: 30_000 }, () 
     expect(after.messages[0].answered).toBe(true);
   });
 
+  it("tells open pages when a setting changes, so nothing waits for a reload", async () => {
+    // Read the live-updates stream as a page does, collecting event names.
+    const res = await app.request("/api/events", { headers: { Cookie: cookie } });
+    const reader = res.body!.getReader();
+    const seen: string[] = [];
+    let text = "";
+    const pump = (async () => {
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) return;
+        text += new TextDecoder().decode(value);
+        for (const m of text.matchAll(/^event: (\S+)$/gm)) seen.push(m[1]);
+        text = text.slice(text.lastIndexOf("\n") + 1);
+      }
+    })();
+    await until(async () => seen.includes("ready"));
+    const { COMMAND_LINE, changeSettings } = await import("../server/instance.ts");
+    await changeSettings({ appName: "Renamed" }, COMMAND_LINE);
+    await until(async () => seen.includes("settings"));
+    await call("PUT", "/api/u/0/settings", { pageSize: 100 });
+    await until(async () => seen.includes("account-settings"));
+    await changeSettings({ appName: null }, COMMAND_LINE);
+    await call("PUT", "/api/u/0/settings", { pageSize: 50 });
+    await reader.cancel();
+    await pump.catch(() => {});
+  });
+
   it("keeps an address book: create, suggest, import, export, and turn it off", async () => {
     expect((await call("GET", "/api/config")).json.contacts).toBe(true);
     const created = await call("POST", "/api/u/0/contacts", { firstName: "Ann", lastName: "Ong", emails: [{ address: "ann@example.org", label: "work" }] });

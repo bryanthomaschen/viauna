@@ -37,7 +37,7 @@ import { FilterError, cleanFilter, cleanVacation, loadFilters, saveFilters } fro
 import { MailboxAuthError, runtimeFor, stillProven } from "./imap/pool.ts";
 import { type AccountRuntime, type ChangeEvent, syncable } from "./imap/runtime.ts";
 import { type MailboxRow, getMailbox, getMailboxes, specialUseName } from "./imap/store.ts";
-import { changeSettings, describeSettings, isAdmin, recentChanges, serverFacts } from "./instance.ts";
+import { changeSettings, describeSettings, isAdmin, recentChanges, serverFacts, settingsEvents } from "./instance.ts";
 import { log } from "./log.ts";
 import { ActionError, type ActionInput, perform, undo } from "./mail/actions.ts";
 import { ComposeError, type ComposeInput, discardDraft, saveDraft, saveUpload, sendMessage } from "./mail/compose.ts";
@@ -47,7 +47,7 @@ import { attachmentList, editorHtml, render } from "./mail/render.ts";
 import { parseQuery, searchThreads } from "./mail/search.ts";
 import { type View, conversation, listThreads, parseView } from "./mail/views.ts";
 import { passwordChangeFor } from "./password.ts";
-import { getSettings, isTrustedSender, myAddresses, trustSender, updateSettings } from "./settings.ts";
+import { accountSettingsEvents, getSettings, isTrustedSender, myAddresses, trustSender, updateSettings } from "./settings.ts";
 
 type Env = {
   Bindings: HttpBindings;
@@ -762,8 +762,21 @@ export function createApp() {
         if (index !== undefined && !stream.aborted) void stream.writeSSE({ event: "contacts", data: JSON.stringify({ index }) });
       };
       contactEvents.on("changed", onContacts);
+      // A setting changed (the admin page, the command line, another instance), or this
+      // session's mailbox settings in another tab: the page refreshes what depends on it.
+      const onSettings = () => {
+        if (!stream.aborted) void stream.writeSSE({ event: "settings", data: "{}" });
+      };
+      const onAccountSettings = (accountId: number) => {
+        const index = indexOf.get(accountId);
+        if (index !== undefined && !stream.aborted) void stream.writeSSE({ event: "account-settings", data: JSON.stringify({ index }) });
+      };
+      settingsEvents.on("changed", onSettings);
+      accountSettingsEvents.on("changed", onAccountSettings);
       const closeAll = () => {
         contactEvents.off("changed", onContacts);
+        settingsEvents.off("changed", onSettings);
+        accountSettingsEvents.off("changed", onAccountSettings);
         [...subs.keys()].forEach(unsubscribe);
       };
       // Registered before any await, so a client that drops early never leaks a subscriber.
