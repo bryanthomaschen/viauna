@@ -51,7 +51,13 @@ describe("the docs", () => {
       for (const m of read(file).matchAll(/process\.env\.([A-Z][A-Z0-9_]+)/g)) asked.add(m[1]);
     }
     for (const def of SETTINGS) asked.add(def.env);
-    const ours = [...asked].filter((k) => /^[A-Z][A-Z0-9]*(_[A-Z0-9]+)+$|^(HOST|PORT)$/.test(k) && !k.startsWith("VITEST") && !k.startsWith("NODE_"));
+    // Node and the test runner read the environment too while modules load: a name is
+    // Viauna's if the server's code names it, itself or as `${prefix}_SUFFIX`.
+    const source = walk("server", (f) => f.endsWith(".ts")).map(read).join("\n");
+    const suffixes = [...source.matchAll(/`\$\{prefix\}_([A-Z0-9_]+)`/g)].map((m) => m[1]);
+    const ours = [...asked].filter(
+      (k) => /^[A-Z][A-Z0-9_]*$/.test(k) && (source.includes(`"${k}"`) || source.includes(`env.${k}`) || suffixes.some((x) => k.endsWith(`_${x}`))),
+    );
     const page = read("docs/self-hosting/configuration.md");
     expect(ours.length).toBeGreaterThan(40);
     expect(ours.filter((k) => !page.includes(`\`${k}\``)).sort()).toEqual([]);
