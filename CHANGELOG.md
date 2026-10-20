@@ -9,6 +9,8 @@ its notes before moving to it. A patch release (0.2.0 to 0.2.1) only fixes thing
 
 ## Unreleased
 
+## 0.2.1 - 2026-10-20
+
 ### Fixed
 
 - Settings could open as a blank page, depending on how quickly it loaded.
