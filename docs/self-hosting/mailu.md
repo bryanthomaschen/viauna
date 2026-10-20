@@ -51,6 +51,9 @@ Notes:
   `PASSWORD_CHANGE: link` and
   `PASSWORD_CHANGE_URL: https://mail.example.com/admin/user/password`. See
   [Password changes](./passwords.md).
+- Filters and the vacation responder work as they are: Viauna reaches ManageSieve on
+  `front`, port 4190. Mailu's own auto-reply (in its admin pages) is separate; with both
+  on, people get two replies. See [Filters and vacation](./filters.md).
 - To sync contacts with Mailu's own CardDAV server, turn it on in Mailu
   (`WEBDAV=radicale`) and set `CARDDAV_URL: https://mail.example.com/webdav/`. Phones
   and Thunderbird can then use the same address books. See

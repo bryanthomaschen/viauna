@@ -1,4 +1,4 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
 import { ui, useAccount } from "../lib/account";
@@ -8,12 +8,15 @@ import { type Density, type Theme, prefs, toast } from "../lib/store";
 import type { Identity, Settings } from "../lib/types";
 import { IconButton, Modal, confirmDeleteFolder, confirmRemoveLabel } from "./common";
 import { EditorArea, FormatBar, useMailEditor } from "./Editor";
+import { FiltersTab, VacationSetting } from "./Filters";
 
-type Tab = "general" | "accounts" | "labels" | "folders";
+type Tab = "general" | "accounts" | "labels" | "folders" | "filters";
 
 export function SettingsView() {
   const [tab, setTab] = useState<Tab>("general");
   const acct = useAccount();
+  const config = useQuery({ queryKey: ["config"], queryFn: api.config, staleTime: Infinity }).data;
+  const tabs: Tab[] = ["general", "accounts", "labels", "folders", ...(config?.filters ? (["filters"] as Tab[]) : [])];
   return (
     <>
       <div className="toolbar">
@@ -21,9 +24,9 @@ export function SettingsView() {
         <h2 style={{ margin: 0, fontSize: 22, fontWeight: 400 }}>Settings</h2>
       </div>
       <div className="settings-tabs" role="tablist">
-        {(["general", "accounts", "labels", "folders"] as Tab[]).map((t) => (
+        {tabs.map((t) => (
           <button key={t} type="button" role="tab" aria-selected={tab === t} className={tab === t ? "on" : ""} onClick={() => setTab(t)}>
-            {{ general: "General", accounts: "Accounts", labels: "Labels", folders: "Folders" }[t]}
+            {{ general: "General", accounts: "Accounts", labels: "Labels", folders: "Folders", filters: "Filters" }[t]}
           </button>
         ))}
       </div>
@@ -32,6 +35,7 @@ export function SettingsView() {
         {tab === "accounts" && <Accounts />}
         {tab === "labels" && <Labels />}
         {tab === "folders" && <Folders />}
+        {tab === "filters" && <FiltersTab />}
       </div>
     </>
   );
@@ -135,8 +139,15 @@ function General() {
           <button type="button" className="btn btn-primary" disabled={signature === s.signature} onClick={() => void save({ signature })}>Save signature</button>
         </div>
       </div>
+      <VacationAvailable />
     </>
   );
+}
+
+/** The vacation responder, where the server has one. */
+function VacationAvailable() {
+  const config = useQuery({ queryKey: ["config"], queryFn: api.config, staleTime: Infinity }).data;
+  return config?.vacation ? <VacationSetting /> : null;
 }
 
 function Accounts() {

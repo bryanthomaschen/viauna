@@ -57,6 +57,13 @@ long as the data volume and the secret are kept.
 
 The version you're running is shown at the foot of the sign-in page.
 
+### From 0.4 to 0.5
+
+Nothing to do. Filters and the vacation responder appear for mailboxes whose server
+offers ManageSieve on the IMAP host's port 4190; if yours is elsewhere, set
+`MANAGESIEVE_HOST` and `MANAGESIEVE_PORT`. Forwarding in filters is off until you turn
+it on (`FILTER_FORWARDING`).
+
 ### From 0.3 to 0.4
 
 Nothing to do: the address book's tables are created on the first start, and Contacts

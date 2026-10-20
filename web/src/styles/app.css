@@ -445,6 +445,27 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
 .contact-form .row-field { display: grid; grid-template-columns: 1fr 130px auto; gap: 8px; align-items: center; }
 .contact-form .add-field { align-self: flex-start; padding-left: 4px; height: 30px; }
 
+/* ------------------------------------------------------------ filters */
+
+.filters-table { max-width: 900px !important; }
+.filters-table td { padding: 10px 8px; line-height: 1.5; overflow-wrap: anywhere; }
+.filters-key { color: var(--text-3); margin-right: 4px; }
+.filters-warning { display: flex; gap: 8px; align-items: center; color: var(--danger); font-size: 14px; }
+.filter-form { display: flex; flex-direction: column; gap: 10px; }
+.filter-form .text-input { height: 36px; font-size: 14px; }
+.filter-field { display: grid; grid-template-columns: 130px 1fr; align-items: center; gap: 8px; cursor: default !important; }
+.filter-field > span { color: var(--text-2); font-size: 14px; }
+.filter-size { display: grid; grid-template-columns: 1fr 100px 90px; gap: 8px; }
+.filter-then { margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--border); font-weight: 500; }
+.filter-form > label:not(.filter-field) { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.filter-form .inline-select { width: auto; flex: 1; max-width: 260px; }
+.vacation { width: 100%; max-width: 560px; }
+.vacation .text-input { height: 40px; font-size: 14px; }
+.vacation textarea.text-input { height: auto; padding: 10px 14px; font: inherit; font-size: 14px; resize: vertical; }
+.vacation-days { display: flex; flex-wrap: wrap; gap: 8px 24px; }
+.vacation-days label { display: flex; align-items: center; gap: 8px; }
+.vacation-days .text-input { width: auto; }
+
 .password-form { display: flex; flex-direction: column; gap: 12px; }
 .form-error { color: var(--danger); font-size: 14px; }
 
@@ -517,6 +538,7 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
   .contacts-toolbar { flex-wrap: wrap; height: auto; padding: 8px; }
   .contacts-search { order: 10; max-width: none; flex-basis: 100%; }
   .contacts-table .hide-narrow { display: none; }
+  .filter-field { grid-template-columns: 1fr; gap: 4px; }
   .sync-line { padding-left: 16px; }
   .contact-form .pair { grid-template-columns: 1fr; }
   .contact-form .row-field { grid-template-columns: 1fr 110px auto; }

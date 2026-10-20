@@ -20,6 +20,7 @@ Object.assign(process.env, {
   SMTP_HOST: process.env.IT_SMTP_HOST ?? "127.0.0.1",
   SMTP_PORT: process.env.IT_SMTP_PORT ?? "1587",
   SMTP_SECURITY: "none",
+  MANAGESIEVE_PORT: process.env.IT_MANAGESIEVE_PORT ?? "14190",
   PUBLIC_URL: "http://localhost",
 });
 
@@ -281,6 +282,59 @@ describe.skipIf(!enabled)("against a real IMAP server", { timeout: 30_000 }, () 
     const cards = await dav.fetchCards(books[0].url, changed.map((c) => c.href));
     expect(cards.some((c) => c.data.includes("FN:Mo"))).toBe(true);
     expect((await call("GET", "/api/u/0/contacts")).json.sync.at).toBeGreaterThan(Date.now() - 60_000);
+  });
+
+  it("keeps filters in the mailbox's Sieve script, and the server applies them as mail arrives", async () => {
+    await call("POST", "/api/u/0/mailboxes", { name: "Receipts" });
+    await until(async () => (await call("GET", "/api/u/0/mailboxes")).json.mailboxes.some((m: any) => m.path === "Receipts"));
+    // Another app's rules, already active, keep running alongside Viauna's.
+    const { ManageSieve } = await import("../server/managesieve.ts");
+    const sieve = () => ManageSieve.connect({ host: "127.0.0.1", port: Number(process.env.MANAGESIEVE_PORT), security: "none", verify: true }, { user, pass: "pass" });
+    const other = await sieve();
+    await other.putScript("other", 'require "imap4flags";\r\nif header :contains "subject" "Note" { addflag "$other"; }\r\n');
+    await other.setActive("other");
+    await other.logout();
+
+    const saved = await call("PUT", "/api/u/0/filters", { filters: [{ criteria: { subject: "Receipt" }, actions: { label: "finance", markRead: true, moveTo: "Receipts" } }] });
+    expect(saved.status).toBe(200);
+    expect(saved.json).toMatchObject({ include: ["other"], changedElsewhere: false, filters: [{ criteria: { subject: "Receipt" } }] });
+    expect((await call("GET", "/api/u/0/filters")).json.filters).toHaveLength(1);
+    expect((await call("PUT", "/api/u/0/filters", { filters: [{ criteria: { subject: "x" }, actions: { moveTo: "Nowhere" } }] })).json.error).toMatch(/folder doesn't exist/);
+
+    // Mail arriving now (SMTP, then LMTP into the mailbox) is sorted by the server: by
+    // Viauna's filter, and the other app's rules for what Viauna's leave alone.
+    const flagsOf = (folder: string, subject: string) =>
+      until(async () => {
+        const client = new ImapFlow({ host: "127.0.0.1", port: Number(process.env.IMAP_PORT), secure: false, doSTARTTLS: false, auth: { user, pass: "pass" }, logger: false });
+        await client.connect();
+        try {
+          await client.mailboxOpen(folder);
+          for await (const m of client.fetch("1:*", { flags: true, envelope: true })) {
+            if (m.envelope?.subject === subject) return [...(m.flags ?? [])].filter((f) => f !== "\\Recent").sort();
+          }
+          return undefined;
+        } finally {
+          await client.logout();
+        }
+      });
+    await call("POST", "/api/u/0/send", { from: user, to: [{ address: user }], subject: "Receipt #42", html: "<p>Thanks for your order</p>" });
+    await call("POST", "/api/u/0/send", { from: user, to: [{ address: user }], subject: "Note to self", html: "<p>Milk</p>" });
+    expect(await flagsOf("Receipts", "Receipt #42")).toEqual(["\\Seen", "finance"]);
+    expect(await flagsOf("INBOX", "Note to self")).toEqual(["$other"]);
+
+    const away = await call("PUT", "/api/u/0/vacation", { vacation: { on: true, subject: "Away", message: "Back on Monday.", start: "2026-01-01", end: "2099-12-31", zone: "+0000" } });
+    expect(away.json.vacation).toMatchObject({ on: true, subject: "Away" });
+    const check = await sieve();
+    expect(await check.listScripts()).toEqual(expect.arrayContaining([{ name: "viauna", active: true }, { name: "other", active: false }]));
+    expect(await check.getScript("viauna")).toContain('vacation :days 4 :subject "Away"');
+    await check.logout();
+
+    // Nothing left: Viauna's script goes, and the other app's rules are active again.
+    await call("PUT", "/api/u/0/filters", { filters: [] });
+    expect((await call("PUT", "/api/u/0/vacation", { vacation: { on: false } })).status).toBe(200);
+    const after = await sieve();
+    expect(await after.listScripts()).toEqual([{ name: "other", active: true }]);
+    await after.logout();
   });
 
   // Last: afterwards this session holds a password the dev server doesn't accept.

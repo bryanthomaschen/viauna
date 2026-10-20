@@ -20,6 +20,7 @@ const ComposeDock = lazy(() => import("./Compose").then((m) => ({ default: m.Com
 const SettingsView = lazy(() => import("./Settings").then((m) => ({ default: m.SettingsView })));
 const ContactsView = lazy(() => import("./Contacts").then((m) => ({ default: m.ContactsView })));
 const ContactDialog = lazy(() => import("./Contacts").then((m) => ({ default: m.ContactDialog })));
+const MessageFilterDialog = lazy(() => import("./Filters").then((m) => ({ default: m.MessageFilterDialog })));
 
 export function Shell({ route, accounts, appName }: { route: Route; accounts: SessionAccount[]; appName: string }) {
   const client = useQueryClient();
@@ -72,6 +73,7 @@ function ShellInner({ route, appName }: { route: Route; appName: string }) {
   const sidebarOpen = ui.use((s) => s.sidebarOpen);
   const composing = composes.use((l) => l.some((c) => c.placement === "dock" && !c.hidden));
   const contactDialog = ui.use((s) => s.contactDialog);
+  const filterDialog = ui.use((s) => s.filterDialog);
   useShortcuts(route);
   useDocumentTitle(route, appName);
   return (
@@ -103,6 +105,11 @@ function ShellInner({ route, appName }: { route: Route; appName: string }) {
       {contactDialog && (
         <Suspense fallback={null}>
           <ContactDialog key={contactDialog.id ?? "new"} {...contactDialog} />
+        </Suspense>
+      )}
+      {filterDialog && (
+        <Suspense fallback={null}>
+          <MessageFilterDialog criteria={filterDialog.criteria} />
         </Suspense>
       )}
     </div>

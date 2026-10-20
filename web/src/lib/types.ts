@@ -144,6 +144,56 @@ export interface AppConfig {
   configured: boolean;
   /** The address book is on. */
   contacts: boolean;
+  /** Filters and the vacation responder can be used (the mail server's ManageSieve). */
+  filters: boolean;
+  vacation: boolean;
+}
+
+// ---------------------------------------------------------------- filters
+
+export interface FilterCriteria {
+  from: string;
+  to: string;
+  subject: string;
+  hasWords: string;
+  doesntHave: string;
+  hasAttachment: boolean;
+  largerThan: number | null;
+  smallerThan: number | null;
+}
+
+export interface FilterActions {
+  skipInbox: boolean;
+  markRead: boolean;
+  star: boolean;
+  label: string | null;
+  moveTo: string | null;
+  delete: boolean;
+  forwardTo: string | null;
+}
+
+export interface Filter {
+  id: string;
+  criteria: FilterCriteria;
+  actions: FilterActions;
+}
+
+export interface Vacation {
+  on: boolean;
+  start: string | null;
+  end: string | null;
+  subject: string;
+  message: string;
+  zone: string | null;
+}
+
+export interface FiltersState {
+  filters: Filter[];
+  vacation: Vacation;
+  /** Rules made in another app that keep running. */
+  include: string[];
+  changedElsewhere: boolean;
+  features: { filters: boolean; vacation: boolean; forwarding: boolean };
 }
 
 // ---------------------------------------------------------------- contacts

@@ -13,6 +13,7 @@ services:
       - "127.0.0.1:1143:143"   # IMAP (plaintext allowed in dev)
       - "127.0.0.1:1993:993"   # IMAPS (self-signed)
       - "127.0.0.1:1024:24"    # LMTP, used by dev/smtp-sink.mjs
+      - "127.0.0.1:14190:4190" # ManageSieve (filters, vacation responder)
 
 volumes:
   mail:

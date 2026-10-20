@@ -19,6 +19,7 @@ take `true` or `false`, `1` or `0`, `yes` or `no`, `on` or `off`.
 | `IMAP_TLS_SERVERNAME` | — | Name to check the certificate against, when `IMAP_HOST` is an internal alias or an IP address. |
 | `IMAP_TLS_VERIFY` | `true` | Turn off only for a test server with a self-signed certificate. |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURITY`, `SMTP_TLS_SERVERNAME`, `SMTP_TLS_VERIFY` | —, `465`, `tls`, —, `true` | The same, for sending. |
+| `MANAGESIEVE_HOST`, `MANAGESIEVE_PORT`, `MANAGESIEVE_SECURITY`, `MANAGESIEVE_TLS_SERVERNAME`, `MANAGESIEVE_TLS_VERIFY` | IMAP's host, `4190`, `starttls`, IMAP's, IMAP's | The same, for filters and the vacation responder (ManageSieve). See [Filters and vacation](./filters.md). |
 
 ## Who can sign in
 
@@ -45,6 +46,9 @@ take `true` or `false`, `1` or `0`, `yes` or `no`, `on` or `off`.
 | `CONTACTS` | `true` | **Live.** Each mailbox's address book, with vCard import and export, and suggestions from it while writing. Off: the Contacts page is gone and suggestions come only from mail people have exchanged; saved contacts are kept. |
 | `CARDDAV_URL` | — | A CardDAV server to sync contacts with, signed in as each mailbox with its own password. `{login}`, `{user}` and `{domain}` are filled in. Environment only. See [Contacts and CardDAV](./contacts.md). |
 | `CONTACTS_SYNC` | `true` | **Live.** Sync with `CARDDAV_URL`, when it's set. |
+| `FILTERS` | `true` | **Live.** Filters, kept on the mail server as Sieve. See [Filters and vacation](./filters.md). |
+| `FILTER_FORWARDING` | `false` | **Live.** Let a filter forward mail to another address. |
+| `VACATION` | `true` | **Live.** The vacation responder. |
 
 ## Sessions and limits
 

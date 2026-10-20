@@ -18,6 +18,9 @@ server/            Node (TypeScript, Hono)
   contacts-sync.ts keeping contacts in step with a CardDAV server
   carddav.ts       a small CardDAV client: discovery, sync-collection, multiget, If-Match
   vcard.ts         reading and writing vCard (2.1, 3.0, 4.0) without losing anything
+  filters.ts       filters and the vacation responder: checking, loading, saving
+  sieve.ts         them as a Sieve script, and reading back the script Viauna wrote
+  managesieve.ts   a ManageSieve client (STARTTLS, PLAIN, scripts)
   state/
     db.ts          the state store: engines, schema types, helpers (Kysely)
     migrations.ts  its schema, for SQLite, PostgreSQL and MySQL/MariaDB
@@ -86,6 +89,18 @@ kept while the contact is dirty: fields changed here take this side's value, the
 the server's. Syncs run per mailbox, one at a time, alongside its IMAP runtime (on
 start, every ten minutes, soon after a local change, and on demand), signed in with the
 session's own credentials, and announce themselves on the live-updates stream.
+
+## Filters
+
+Filters and the vacation responder live in the mailbox's Sieve script on the mail server,
+which runs it on delivery; Viauna holds no copy. It owns one script, `viauna`, written
+from its own model, which it keeps (base64 JSON) in a comment at the top together with a
+hash of the rules, so it reads its filters back exactly and notices a hand edit. A script
+another app made, active when Viauna first saves, is included after Viauna's rules
+(`include :optional`), so those rules keep running and none of them can `stop` Viauna's.
+The script `require`s only the extensions its rules use, and the server's own
+CHECKSCRIPT runs before every save. Each request opens its own ManageSieve connection,
+signed in as the mailbox.
 
 ## Sync
 
@@ -203,6 +218,10 @@ should say which kind it is.
   reaches the internal network or receives passwords (see Settings above), so a stolen
   admin session can't be turned into any of those. The last admin can only be removed
   from the command line, which needs access to the server.
+- **Filters** can't forward unless the operator allows it (`FILTER_FORWARDING`), so a
+  stolen session can't quietly route someone's mail elsewhere. A folder from the page
+  must be one of the mailbox's own, a label's keyword only characters IMAP and Sieve
+  accept, and every string is quoted for Sieve.
 - **CardDAV** gets each mailbox's own login and password, so `CARDDAV_URL` is
   environment-only, and only accounts on `IMAP_HOST` sync: a typed-in server's
   password is never sent to the operator's CardDAV server.

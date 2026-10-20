@@ -17,6 +17,9 @@ docker-mailserver.
 CONDSTORE/QRESYNC, MOVE, UIDPLUS, SPECIAL-USE and IDLE are used when the server offers
 them, with fallbacks when it doesn't.
 
+For **filters and the vacation responder**: ManageSieve, usually port 4190. See
+[Filters and vacation](./filters.md).
+
 **Search** runs on the server. A full-text search plugin (Dovecot's fts-flatcurve or
 fts-xapian, for example) keeps searches of message bodies fast on large mailboxes.
 

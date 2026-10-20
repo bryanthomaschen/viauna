@@ -3,7 +3,7 @@ import * as Popover from "@radix-ui/react-popover";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Archive, ArchiveRestore, ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, Download, EllipsisVertical, ExternalLink,
-  FileText, FolderInput, Forward, Inbox, Mail, OctagonAlert, Paperclip, Reply, ReplyAll, Star, Tag, Trash2, UserPlus,
+  FileText, FolderInput, Forward, Inbox, ListFilter, Mail, OctagonAlert, Paperclip, Reply, ReplyAll, Star, Tag, Trash2, UserPlus,
 } from "lucide-react";
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { listState, ui, useAccount } from "../lib/account";
@@ -300,7 +300,8 @@ function MessageCard({
   const from = msg.from[0];
   const isMe = !!from && acct.me.has(from.address);
   const card = useRef<HTMLDivElement>(null);
-  const contactsOn = !!useQuery({ queryKey: ["config"], queryFn: api.config, staleTime: Infinity }).data?.contacts;
+  const config = useQuery({ queryKey: ["config"], queryFn: api.config, staleTime: Infinity }).data;
+  const contactsOn = !!config?.contacts;
 
   useEffect(() => {
     if (focused) card.current?.scrollIntoView({ block: "nearest" });
@@ -402,13 +403,16 @@ function MessageCard({
                   }}>
                     <Mail size={18} /> Mark unread from here
                   </DropdownMenu.Item>
+                  {(contactsOn || config?.filters) && from && !isMe && <DropdownMenu.Separator className="menu-sep" />}
                   {contactsOn && from && !isMe && (
-                    <>
-                      <DropdownMenu.Separator className="menu-sep" />
-                      <DropdownMenu.Item className="menu-item" onSelect={() => void addToContacts(acct.index, from)}>
-                        <UserPlus size={18} /> Add {displayName(from).split(/\s+/)[0] || from.address} to contacts
-                      </DropdownMenu.Item>
-                    </>
+                    <DropdownMenu.Item className="menu-item" onSelect={() => void addToContacts(acct.index, from)}>
+                      <UserPlus size={18} /> Add {displayName(from).split(/\s+/)[0] || from.address} to contacts
+                    </DropdownMenu.Item>
+                  )}
+                  {config?.filters && from && !isMe && (
+                    <DropdownMenu.Item className="menu-item" onSelect={() => ui.set((s) => ({ ...s, filterDialog: { criteria: { from: from.address } } }))}>
+                      <ListFilter size={18} /> Filter messages like these
+                    </DropdownMenu.Item>
                   )}
                   <DropdownMenu.Separator className="menu-sep" />
                   <DropdownMenu.Item className="menu-item" onSelect={() => window.open(api.rawUrl(acct.index, ref), "_blank", "noopener")}>

@@ -121,6 +121,24 @@ function endpoint(prefix: "IMAP" | "SMTP", defaultPort: number): Endpoint | null
   };
 }
 
+/**
+ * The ManageSieve server (RFC 5804) for filters and the vacation responder: unless
+ * MANAGESIEVE_* say otherwise, the IMAP host on port 4190, with STARTTLS (or none if IMAP
+ * has none), and the same certificate name and checking.
+ */
+function sieveEndpoint(imap: Endpoint | null): Endpoint | null {
+  const host = env("MANAGESIEVE_HOST") ?? imap?.host;
+  if (!host) return null;
+  const sameHost = !env("MANAGESIEVE_HOST") || env("MANAGESIEVE_HOST") === imap?.host;
+  return {
+    host,
+    port: int("MANAGESIEVE_PORT", 4190),
+    security: env("MANAGESIEVE_SECURITY") ? security("MANAGESIEVE_SECURITY", "starttls") : imap?.security === "none" ? "none" : "starttls",
+    servername: env("MANAGESIEVE_TLS_SERVERNAME") ?? (sameHost ? imap?.servername : undefined),
+    verify: env("MANAGESIEVE_TLS_VERIFY") !== undefined ? bool("MANAGESIEVE_TLS_VERIFY", true) : (imap?.verify ?? true),
+  };
+}
+
 /** Stable JSON for an endpoint: part of an account's identity, so key order is fixed. */
 export function endpointKey(e: Endpoint): string {
   return JSON.stringify({ host: e.host.toLowerCase(), port: e.port, security: e.security, servername: e.servername ?? null, verify: e.verify, ...(e.custom ? { custom: true } : {}) });
@@ -151,7 +169,7 @@ interface Common<K extends string, V extends SettingValue> {
 }
 
 export type SettingDef =
-  | (Common<"allowCustomServers" | "contacts" | "contactsSync", boolean> & { type: "boolean" })
+  | (Common<"allowCustomServers" | "contacts" | "contactsSync" | "filters" | "vacation" | "filterForwarding", boolean> & { type: "boolean" })
   | (Common<"sessionDays" | "maxAccounts" | "maxUploadMb" | "cacheMb", number> & { type: "integer"; min: number; max: number; unit: string })
   | (Common<"appName", string> & { type: "text"; max: number; required?: boolean })
   | (Common<"admins" | "allowedDomains", string[]> & { type: "list"; item: "address" | "domain" })
@@ -165,6 +183,9 @@ export interface SettingValues {
   allowCustomServers: boolean;
   contacts: boolean;
   contactsSync: boolean;
+  filters: boolean;
+  vacation: boolean;
+  filterForwarding: boolean;
   sessionDays: number;
   maxAccounts: number;
   maxUploadMb: number;
@@ -199,6 +220,21 @@ export const SETTINGS: readonly SettingDef[] = [
     key: "contactsSync", env: "CONTACTS_SYNC", type: "boolean", default: true,
     section: "Features", label: "Contacts sync",
     help: "Keep each mailbox's contacts in step with your CardDAV server (CARDDAV_URL, set in the environment), signed in as the mailbox.",
+  },
+  {
+    key: "filters", env: "FILTERS", type: "boolean", default: true,
+    section: "Features", label: "Filters",
+    help: "Rules that sort mail as it arrives, kept on your mail server as Sieve (over ManageSieve).",
+  },
+  {
+    key: "filterForwarding", env: "FILTER_FORWARDING", type: "boolean", default: false,
+    section: "Features", label: "Forwarding in filters",
+    help: "Let a filter forward mail to another address. Off by default: a stolen session could otherwise send someone's mail elsewhere without a trace in their inbox.",
+  },
+  {
+    key: "vacation", env: "VACATION", type: "boolean", default: true,
+    section: "Features", label: "Vacation responder",
+    help: "Automatic replies while someone is away, sent by your mail server.",
   },
   {
     key: "sessionDays", env: "SESSION_DAYS", type: "integer", min: 1, max: 3650, unit: "days", default: 30,
@@ -349,6 +385,7 @@ export const config = {
 
   imap: endpoint("IMAP", 993),
   smtp: endpoint("SMTP", 465),
+  managesieve: sieveEndpoint(endpoint("IMAP", 993)),
   /** Custom servers may not resolve to private/loopback addresses unless this is on. */
   allowPrivateServers: bool("ALLOW_PRIVATE_SERVERS", false),
 

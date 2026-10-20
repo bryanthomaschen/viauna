@@ -33,6 +33,7 @@ import {
 import type { Credentials } from "./crypto.ts";
 import { db } from "./db.ts";
 import { contactEvents, syncContacts, syncSoon, syncStatus, syncsContacts } from "./contacts-sync.ts";
+import { FilterError, cleanFilter, cleanVacation, loadFilters, saveFilters } from "./filters.ts";
 import { MailboxAuthError, runtimeFor, stillProven } from "./imap/pool.ts";
 import { type AccountRuntime, type ChangeEvent, syncable } from "./imap/runtime.ts";
 import { type MailboxRow, getMailbox, getMailboxes, specialUseName } from "./imap/store.ts";
@@ -157,6 +158,7 @@ export function createApp() {
     if (err instanceof ActionError || err instanceof ComposeError) return c.json({ error: err.message }, err.status as 400);
     if (err instanceof LabelError) return c.json({ error: err.message }, 400);
     if (err instanceof ContactError) return c.json({ error: err.message }, err.status as 400);
+    if (err instanceof FilterError) return c.json({ error: err.message }, err.status as 400);
     log.error("request failed", { path: c.req.path, error: (err as Error).message, stack: (err as Error).stack });
     const message = /ECONNREFUSED|ETIMEDOUT|ENOTFOUND|Connection not available|closed/i.test((err as Error).message)
       ? "The mail server isn't responding. Try again in a moment."
@@ -191,6 +193,8 @@ export function createApp() {
       customServers: config.allowCustomServers,
       configured: !!config.imap,
       contacts: setting("contacts"),
+      filters: setting("filters") && !!config.managesieve,
+      vacation: setting("vacation") && !!config.managesieve,
     }),
   );
 
@@ -534,6 +538,26 @@ export function createApp() {
   acct.get("/suggestions", async (c) =>
     c.json({ contacts: await suggest(c.get("rt").account.id, c.req.query("q") ?? "", setting("contacts")) }),
   );
+
+  // ---------------------------------------------------------------- filters and vacation
+
+  // Kept in the mailbox's Sieve script on its mail server (filters.ts).
+  acct.get("/filters", async (c) => c.json(await loadFilters(c.get("rt").account, c.get("creds"))));
+
+  acct.put("/filters", async (c) => {
+    if (!setting("filters")) throw new FilterError("Filters are turned off on this server.", 404);
+    const body = await c.req.json().catch(() => ({}));
+    if (!Array.isArray(body.filters)) throw new FilterError("Send the filters.");
+    return c.json(
+      await saveFilters(c.get("rt").account, c.get("creds"), (model, folders) => ({ ...model, filters: body.filters.map((f: unknown) => cleanFilter(f, folders)) })),
+    );
+  });
+
+  acct.put("/vacation", async (c) => {
+    if (!setting("vacation")) throw new FilterError("The vacation responder is turned off on this server.", 404);
+    const body = await c.req.json().catch(() => ({}));
+    return c.json(await saveFilters(c.get("rt").account, c.get("creds"), (model) => ({ ...model, vacation: cleanVacation(body.vacation) })));
+  });
 
   // ---------------------------------------------------------------- the address book
 

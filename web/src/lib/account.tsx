@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createContext, type ReactNode, useContext, useMemo } from "react";
 import { api } from "./api";
 import { createStore } from "./store";
-import type { ContactFields, Identity, Label, Mailbox, PasswordChange, SessionAccount, Settings, SpecialUse } from "./types";
+import type { ContactFields, FilterCriteria, Identity, Label, Mailbox, PasswordChange, SessionAccount, Settings, SpecialUse } from "./types";
 
 export interface AccountContextValue {
   index: number;
@@ -83,6 +83,8 @@ export interface UiState {
   labelDialog: null | { label?: Label };
   /** A contact being edited (id) or added (initial). */
   contactDialog: null | { id?: number; initial?: Partial<ContactFields> };
+  /** A filter being added from a message (Filter messages like these). */
+  filterDialog: null | { criteria: Partial<FilterCriteria> };
   folderDialog: null | { mailbox?: Mailbox; parentId?: number };
   confirm: null | ConfirmRequest;
   sidebarOpen: boolean;
@@ -90,7 +92,7 @@ export interface UiState {
 }
 
 export const ui = createStore<UiState>({
-  shortcutsOpen: false, labelDialog: null, contactDialog: null, folderDialog: null, confirm: null, sidebarOpen: false, searchFocus: 0,
+  shortcutsOpen: false, labelDialog: null, contactDialog: null, filterDialog: null, folderDialog: null, confirm: null, sidebarOpen: false, searchFocus: 0,
 });
 
 /** The visible thread list, so j/k inside a conversation can move to its neighbours. */

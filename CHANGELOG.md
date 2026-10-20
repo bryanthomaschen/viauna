@@ -9,6 +9,19 @@ its notes before moving to it. A patch release (0.2.0 to 0.2.1) only fixes thing
 
 ## Unreleased
 
+### Added
+
+- **Filters**, Gmail-style, in Settings > Filters or from a message's menu ("Filter
+  messages like these"): match on from, to, subject, words, attachments or size; skip
+  the inbox, mark as read, star, label, move, delete or forward. They're kept on your
+  mail server as Sieve (over ManageSieve, port 4190), so they sort mail as it arrives,
+  with Viauna closed and in every app. Filters made in another app keep running.
+  Forwarding is off until an admin allows it (`FILTER_FORWARDING`). See
+  [Filters and the vacation responder](https://bryanthomaschen.github.io/viauna/using/filters).
+- **A vacation responder**, at the bottom of Settings > General: from a first day to an
+  optional last day, at most one reply every four days to each sender, sent by your
+  mail server.
+
 ### Fixed
 
 - Starring a conversation and quickly unstarring it (or any two quick actions on the

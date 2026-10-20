@@ -8,6 +8,9 @@ import type {
   ContactFields,
   ContactSummary,
   ContactSync,
+  Filter,
+  FiltersState,
+  Vacation,
   Conversation,
   MailboxesResponse,
   MessageRef,
@@ -118,6 +121,10 @@ export const api = {
 
   suggestions: (a: number, q: string) =>
     request<{ contacts: { address: string; name: string | null }[] }>("GET", `${u(a)}/suggestions?q=${encodeURIComponent(q)}`),
+
+  filters: (a: number) => request<FiltersState>("GET", `${u(a)}/filters`),
+  saveFilters: (a: number, filters: Filter[]) => request<FiltersState>("PUT", `${u(a)}/filters`, { filters }),
+  saveVacation: (a: number, vacation: Vacation) => request<FiltersState>("PUT", `${u(a)}/vacation`, { vacation }),
 
   contacts: (a: number, q: string, offset = 0) =>
     request<{ contacts: ContactSummary[]; total: number; sync: ContactSync }>("GET", `${u(a)}/contacts?q=${encodeURIComponent(q)}&offset=${offset}`),
