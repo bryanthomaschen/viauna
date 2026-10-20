@@ -42,20 +42,37 @@ request, read
 
 ## Releasing
 
-1. Set the new version in `package.json` and `package-lock.json`, and commit:
-   `npm version 0.3.0 --no-git-tag-version` updates both.
-2. Tag the commit and push the tag: `git tag v0.3.0 && git push origin v0.3.0`.
+Changes land on `main` as they're ready, and every push publishes the `edge` image.
+Releases come in batches: one when a batch on the [roadmap](./roadmap.md) is done, or a
+patch release for fixes. Each change people will notice adds a line under
+**Unreleased** in [CHANGELOG.md](https://github.com/bryanthomaschen/viauna/blob/main/CHANGELOG.md)
+as it lands, so the notes are written by release time. To cut release X.Y.Z:
+
+1. In `CHANGELOG.md`, rename `## Unreleased` to `## X.Y.Z - YYYY-MM-DD` and put a new,
+   empty `## Unreleased` above it. Edit the entries into release notes: that section
+   becomes the GitHub Release text as written.
+2. Set the version: `npm version X.Y.Z --no-git-tag-version` updates `package.json` and
+   `package-lock.json`.
+3. Bring the docs up to date: image tags (`ghcr.io/bryanthomaschen/viauna:X.Y`) and the
+   tag table in [Getting started](./self-hosting/getting-started.md#image-tags); a
+   "From … to X.Y" section in [Upgrading](./self-hosting/upgrading.md) if anything needs
+   doing; and take the batch off the roadmap.
+4. `npm run check:release` checks that the version, the changelog and the docs agree.
+   Commit as "Release X.Y.Z", push to `main` and wait for CI.
+5. Tag that commit and push the tag: `git tag vX.Y.Z && git push origin vX.Y.Z`.
 
 The [Release workflow](https://github.com/bryanthomaschen/viauna/blob/main/.github/workflows/release.yml)
-then builds the image for `linux/amd64` and `linux/arm64`, publishes `0.3.0`, `0.3` and
-`latest` to `ghcr.io/bryanthomaschen/viauna`, and creates the GitHub Release with notes
-generated from the changes since the last one. It refuses a tag that doesn't match
-`package.json`. Every push to `main` also publishes `edge`.
+then builds the image for `linux/amd64` and `linux/arm64`, publishes `X.Y.Z`, `X.Y` and
+`latest` to `ghcr.io/bryanthomaschen/viauna`, starts it on both, creates the GitHub
+Release from the changelog section, and last publishes these docs. It publishes nothing
+if the tag, `package.json`, the changelog and the docs disagree.
 
 ## These docs
 
-The docs are the Markdown files in `docs/`, published to GitHub Pages with
-[VitePress](https://vitepress.dev) on every push to `main`. Link between pages with
+The docs are the Markdown files in `docs/`, built with [VitePress](https://vitepress.dev).
+The site describes the latest release, so it's published to GitHub Pages only when a
+release is tagged; on `main`, the docs describe the next release. Pushes and pull
+requests still build it, so a broken link fails the check. Link between pages with
 relative `.md` paths so they work on GitHub too. To preview your changes:
 
 ```bash

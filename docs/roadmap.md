@@ -1,20 +1,29 @@
 # Roadmap
 
-Viauna is pre-1.0. Nothing here has a date, and the order is a rough priority.
+Viauna is pre-1.0. Work is planned as batches, one release each, in this order; nothing
+here has a date. What's already out is in the
+[changelog](https://github.com/bryanthomaschen/viauna/blob/main/CHANGELOG.md).
 
-## Next
+## 0.3: Admin
 
 - **An admin page and a command-line tool** to turn features on and off and change
   settings without a restart. Settings given as environment variables stay locked.
-- **Contacts**: an address book with vCard import and export, and optional CardDAV sync.
 - **Password change**: a link to your mail server's own page, LDAP, or a webhook or
   command you provide.
+
+## 0.4: Contacts
+
+- **An address book** with vCard import and export, and optional CardDAV sync.
+
+## 0.5: Filters
+
 - **Filters**: Sieve rules, over ManageSieve.
+- **Vacation responder**, also a Sieve rule.
 
 ## Later
 
-Vacation responder; undo send and send later; snooze; an installable app with offline
-reading; JMAP for servers that speak it.
+Undo send and send later; snooze; an installable app with offline reading; JMAP for
+servers that speak it.
 
 ## How features are built
 

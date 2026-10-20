@@ -5,6 +5,7 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { type Context, Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { streamSSE } from "hono/streaming";
+import pkg from "../package.json" with { type: "json" };
 import {
   type AuthContext,
   COOKIE_NAME,
@@ -42,7 +43,7 @@ type Env = {
   };
 };
 
-export const VERSION = process.env.VIAUNA_VERSION || "0.1.0";
+export const VERSION = process.env.VIAUNA_VERSION || pkg.version;
 
 const APP_CSP = [
   "default-src 'self'",

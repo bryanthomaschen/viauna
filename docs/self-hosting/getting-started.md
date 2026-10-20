@@ -60,10 +60,10 @@ Viauna serves plain HTTP and relies on the proxy for TLS.
 | `0.2` | The newest 0.2.x release. Recommended: each pull brings fixes, never a new version's changes. |
 | `0.2.0` | Exactly that release. |
 | `latest` | The newest release, whatever its version. |
-| `edge` | The current `main` branch: unreleased and less tested. |
+| `edge` | The current `main` branch: unreleased and less tested. These docs describe the latest release; for `edge`, read [`docs/` on GitHub](https://github.com/bryanthomaschen/viauna/tree/main/docs). |
 
-Before 1.0, a new minor version (0.3) may change settings or behaviour, so move to it
-after reading its [release notes](https://github.com/bryanthomaschen/viauna/releases).
+Before 1.0, a new minor version may change settings or behaviour, so move to it after
+reading its [release notes](https://github.com/bryanthomaschen/viauna/releases).
 
 ## Put it behind your reverse proxy
 

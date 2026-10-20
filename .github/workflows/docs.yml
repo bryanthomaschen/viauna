@@ -1,8 +1,11 @@
 name: Docs
 
 # Builds docs/ with VitePress and publishes it to GitHub Pages
-# (https://bryanthomaschen.github.io/viauna/). Pull requests only build, so a broken
-# link fails the check before it can be merged.
+# (https://bryanthomaschen.github.io/viauna/). The site describes the latest release, so
+# it's published only from a release tag: the Release workflow calls this one once the
+# release is out. Pushes to main and pull requests only build, so a broken link fails
+# the check before it can be merged. To publish again, run this workflow by hand on the
+# release's tag. (The github-pages environment allows deploys from v* tags only.)
 
 on:
   push:
@@ -10,14 +13,11 @@ on:
     paths: ["docs/**", ".github/workflows/docs.yml"]
   pull_request:
     paths: ["docs/**", ".github/workflows/docs.yml"]
+  workflow_call:
   workflow_dispatch:
 
 permissions:
   contents: read
-
-concurrency:
-  group: pages
-  cancel-in-progress: false
 
 jobs:
   build:
@@ -37,14 +37,17 @@ jobs:
       - run: npm ci
       - run: npm run build
       - uses: actions/upload-pages-artifact@v5
-        if: github.event_name != 'pull_request'
+        if: startsWith(github.ref, 'refs/tags/v')
         with:
           path: docs/.vitepress/dist
 
   deploy:
-    if: github.event_name != 'pull_request'
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-24.04
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     permissions:
       pages: write
       id-token: write

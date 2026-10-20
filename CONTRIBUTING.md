@@ -35,7 +35,10 @@ npm run test:integration   # needs `npm run dev:mail` running
   that can be fetched again from the mail server goes in the index (`server/db.ts`). See
   [Storage](docs/architecture.md#storage).
 - Anything people will notice (a feature, a setting, a changed behaviour, a new
-  requirement) updates the docs in `docs/` in the same pull request. Preview them with
+  requirement) updates the docs in `docs/` in the same pull request, and adds a line
+  under **Unreleased** in [CHANGELOG.md](CHANGELOG.md), written for the people running
+  Viauna: it becomes the release notes. The docs site is published from releases, so the
+  docs on `main` describe the next one. Preview them with
   `cd docs && npm install && npm run dev`.
 - Don't add Google's logos, the Google Sans font or other Google brand assets.
 

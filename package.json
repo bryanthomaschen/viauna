@@ -20,7 +20,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p web/tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:integration": "VIAUNA_IT=1 vitest run test/integration.test.ts"
+    "test:integration": "VIAUNA_IT=1 vitest run test/integration.test.ts",
+    "check:release": "node dev/release.mjs check"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.5",
