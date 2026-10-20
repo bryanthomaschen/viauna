@@ -83,6 +83,28 @@ then builds the image for `linux/amd64` and `linux/arm64`, publishes `X.Y.Z`, `X
 Release from the changelog section, and last publishes these docs. It publishes nothing
 if the tag, `package.json`, the changelog and the docs disagree.
 
+### Patch releases
+
+A fix for the current release can't wait for `main`, which already holds the next
+version's work, so a patch release X.Y.Z+1 is cut from a branch of the release itself:
+
+1. Land the fix on `main` first, as usual, with its changelog line.
+2. On `release/X.Y` (made from the `vX.Y.0` tag the first time:
+   `git branch release/X.Y vX.Y.0`), cherry-pick the fix commits. Where `main` has moved
+   on, resolve towards the release: keep the release's code and take only the fix.
+   Reword the changelog lines so they don't mention anything the release lacks.
+3. Correct that branch's docs for anything the fix changes: the docs site is built from
+   the tag, so it shows this branch's `docs/`.
+4. Test the branch yourself (CI runs on `main` only): `npm test` and
+   `npm run test:integration` on every state store, a build, and a look in the browser.
+5. Make the release commit there (steps 1 to 4 above, as "Release X.Y.Z"), tag it,
+   push the branch and the tag.
+6. Back on `main`, "Record X.Y.Z": add the release's changelog section below
+   Unreleased, take its entries out of Unreleased, and set the version and the image-tag
+   table, so `main`'s checks agree and the next release's notes don't repeat the fixes.
+   Don't merge the release branch into `main`: its cherry-picks were cut back to the
+   release's code, and merging them would bring that back as conflicts.
+
 ## These docs
 
 The docs are the Markdown files in `docs/`, built with [VitePress](https://vitepress.dev).
