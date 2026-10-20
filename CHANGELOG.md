@@ -29,6 +29,9 @@ its notes before moving to it. A patch release (0.2.0 to 0.2.1) only fixes thing
   forwarding in filters) took effect only after reloading the page. Changes from the
   command line, or from another instance sharing a PostgreSQL database, are announced
   to the server rather than picked up every ten seconds.
+- Saving a filter that skips the inbox makes the Archive folder if the mailbox has
+  none (some mail servers, Mailu among them, don't make one), so it shows in the
+  sidebar at once, before any mail lands in it.
 
 ## 0.4.1 - 2026-10-20
 

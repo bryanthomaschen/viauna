@@ -33,13 +33,13 @@ import {
 import type { Credentials } from "./crypto.ts";
 import { db } from "./db.ts";
 import { contactEvents, syncContacts, syncSoon, syncStatus, syncsContacts } from "./contacts-sync.ts";
-import { FilterError, cleanFilter, cleanVacation, loadFilters, saveFilters } from "./filters.ts";
+import { FilterError, cleanFilter, cleanVacation, loadFilters, saveFilters, unavailable } from "./filters.ts";
 import { MailboxAuthError, runtimeFor, stillProven } from "./imap/pool.ts";
 import { type AccountRuntime, type ChangeEvent, syncable } from "./imap/runtime.ts";
 import { type MailboxRow, getMailbox, getMailboxes, specialUseName } from "./imap/store.ts";
 import { changeSettings, describeSettings, isAdmin, recentChanges, serverFacts, settingsEvents } from "./instance.ts";
 import { log } from "./log.ts";
-import { ActionError, type ActionInput, perform, undo } from "./mail/actions.ts";
+import { ActionError, type ActionInput, ensureSpecial, perform, undo } from "./mail/actions.ts";
 import { ComposeError, type ComposeInput, discardDraft, saveDraft, saveUpload, sendMessage } from "./mail/compose.ts";
 import { getParsed, getRaw } from "./mail/fetch.ts";
 import { LabelError, createLabel, deleteLabel, listLabels, updateLabel } from "./mail/labels.ts";
@@ -548,6 +548,10 @@ export function createApp() {
     if (!setting("filters")) throw new FilterError("Filters are turned off on this server.", 404);
     const body = await c.req.json().catch(() => ({}));
     if (!Array.isArray(body.filters)) throw new FilterError("Send the filters.");
+    // "Skip the Inbox" files into Archive: make it now if the mailbox has none (Mailu
+    // doesn't), so it's in the menu from the start rather than when mail first arrives.
+    const archives = (f: { actions?: Record<string, unknown> }) => f?.actions?.skipInbox === true && !f.actions.moveTo && f.actions.delete !== true;
+    if (!unavailable(c.get("rt").account) && body.filters.some(archives)) await ensureSpecial(c.get("rt"), "archive");
     return c.json(
       await saveFilters(c.get("rt").account, c.get("creds"), (model, folders) => ({ ...model, filters: body.filters.map((f: unknown) => cleanFilter(f, folders)) })),
     );

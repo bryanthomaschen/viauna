@@ -18,7 +18,8 @@ in Sent. A reply that changes the subject starts a new conversation, as in Gmail
 
 ## Archive, delete and undo
 
-- **Archive** (`e`) moves a conversation out of the Inbox into your Archive folder.
+- **Archive** (`e`) moves a conversation out of the Inbox into your Archive folder, in
+  the sidebar. If your mailbox has none, Viauna makes one the first time.
 - **Delete** (`#`) moves it to Trash.
 - **Report spam** (`!`) moves it to Junk; **Not spam** moves it back.
 - Almost anything can be undone: click **Undo** in the notice at the bottom of the

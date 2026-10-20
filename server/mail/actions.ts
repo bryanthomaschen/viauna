@@ -81,7 +81,7 @@ function rowsFor(accountId: number, input: ActionInput): MessageRow[] {
 const DEFAULT_NAMES: Partial<Record<SpecialUse, string>> = { archive: "Archive", trash: "Trash", junk: "Junk" };
 
 /** The special folder for `use`, created (Archive/Trash/Junk) if the server has none. */
-async function ensureSpecial(rt: AccountRuntime, use: SpecialUse): Promise<MailboxRow> {
+export async function ensureSpecial(rt: AccountRuntime, use: SpecialUse): Promise<MailboxRow> {
   const existing = specialMailboxes(rt.account.id)[use];
   if (existing) return existing;
   const name = DEFAULT_NAMES[use];

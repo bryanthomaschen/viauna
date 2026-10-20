@@ -52,6 +52,8 @@ function useSaveFilters() {
   return async (filters: Filter[], done: string) => {
     const state = await api.saveFilters(acct.index, filters);
     client.setQueryData(["filters", acct.index], state);
+    // An Archive made for "Skip the Inbox" appears in the menu.
+    void client.invalidateQueries({ queryKey: ["mailboxes", acct.index] });
     toast(done);
   };
 }

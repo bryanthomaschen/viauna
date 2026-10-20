@@ -27,7 +27,9 @@ A filter matches messages by any of:
 
 and then, for each message that matches when it arrives:
 
-- **Skip the Inbox** (archive it), **Mark as read**, **Star it**;
+- **Skip the Inbox**: into your Archive folder, in the sidebar, as if you'd archived it.
+  If your mailbox has no Archive folder, saving the filter makes one;
+- **Mark as read**, **Star it**;
 - **Apply the label** or **Move to** a folder;
 - **Delete it** (into Trash);
 - **Forward it to** another address, if your server allows forwarding in filters.
