@@ -9,6 +9,8 @@ its notes before moving to it. A patch release (0.2.0 to 0.2.1) only fixes thing
 
 ## Unreleased
 
+## 0.3.1 - 2026-10-20
+
 ### Fixed
 
 - After changing the page size in Settings, going back kept the old page size until the
