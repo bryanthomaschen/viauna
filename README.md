@@ -88,7 +88,8 @@ Everything is on **[the docs site](https://bryanthomaschen.github.io/viauna/)**,
 - **Using Viauna**: [the basics](docs/using/basics.md) · [search](docs/using/search.md) ·
   [keyboard shortcuts](docs/using/shortcuts.md)
 - **The project**: [architecture](docs/architecture.md) · [development](docs/development.md) ·
-  [roadmap](docs/roadmap.md) · [contributing](CONTRIBUTING.md) · [security](SECURITY.md)
+  [roadmap](docs/roadmap.md) · [changelog](CHANGELOG.md) · [contributing](CONTRIBUTING.md) ·
+  [security](SECURITY.md)
 
 ## How it works
 

@@ -38,6 +38,8 @@ jobs:
         with:
           node-version: 24
           cache: npm
+      - name: Version, changelog and docs agree
+        run: node dev/release.mjs check
       - run: npm ci
       - run: npm run typecheck
       - run: npm test

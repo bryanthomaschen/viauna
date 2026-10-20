@@ -2,11 +2,13 @@ name: Release
 
 # Publishes the container image to ghcr.io/bryanthomaschen/viauna, for linux/amd64 and
 # linux/arm64:
-#   - a tag vX.Y.Z → X.Y.Z, X.Y and latest, plus a GitHub Release with generated notes;
+#   - a tag vX.Y.Z → X.Y.Z, X.Y and latest, then a GitHub Release whose text is that
+#     version's section of CHANGELOG.md, then the docs site (docs.yml);
 #   - a push to main → edge and sha-<short>, for trying unreleased changes.
 # The tag must match package.json's version, so the version the app shows is the one
-# that was tagged. Each published image is then started on native amd64 and arm64
-# runners, and the GitHub Release waits for both. How to cut a release:
+# that was tagged, and CHANGELOG.md and the docs must name it too (dev/release.mjs);
+# otherwise nothing is published. Each published image is then started on native amd64
+# and arm64 runners, and the GitHub Release waits for both. How to cut a release:
 # docs/development.md.
 #
 # Third-party actions are pinned to commits, since this job can publish images;
@@ -47,6 +49,7 @@ jobs:
               echo "::error::Tag $GITHUB_REF_NAME doesn't match package.json version $pkg. Bump package.json first."
               exit 1
             fi
+            node dev/release.mjs check --tag
             echo "version=$tag" >> "$GITHUB_OUTPUT"
           else
             echo "version=$pkg-edge.${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
@@ -136,6 +139,9 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v7
+      # The notes are the version's CHANGELOG.md section, then how to pull it; GitHub
+      # adds the link to the full list of commits.
       - name: Create the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -144,8 +150,20 @@ jobs:
           version="${TAG#v}"
           prerelease=()
           [[ "$version" == *-* ]] && prerelease=(--prerelease)
-          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes "${prerelease[@]}" \
-            --notes "\`\`\`bash
-          docker pull ghcr.io/$GITHUB_REPOSITORY:$version
-          \`\`\`
-          Upgrading: https://bryanthomaschen.github.io/viauna/self-hosting/upgrading"
+          notes="$RUNNER_TEMP/notes.md"
+          node dev/release.mjs notes > "$notes"
+          printf '\n```bash\ndocker pull ghcr.io/%s:%s\n```\n\nUpgrading: https://bryanthomaschen.github.io/viauna/self-hosting/upgrading\n' \
+            "$GITHUB_REPOSITORY" "$version" >> "$notes"
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --title "Viauna $version" \
+            --notes-file "$notes" --generate-notes "${prerelease[@]}"
+
+  # The docs site describes the latest release, so it's published once the release is
+  # out. A prerelease (a tag such as v0.3.0-rc.1) leaves it alone.
+  docs:
+    if: ${{ !contains(github.ref_name, '-') }}
+    needs: release
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/docs.yml
