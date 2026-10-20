@@ -45,6 +45,10 @@ function useSave() {
       await api.saveSettings(acct.index, patch);
       await client.invalidateQueries({ queryKey: ["settings", acct.index] });
       void client.invalidateQueries({ queryKey: ["session"] });
+      // The server pages lists and renders messages by these settings, so what's cached
+      // was made with the old ones: drop it, or going back shows the old page size.
+      if ("pageSize" in patch) client.removeQueries({ queryKey: ["threads", acct.index] });
+      if ("images" in patch) client.removeQueries({ queryKey: ["message", acct.index] });
       toast("Settings saved.");
     } catch (err) {
       toast((err as Error).message, { error: true });

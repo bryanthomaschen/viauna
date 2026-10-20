@@ -9,6 +9,12 @@ its notes before moving to it. A patch release (0.2.0 to 0.2.1) only fixes thing
 
 ## Unreleased
 
+### Fixed
+
+- After changing the page size in Settings, going back kept the old page size until the
+  browser tab was reloaded. Changing the images setting had the same delay for messages
+  already opened.
+
 ## 0.3.0 - 2026-10-20
 
 Run your server from a web page: settings change without a restart, and people can
