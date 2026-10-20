@@ -60,7 +60,8 @@ The version you're running is shown at the foot of the sign-in page.
 ### From 0.3 to 0.4
 
 Nothing to do: the address book's tables are created on the first start, and Contacts
-is on. Turn it off with `CONTACTS=false` or from the admin page.
+is on. Turn it off with `CONTACTS=false` or from the admin page. To sync contacts with a
+CardDAV server, set `CARDDAV_URL` (see [Contacts and CardDAV](./contacts.md)).
 
 ### From 0.2 to 0.3
 

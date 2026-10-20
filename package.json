@@ -27,6 +27,7 @@
   "dependencies": {
     "@hono/node-server": "^2.1.5",
     "entities": "^8.1.0",
+    "fast-xml-parser": "^5.11.2",
     "hono": "^4.13.13",
     "html-to-text": "^10.0.1",
     "imapflow": "^2.5.2",

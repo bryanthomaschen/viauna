@@ -1,5 +1,6 @@
 // Server-sent events: the server pushes "this account's folders changed" and the
-// affected queries refetch. New mail appears within a second of arriving.
+// affected queries refetch. New mail appears within a second of arriving; contacts
+// synced from the CardDAV server appear when the sync ends.
 import { type QueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { prefs, toast } from "./store";
@@ -44,6 +45,10 @@ export function useLiveUpdates(client: QueryClient, accountCount: number, onOpen
             };
           }
         }
+      });
+      source.addEventListener("contacts", (e) => {
+        const { index } = JSON.parse((e as MessageEvent).data) as { index: number };
+        void client.invalidateQueries({ queryKey: ["contacts", index] });
       });
       source.addEventListener("reauth", (e) => {
         const { index } = JSON.parse((e as MessageEvent).data) as { index: number };

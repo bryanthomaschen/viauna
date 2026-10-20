@@ -90,14 +90,27 @@ export function cleanFields(input: unknown): ContactFields {
       return number ? { number, label: label(p.label) } : null;
     }),
   };
-  if (!fields.firstName && !fields.lastName && !fields.organization && !fields.emails.length) {
-    throw new ContactError("Give the contact a name, a company or an email address.");
+  if (!fields.firstName && !fields.lastName && !fields.organization && !fields.emails.length && !fields.phones.length) {
+    throw new ContactError("Give the contact a name, a company, an email address or a phone number.");
   }
   return fields;
 }
 
-/** Inserts or replaces a contact's row and addresses, inside a transaction. */
-async function write(trx: Transaction<StateSchema>, accountId: number, card: VCard, id: number | null): Promise<number> {
+/** Where a contact sits on the CardDAV server, set by sync (contacts-sync.ts). */
+export interface SyncFields {
+  book_id?: number | null;
+  href?: string | null;
+  etag?: string | null;
+  dirty?: number;
+  base?: string | null;
+}
+
+/**
+ * Inserts or replaces a contact's row and addresses, inside a transaction. A change made
+ * here to a contact on the CardDAV server is marked dirty, for sync to send; sync itself
+ * passes `sync` to record what the server has.
+ */
+export async function writeCard(trx: Transaction<StateSchema>, accountId: number, card: VCard, id: number | null, sync?: SyncFields): Promise<number> {
   const problem = checkCard(card);
   if (problem) throw new ContactError(problem);
   const { name, sortKey, search, emails } = indexed(card);
@@ -108,13 +121,27 @@ async function write(trx: Transaction<StateSchema>, accountId: number, card: VCa
     const uid = cardUid(card)!;
     await trx
       .insertInto("contacts")
-      .values({ account_id: accountId, uid, name, sort_key: sortKey, search, vcard, created_at: now, updated_at: now })
+      .values({ account_id: accountId, uid, name, sort_key: sortKey, search, vcard, created_at: now, updated_at: now, ...sync })
       .execute();
     // Read back by the UID, which is unique per mailbox (MySQL has no RETURNING).
     const row = await trx.selectFrom("contacts").select("id").where("account_id", "=", accountId).where("uid", "=", uid).executeTakeFirstOrThrow();
     contactId = row.id;
   } else {
-    await trx.updateTable("contacts").set({ name, sort_key: sortKey, search, vcard, updated_at: now }).where("id", "=", contactId).where("account_id", "=", accountId).execute();
+    // Edited here: if it's on the server, it now needs sending, and the card as last
+    // synced is kept for merging. (base and dirty come first: MySQL assigns in order,
+    // and they must see the row as it was.)
+    const changes = sync
+      ? { base: null, ...sync }
+      : {
+          base: sql<string | null>`case when dirty = 0 and book_id is not null then vcard else base end`,
+          dirty: sql<number>`case when book_id is null then 0 else 1 end`,
+        };
+    await trx
+      .updateTable("contacts")
+      .set({ ...changes, name, sort_key: sortKey, search, vcard, updated_at: now })
+      .where("id", "=", contactId)
+      .where("account_id", "=", accountId)
+      .execute();
     await trx.deleteFrom("contact_emails").where("contact_id", "=", contactId).execute();
   }
   if (emails.length) {
@@ -157,7 +184,7 @@ export async function getContact(accountId: number, id: number) {
 
 export async function createContact(accountId: number, input: unknown) {
   const card = newCard(cleanFields(input), `urn:uuid:${crypto.randomUUID()}`, PRODID);
-  const id = await state().transaction().execute((trx) => write(trx, accountId, card, null));
+  const id = await state().transaction().execute((trx) => writeCard(trx, accountId, card, null));
   return getContact(accountId, id);
 }
 
@@ -165,14 +192,31 @@ export async function updateContact(accountId: number, id: number, input: unknow
   const fields = cleanFields(input);
   const found = await load(accountId, id);
   if (!found) throw new ContactError("This contact no longer exists.", 404);
-  await state().transaction().execute((trx) => write(trx, accountId, applyFields(found.card, fields), id));
+  await state().transaction().execute((trx) => writeCard(trx, accountId, applyFields(found.card, fields), id));
   return getContact(accountId, id);
 }
 
+/** Deletes contacts here, and queues their deletion on the CardDAV server for sync. */
 export async function deleteContacts(accountId: number, ids: number[]): Promise<number> {
   if (!ids.length) return 0;
-  const result = await state().deleteFrom("contacts").where("account_id", "=", accountId).where("id", "in", ids).executeTakeFirst();
-  return Number(result.numDeletedRows ?? 0);
+  return state().transaction().execute(async (trx) => {
+    const synced = await trx
+      .selectFrom("contacts")
+      .select(["book_id", "href", "etag"])
+      .where("account_id", "=", accountId)
+      .where("id", "in", ids)
+      .where("book_id", "is not", null)
+      .where("href", "is not", null)
+      .execute();
+    if (synced.length) {
+      await trx
+        .insertInto("contact_deletions")
+        .values(synced.map((r) => ({ account_id: accountId, book_id: r.book_id!, href: r.href!, etag: r.etag })))
+        .execute();
+    }
+    const result = await trx.deleteFrom("contacts").where("account_id", "=", accountId).where("id", "in", ids).executeTakeFirst();
+    return Number(result.numDeletedRows ?? 0);
+  });
 }
 
 /** The contact with this address, if there is one. */
@@ -220,7 +264,7 @@ export async function importVCards(accountId: number, text: string): Promise<Imp
         result.unchanged++;
         continue;
       }
-      await write(trx, accountId, card, existing?.id ?? null);
+      await writeCard(trx, accountId, card, existing?.id ?? null);
       if (existing) result.updated++;
       else result.added++;
     }

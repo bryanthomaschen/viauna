@@ -32,6 +32,7 @@ import {
 } from "./contacts.ts";
 import type { Credentials } from "./crypto.ts";
 import { db } from "./db.ts";
+import { contactEvents, syncContacts, syncSoon, syncStatus, syncsContacts } from "./contacts-sync.ts";
 import { MailboxAuthError, runtimeFor, stillProven } from "./imap/pool.ts";
 import { type AccountRuntime, type ChangeEvent, syncable } from "./imap/runtime.ts";
 import { type MailboxRow, getMailbox, getMailboxes, specialUseName } from "./imap/store.ts";
@@ -543,11 +544,30 @@ export function createApp() {
     await next();
   });
 
-  contacts.get("/", async (c) =>
-    c.json(await listContacts(c.get("rt").account.id, c.req.query("q") ?? "", Math.max(0, int(c.req.query("offset"), 0)))),
-  );
+  // After a change here: send it to the CardDAV server, if contacts sync.
+  const changed = (c: Context<Env>) => syncSoon(c.get("rt").account, c.get("creds"));
 
-  contacts.post("/", async (c) => c.json({ contact: await createContact(c.get("rt").account.id, await c.req.json().catch(() => null)) }));
+  contacts.get("/", async (c) => {
+    const { account } = c.get("rt");
+    const list = await listContacts(account.id, c.req.query("q") ?? "", Math.max(0, int(c.req.query("offset"), 0)));
+    const sync = await syncStatus(account);
+    // Opening the list fetches what changed on the server, if it's been a minute.
+    if (sync.server && !sync.syncing && (!sync.at || Date.now() - sync.at > 60_000)) void syncContacts(account, c.get("creds"));
+    return c.json({ ...list, sync });
+  });
+
+  contacts.post("/sync", async (c) => {
+    const { account } = c.get("rt");
+    if (!syncsContacts(account)) return c.json({ error: "Contacts don't sync with a server here." }, 400);
+    await syncContacts(account, c.get("creds"), { rediscover: true });
+    return c.json({ sync: await syncStatus(account) });
+  });
+
+  contacts.post("/", async (c) => {
+    const contact = await createContact(c.get("rt").account.id, await c.req.json().catch(() => null));
+    changed(c);
+    return c.json({ contact });
+  });
 
   // Before /:id, so "lookup" and "export" aren't taken for ids.
   contacts.get("/lookup", async (c) => c.json({ id: await contactWithAddress(c.get("rt").account.id, c.req.query("address") ?? "") }));
@@ -564,13 +584,17 @@ export function createApp() {
     if (int(c.req.header("content-length"), 0) > 20 * 1024 * 1024) return c.json({ error: "That file is too large: import at most 20 MB at a time." }, 413);
     const text = await c.req.text();
     if (text.length > 20 * 1024 * 1024) return c.json({ error: "That file is too large: import at most 20 MB at a time." }, 413);
-    return c.json(await importVCards(c.get("rt").account.id, text));
+    const result = await importVCards(c.get("rt").account.id, text);
+    changed(c);
+    return c.json(result);
   });
 
   contacts.post("/delete", async (c) => {
     const body = await c.req.json().catch(() => ({}));
     const ids = Array.isArray(body.ids) ? body.ids.filter(Number.isInteger).slice(0, 10_000) : [];
-    return c.json({ deleted: await deleteContacts(c.get("rt").account.id, ids) });
+    const deleted = await deleteContacts(c.get("rt").account.id, ids);
+    changed(c);
+    return c.json({ deleted });
   });
 
   contacts.get("/:id", async (c) => {
@@ -578,12 +602,15 @@ export function createApp() {
     return contact ? c.json({ contact }) : c.json({ error: "This contact no longer exists." }, 404);
   });
 
-  contacts.put("/:id", async (c) =>
-    c.json({ contact: await updateContact(c.get("rt").account.id, int(c.req.param("id")), await c.req.json().catch(() => null)) }),
-  );
+  contacts.put("/:id", async (c) => {
+    const contact = await updateContact(c.get("rt").account.id, int(c.req.param("id")), await c.req.json().catch(() => null));
+    changed(c);
+    return c.json({ contact });
+  });
 
   contacts.delete("/:id", async (c) => {
     const n = await deleteContacts(c.get("rt").account.id, [int(c.req.param("id"))]);
+    if (n) changed(c);
     return n ? c.json({ ok: true }) : c.json({ error: "This contact no longer exists." }, 404);
   });
 
@@ -704,7 +731,17 @@ export function createApp() {
         s.rt.subscribers = Math.max(0, s.rt.subscribers - 1);
         s.rt.touch();
       };
-      const closeAll = () => [...subs.keys()].forEach(unsubscribe);
+      // Contacts synced from the CardDAV server: the page refetches its list.
+      const indexOf = new Map(auth.accounts.map((sa) => [sa.account.id, sa.index]));
+      const onContacts = (accountId: number) => {
+        const index = indexOf.get(accountId);
+        if (index !== undefined && !stream.aborted) void stream.writeSSE({ event: "contacts", data: JSON.stringify({ index }) });
+      };
+      contactEvents.on("changed", onContacts);
+      const closeAll = () => {
+        contactEvents.off("changed", onContacts);
+        [...subs.keys()].forEach(unsubscribe);
+      };
       // Registered before any await, so a client that drops early never leaks a subscriber.
       stream.onAbort(closeAll);
       // Signing out (in any tab) or the session expiring ends the feed for that account

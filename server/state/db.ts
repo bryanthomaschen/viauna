@@ -77,6 +77,33 @@ export interface ContactTable {
   vcard: string;
   created_at: number;
   updated_at: number;
+  /** In an address book on the CardDAV server: which, at what URL, with what ETag. */
+  book_id: number | null;
+  href: string | null;
+  etag: string | null;
+  /** 1: changed here, not yet sent to the server. */
+  dirty: Generated<number>;
+  /** While dirty: the card as last synced, for a three-way merge. */
+  base: string | null;
+}
+
+export interface ContactBookTable {
+  id: Generated<number>;
+  account_id: number;
+  url: string;
+  url_hash: string;
+  name: string;
+  sync_token: string | null;
+  synced_at: number | null;
+  created_at: number;
+}
+
+export interface ContactDeletionTable {
+  id: Generated<number>;
+  account_id: number;
+  book_id: number;
+  href: string;
+  etag: string | null;
 }
 
 export interface ContactEmailTable {
@@ -96,11 +123,14 @@ export interface StateSchema {
   admin_log: AdminLogTable;
   contacts: ContactTable;
   contact_emails: ContactEmailTable;
+  contact_books: ContactBookTable;
+  contact_deletions: ContactDeletionTable;
 }
 
 /** In dependency order, for copying from one store to another. */
 export const STATE_TABLES = [
-  "accounts", "sessions", "session_accounts", "labels", "trusted_senders", "instance_settings", "admin_log", "contacts", "contact_emails",
+  "accounts", "sessions", "session_accounts", "labels", "trusted_senders", "instance_settings", "admin_log",
+  "contact_books", "contacts", "contact_emails", "contact_deletions",
 ] as const;
 
 export type Dialect = "sqlite" | "postgres" | "mysql";

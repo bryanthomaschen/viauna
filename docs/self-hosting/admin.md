@@ -54,7 +54,7 @@ What the page can change:
 | Admin mailboxes | `ADMIN_ADDRESSES` | Who can open the admin page. The page won't remove the last admin; the command line can. |
 | Allowed domains | `ALLOWED_DOMAINS` | Who can sign in. |
 | Other mail servers | `ALLOW_CUSTOM_SERVERS` | Whether people can enter their own IMAP and SMTP servers. |
-| Contacts | `CONTACTS` | The address book, on or off. |
+| Contacts, contacts sync | `CONTACTS`, `CONTACTS_SYNC` | The address book, and syncing it with `CARDDAV_URL`, on or off. |
 | Session length, accounts per browser, largest attachment, message cache | `SESSION_DAYS`, `MAX_ACCOUNTS`, `MAX_UPLOAD_MB`, `CACHE_MB` | |
 | Name | `APP_NAME` | |
 | Password changes | `PASSWORD_CHANGE` | Off, or one of the ways the environment set up. See [Password changes](./passwords.md). |
@@ -69,9 +69,10 @@ Some settings are read only from the environment, at startup:
 - your mail server (`IMAP_*`, `SMTP_*`): it's part of each account's identity, so
   changing it would make every account a new, empty one;
 - anything that could run code, reach your internal network, or send people's passwords
-  somewhere: `ALLOW_PRIVATE_SERVERS`, and where password changes go
+  somewhere: `ALLOW_PRIVATE_SERVERS`, where password changes go
   (`PASSWORD_CHANGE_URL`, `PASSWORD_CHANGE_COMMAND`, `PASSWORD_CHANGE_WEBHOOK`,
-  `PASSWORD_CHANGE_LDAP_*`).
+  `PASSWORD_CHANGE_LDAP_*`), and the contacts server (`CARDDAV_URL`), which each
+  mailbox signs in to with its password.
 
 That last group is deliberate. Someone who steals an admin's session can change what the
 page offers, but can't use it to run commands on your server, probe your network or

@@ -41,6 +41,15 @@ Viauna keeps each contact exactly as it was imported, and changes only the field
 edit here. Photos, postal addresses and anything else another app stored travel back
 out with an export.
 
+## On your other devices
+
+If your server syncs contacts with a CardDAV server, your contacts are the same in
+Viauna, on your phone and in other apps set up with that server. A change you make here
+is sent within a couple of seconds; changes made elsewhere arrive when you open
+Contacts, every ten minutes while you're signed in, or when you press **Sync now** (the
+circular arrows). The line under the title says when it last synced, or what went
+wrong.
+
 ## While you write
 
 As you type a name or address in To, Cc or Bcc, Viauna suggests your contacts first,

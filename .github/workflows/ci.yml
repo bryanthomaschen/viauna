@@ -35,11 +35,17 @@ jobs:
         env: { LDAP_ORGANISATION: Viauna, LDAP_DOMAIN: example.test, LDAP_ADMIN_PASSWORD: admin, LDAP_TLS_VERIFY_CLIENT: never }
         ports: ["53389:389"]
         options: --health-cmd "ldapwhoami -x -H ldap://127.0.0.1 -D cn=admin,dc=example,dc=test -w admin" --health-interval 2s --health-timeout 5s --health-retries 60
+      # A CardDAV server for contacts sync (test/carddav.test.ts).
+      carddav:
+        image: tomsquest/docker-radicale:3.5.8.0
+        ports: ["55232:5232"]
+        options: --tmpfs /data --health-cmd "wget -qO- http://127.0.0.1:5232/.web/" --health-interval 2s --health-timeout 5s --health-retries 60
     env:
       VIAUNA_TEST_PG: postgres://viauna:viauna@127.0.0.1:55432/viauna
       VIAUNA_TEST_MYSQL: mysql://viauna:viauna@127.0.0.1:53306/viauna
       VIAUNA_TEST_MARIADB: mariadb://viauna:viauna@127.0.0.1:53307/viauna
       VIAUNA_TEST_LDAP: ldap://127.0.0.1:53389
+      VIAUNA_TEST_CARDDAV: http://127.0.0.1:55232
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7

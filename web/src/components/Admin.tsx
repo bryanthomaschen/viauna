@@ -319,6 +319,7 @@ function Facts({ server }: { server: ServerFacts }) {
     ["Password change command", server.passwordCommand ? "Set" : "Not set", "PASSWORD_CHANGE_COMMAND"],
     ["Password change webhook", server.passwordWebhook ? "Set" : "Not set", "PASSWORD_CHANGE_WEBHOOK"],
     ["Password change directory", server.passwordLdap ?? "Not set", "PASSWORD_CHANGE_LDAP_URL"],
+    ["Contacts server (CardDAV)", server.carddav ?? "Not set: contacts stay in Viauna", "CARDDAV_URL"],
   ];
   return (
     <div className="setting" style={{ gridTemplateColumns: "1fr" }}>

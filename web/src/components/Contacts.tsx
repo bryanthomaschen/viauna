@@ -1,13 +1,14 @@
 // The address book: this mailbox's contacts, searchable, with vCard import and export,
 // and the dialog that adds or edits one (also opened from a message's menu).
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Download, Plus, Trash2, Upload, X } from "lucide-react";
+import { ArrowLeft, Download, Plus, RefreshCw, Trash2, Upload, X } from "lucide-react";
 import { type FormEvent, useRef, useState } from "react";
 import { ui, useAccount } from "../lib/account";
 import { api } from "../lib/api";
+import { longDate, relative } from "../lib/format";
 import { navigate } from "../lib/router";
 import { toast } from "../lib/store";
-import type { ContactFields } from "../lib/types";
+import type { ContactFields, ContactSync } from "../lib/types";
 import { Avatar, IconButton, Modal, useDebounced } from "./common";
 
 const EMPTY: ContactFields = { firstName: "", lastName: "", emails: [], phones: [], organization: "", title: "", birthday: "", notes: "" };
@@ -33,6 +34,20 @@ export function ContactsView() {
   });
   const contacts = list.data?.pages.flatMap((p) => p.contacts) ?? [];
   const total = list.data?.pages[0]?.total ?? 0;
+  const sync = list.data?.pages[0]?.sync;
+  const [syncing, setSyncing] = useState(false);
+  const syncNow = async () => {
+    setSyncing(true);
+    try {
+      const r = await api.syncContacts(acct.index);
+      if (r.sync.error) toast(r.sync.error, { error: true });
+      await client.invalidateQueries({ queryKey: ["contacts", acct.index] });
+    } catch (err) {
+      toast((err as Error).message, { error: true });
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const importFile = async (file: File | undefined) => {
     if (!file) return;
@@ -64,8 +79,14 @@ export function ContactsView() {
         <input ref={fileInput} type="file" accept=".vcf,text/vcard,text/x-vcard" hidden onChange={(e) => void importFile(e.target.files?.[0])} />
         <IconButton label="Import from a vCard file (.vcf)" onClick={() => fileInput.current?.click()}><Upload size={20} /></IconButton>
         <IconButton label="Export all as a vCard file" onClick={() => (location.href = api.exportContactsUrl(acct.index))} disabled={!total}><Download size={20} /></IconButton>
+        {sync?.server && (
+          <IconButton label="Sync now" onClick={() => void syncNow()} disabled={syncing || sync.syncing}>
+            <RefreshCw size={20} className={syncing || sync.syncing ? "spin" : ""} />
+          </IconButton>
+        )}
         <button type="button" className="btn btn-primary" onClick={() => open({})}><Plus size={18} /> Create contact</button>
       </div>
+      {sync?.server && <SyncLine sync={sync} />}
       <div className="settings">
         {list.isPending ? (
           <div className="empty"><div className="spinner lg" /></div>
@@ -107,6 +128,25 @@ export function ContactsView() {
         )}
       </div>
     </>
+  );
+}
+
+/** Where the contacts sync, and how the last sync went. */
+function SyncLine({ sync }: { sync: ContactSync }) {
+  const books = sync.books.length > 1 ? ` · ${sync.books.length} address books` : "";
+  if (sync.syncing) return <div className="sync-line">Syncing with {sync.server}…</div>;
+  if (sync.error) {
+    return (
+      <div className="sync-line error" role="status">
+        Couldn't sync with {sync.server}: {sync.error}
+        {sync.at && <> Last synced {relative(sync.at)}.</>}
+      </div>
+    );
+  }
+  return (
+    <div className="sync-line" title={sync.at ? longDate(sync.at) : undefined}>
+      {sync.at ? `Synced with ${sync.server} ${relative(sync.at)}${books}` : `Syncs with ${sync.server}${books}`}
+    </div>
   );
 }
 

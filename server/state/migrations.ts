@@ -124,6 +124,43 @@ export function migrations(dialect: Dialect): MigrationProvider {
         await db.schema.createIndex("contact_emails_address").on("contact_emails").columns(["account_id", "address"]).execute();
       },
     },
+
+    // 0.4: syncing contacts with a CardDAV server. A contact in an address book there
+    // has its book, its URL and ETag; dirty marks a change not yet sent, and base keeps
+    // the card as last synced until it is, for merging with a change made elsewhere.
+    // Deleting one queues the deletion, since its row is gone at once.
+    "0004_carddav": {
+      async up(db: Kysely<any>) {
+        await table(db, "contact_books")
+          .addColumn("id", serial, serialKey)
+          .addColumn("account_id", "integer", (c) => c.notNull())
+          .addColumn("url", "text", (c) => c.notNull())
+          .addColumn("url_hash", "varchar(64)", (c) => c.notNull()) // sha256 of url, for the unique key
+          .addColumn("name", "varchar(255)", (c) => c.notNull())
+          .addColumn("sync_token", "text")
+          .addColumn("synced_at", "bigint")
+          .addColumn("created_at", "bigint", (c) => c.notNull())
+          .addUniqueConstraint("contact_books_url", ["account_id", "url_hash"])
+          .addForeignKeyConstraint("contact_books_account", ["account_id"], "accounts", ["id"], (fk) => fk.onDelete("cascade"))
+          .execute();
+
+        await db.schema.alterTable("contacts").addColumn("book_id", "integer").execute();
+        await db.schema.alterTable("contacts").addColumn("href", "text").execute();
+        await db.schema.alterTable("contacts").addColumn("etag", "varchar(255)").execute();
+        await db.schema.alterTable("contacts").addColumn("dirty", "integer", (c) => c.notNull().defaultTo(0)).execute();
+        await db.schema.alterTable("contacts").addColumn("base", dialect === "mysql" ? sql`mediumtext` : "text").execute();
+        await db.schema.createIndex("contacts_book").on("contacts").columns(["account_id", "book_id"]).execute();
+
+        await table(db, "contact_deletions")
+          .addColumn("id", serial, serialKey)
+          .addColumn("account_id", "integer", (c) => c.notNull())
+          .addColumn("book_id", "integer", (c) => c.notNull())
+          .addColumn("href", "text", (c) => c.notNull())
+          .addColumn("etag", "varchar(255)")
+          .addForeignKeyConstraint("contact_deletions_account", ["account_id"], "accounts", ["id"], (fk) => fk.onDelete("cascade"))
+          .execute();
+      },
+    },
   };
   return { getMigrations: async () => all };
 }

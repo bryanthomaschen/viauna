@@ -1,5 +1,5 @@
-# Throwaway servers for the tests: databases for the state store on every engine, and an
-# LDAP directory for password changes. `npm run dev:databases`, then run the tests with
+# Throwaway servers for the tests: databases for the state store on every engine, an LDAP
+# directory for password changes, and a CardDAV server (Radicale) for contacts sync. `npm run dev:databases`, then run the tests with
 # the URLs in test/databases.ts. Ports bound to 127.0.0.1 only.
 # Data lives in memory (tests drop and recreate tables constantly, which is slow on
 # disk), and each reports healthy only once it accepts connections over TCP, which the
@@ -31,3 +31,9 @@ services:
     environment: { LDAP_ORGANISATION: Viauna, LDAP_DOMAIN: example.test, LDAP_ADMIN_PASSWORD: admin, LDAP_TLS_VERIFY_CLIENT: never }
     ports: ["127.0.0.1:53389:389"]
     healthcheck: { test: ["CMD", "ldapwhoami", "-x", "-H", "ldap://127.0.0.1", "-D", "cn=admin,dc=example,dc=test", "-w", "admin"], interval: 2s, retries: 60 }
+  # Accepts any login, as Radicale's image does by default; each login gets its own space.
+  carddav:
+    image: tomsquest/docker-radicale:3.5.8.0
+    ports: ["127.0.0.1:55232:5232"]
+    tmpfs: [/data]
+    healthcheck: { test: ["CMD", "wget", "-qO-", "http://127.0.0.1:5232/.web/"], interval: 2s, retries: 60 }

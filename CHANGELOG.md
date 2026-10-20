@@ -17,6 +17,10 @@ its notes before moving to it. A patch release (0.2.0 to 0.2.1) only fixes thing
   Contacts are kept whole, so photos and other apps' fields survive an edit. Suggestions
   while writing show your contacts first. On by default; turn it off with `CONTACTS` or
   from the admin page. See [Contacts](https://bryanthomaschen.github.io/viauna/using/contacts).
+- **Contacts sync** with a CardDAV server you run (Radicale, Mailu's `WEBDAV=radicale`,
+  Nextcloud, Baïkal, SOGo), signed in as each mailbox: set `CARDDAV_URL`. Changes go both
+  ways; one that crossed a change made elsewhere is merged, field by field, so neither
+  is lost. See [Contacts and CardDAV](https://bryanthomaschen.github.io/viauna/self-hosting/contacts).
 
 ## 0.3.0 - 2026-10-20
 

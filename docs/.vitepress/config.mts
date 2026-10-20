@@ -28,6 +28,7 @@ export default defineConfig({
           { text: "Configuration", link: "/self-hosting/configuration" },
           { text: "Admin page and command line", link: "/self-hosting/admin" },
           { text: "Password changes", link: "/self-hosting/passwords" },
+          { text: "Contacts and CardDAV", link: "/self-hosting/contacts" },
           { text: "Databases", link: "/self-hosting/databases" },
           { text: "Mail servers", link: "/self-hosting/mail-servers" },
           { text: "Mailu", link: "/self-hosting/mailu" },

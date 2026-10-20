@@ -7,6 +7,7 @@ import type {
   Contact,
   ContactFields,
   ContactSummary,
+  ContactSync,
   Conversation,
   MailboxesResponse,
   MessageRef,
@@ -119,7 +120,8 @@ export const api = {
     request<{ contacts: { address: string; name: string | null }[] }>("GET", `${u(a)}/suggestions?q=${encodeURIComponent(q)}`),
 
   contacts: (a: number, q: string, offset = 0) =>
-    request<{ contacts: ContactSummary[]; total: number }>("GET", `${u(a)}/contacts?q=${encodeURIComponent(q)}&offset=${offset}`),
+    request<{ contacts: ContactSummary[]; total: number; sync: ContactSync }>("GET", `${u(a)}/contacts?q=${encodeURIComponent(q)}&offset=${offset}`),
+  syncContacts: (a: number) => request<{ sync: ContactSync }>("POST", `${u(a)}/contacts/sync`),
   contact: (a: number, id: number) => request<{ contact: Contact }>("GET", `${u(a)}/contacts/${id}`),
   contactWithAddress: (a: number, address: string) => request<{ id: number | null }>("GET", `${u(a)}/contacts/lookup?address=${encodeURIComponent(address)}`),
   createContact: (a: number, fields: ContactFields) => request<{ contact: Contact }>("POST", `${u(a)}/contacts`, fields),

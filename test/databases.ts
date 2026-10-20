@@ -7,7 +7,9 @@
 //   VIAUNA_TEST_MARIADB=mariadb://viauna:viauna@127.0.0.1:53307/viauna
 //
 // Password changes over LDAP are tested against the directory there too, given
-// VIAUNA_TEST_LDAP=ldap://127.0.0.1:53389 (test/password.test.ts).
+// VIAUNA_TEST_LDAP=ldap://127.0.0.1:53389 (test/password.test.ts), and contacts sync
+// against its CardDAV server, given VIAUNA_TEST_CARDDAV=http://127.0.0.1:55232
+// (test/carddav.test.ts).
 import { STATE_TABLES, openState } from "../server/state/db.ts";
 
 export const ENGINES: { name: string; url: string | undefined }[] = [

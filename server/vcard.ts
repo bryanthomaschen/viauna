@@ -245,7 +245,7 @@ export function displayName(card: VCard): string {
   const fn = text(card, "FN");
   if (fn) return fn;
   const f = readFields(card);
-  return [f.firstName, f.lastName].filter(Boolean).join(" ") || f.organization || f.emails[0]?.address || "";
+  return [f.firstName, f.lastName].filter(Boolean).join(" ") || f.organization || f.emails[0]?.address || f.phones[0]?.number || "";
 }
 
 export function cardUid(card: VCard): string | null {
@@ -378,6 +378,6 @@ export function newCard(fields: ContactFields, uid: string, prodid: string): VCa
 /** Checks a card is one Viauna can keep: not too large, and naming someone. */
 export function checkCard(card: VCard): string | null {
   if (serializeVCard(card).length > MAX_CARD) return "That contact is too large (over 1 MB).";
-  if (!displayName(card)) return "A contact needs a name, an organisation or an email address.";
+  if (!displayName(card)) return "A contact needs a name, a company, an email address or a phone number.";
   return null;
 }

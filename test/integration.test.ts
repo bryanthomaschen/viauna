@@ -70,6 +70,7 @@ describe.skipIf(!enabled)("against a real IMAP server", { timeout: 30_000 }, () 
     const script = path.join(pwDir, "change.mjs");
     fs.writeFileSync(script, `import fs from "node:fs"; let s = ""; process.stdin.on("data", (d) => (s += d)).on("end", () => fs.writeFileSync(${JSON.stringify(pwOut)}, s));`);
     Object.assign(process.env, { PASSWORD_CHANGE: "command", PASSWORD_CHANGE_COMMAND: `"${process.execPath}" "${script}"` });
+    if (process.env.VIAUNA_TEST_CARDDAV) process.env.CARDDAV_URL = `${process.env.VIAUNA_TEST_CARDDAV}/{login}/`;
     const url = process.env.VIAUNA_TEST_DATABASE_URL || undefined;
     if (url) await (await import("./databases.ts")).emptyDatabase(url);
     dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "viauna-it-"));
@@ -265,6 +266,21 @@ describe.skipIf(!enabled)("against a real IMAP server", { timeout: 30_000 }, () 
     expect((await call("GET", "/api/u/0/suggestions?q=ann")).json.contacts[0]).toMatchObject({ address: "ann@example.org", name: "Ann" });
     await changeSettings({ contacts: null }, COMMAND_LINE);
     expect((await call("DELETE", `/api/u/0/contacts/${created.json.contact.id}`)).json).toEqual({ ok: true });
+  });
+
+  it.skipIf(!process.env.VIAUNA_TEST_CARDDAV)("syncs contacts with the CardDAV server as the mailbox", async () => {
+    const created = await call("POST", "/api/u/0/contacts", { firstName: "Mo", emails: [{ address: "mo@example.net" }] });
+    expect(created.status).toBe(200);
+    const synced = await call("POST", "/api/u/0/contacts/sync");
+    expect(synced.json.sync).toMatchObject({ server: new URL(process.env.VIAUNA_TEST_CARDDAV!).host, error: null, syncing: false });
+    expect(synced.json.sync.books[0]).toMatchObject({ name: "Contacts" });
+    const { DavClient } = await import("../server/carddav.ts");
+    const dav = new DavClient({ username: user, password: "pass" });
+    const { books } = await dav.discover(`${process.env.VIAUNA_TEST_CARDDAV}/`);
+    const { changed } = await dav.changes(books[0].url, null);
+    const cards = await dav.fetchCards(books[0].url, changed.map((c) => c.href));
+    expect(cards.some((c) => c.data.includes("FN:Mo"))).toBe(true);
+    expect((await call("GET", "/api/u/0/contacts")).json.sync.at).toBeGreaterThan(Date.now() - 60_000);
   });
 
   // Last: afterwards this session holds a password the dev server doesn't accept.

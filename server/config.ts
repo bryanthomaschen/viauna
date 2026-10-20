@@ -51,13 +51,13 @@ function int(name: string, fallback: number): number {
   return n;
 }
 
-/** An http(s) address, which may hold an {email} placeholder. */
+/** An http(s) address, which may hold an {email} (or {login}, {user}, {domain}) placeholder. */
 function webAddress(name: string): string | undefined {
   const value = env(name);
   if (value === undefined) return undefined;
   let url: URL | null;
   try {
-    url = new URL(value.replaceAll("{email}", "x"));
+    url = new URL(value.replace(/\{(email|login|user|domain)\}/g, "x"));
   } catch {
     url = null;
   }
@@ -126,6 +126,16 @@ export function endpointKey(e: Endpoint): string {
   return JSON.stringify({ host: e.host.toLowerCase(), port: e.port, security: e.security, servername: e.servername ?? null, verify: e.verify, ...(e.custom ? { custom: true } : {}) });
 }
 
+/**
+ * Whether an account signed in through this server's own mail server (IMAP_HOST), not
+ * one someone typed in at sign-in. Only these can be admins, change passwords through
+ * the operator's systems, or sync with the operator's CardDAV server: anyone can run a
+ * server that accepts any name, and a typed-in server's password isn't ours to send on.
+ */
+export function onOwnServer(account: { imap: Endpoint }): boolean {
+  return !!config.imap && !account.imap.custom && endpointKey(account.imap) === endpointKey(config.imap);
+}
+
 // ------------------------------------------------------------ changeable settings
 
 export type SettingValue = boolean | number | string | string[];
@@ -141,7 +151,7 @@ interface Common<K extends string, V extends SettingValue> {
 }
 
 export type SettingDef =
-  | (Common<"allowCustomServers" | "contacts", boolean> & { type: "boolean" })
+  | (Common<"allowCustomServers" | "contacts" | "contactsSync", boolean> & { type: "boolean" })
   | (Common<"sessionDays" | "maxAccounts" | "maxUploadMb" | "cacheMb", number> & { type: "integer"; min: number; max: number; unit: string })
   | (Common<"appName", string> & { type: "text"; max: number; required?: boolean })
   | (Common<"admins" | "allowedDomains", string[]> & { type: "list"; item: "address" | "domain" })
@@ -154,6 +164,7 @@ export interface SettingValues {
   allowedDomains: string[];
   allowCustomServers: boolean;
   contacts: boolean;
+  contactsSync: boolean;
   sessionDays: number;
   maxAccounts: number;
   maxUploadMb: number;
@@ -183,6 +194,11 @@ export const SETTINGS: readonly SettingDef[] = [
     key: "contacts", env: "CONTACTS", type: "boolean", default: true,
     section: "Features", label: "Contacts",
     help: "Each mailbox's address book, with vCard import and export, and suggestions from it while writing.",
+  },
+  {
+    key: "contactsSync", env: "CONTACTS_SYNC", type: "boolean", default: true,
+    section: "Features", label: "Contacts sync",
+    help: "Keep each mailbox's contacts in step with your CardDAV server (CARDDAV_URL, set in the environment), signed in as the mailbox.",
   },
   {
     key: "sessionDays", env: "SESSION_DAYS", type: "integer", min: 1, max: 3650, unit: "days", default: 30,
@@ -347,6 +363,12 @@ export const config = {
   passwordWebhookSecret: env("PASSWORD_CHANGE_WEBHOOK_SECRET"),
   /** A directory that changes the password with the LDAP Password Modify operation. */
   passwordLdap: ldapTarget(),
+
+  /**
+   * The CardDAV server contacts sync with (contacts-sync.ts), signed in as each mailbox
+   * with its own password, so set only here. {login}, {user} and {domain} are filled in.
+   */
+  carddavUrl: webAddress("CARDDAV_URL"),
 
   logLevel: env("LOG_LEVEL", "info")!,
 

@@ -15,6 +15,8 @@ server/            Node (TypeScript, Hono)
   db.ts            the mail index: SQLite schema and helpers (node:sqlite)
   settings.ts      per-mailbox settings, trusted senders
   contacts.ts      the address book: storage, search, import and export, suggestions
+  contacts-sync.ts keeping contacts in step with a CardDAV server
+  carddav.ts       a small CardDAV client: discovery, sync-collection, multiget, If-Match
   vcard.ts         reading and writing vCard (2.1, 3.0, 4.0) without losing anything
   state/
     db.ts          the state store: engines, schema types, helpers (Kysely)
@@ -72,6 +74,18 @@ local ids.
 An account's id is part of the key that encrypts its saved passwords, so copying state
 between stores (the upgrade from 0.1, or moving from SQLite to a server database) keeps
 ids as they are.
+
+## Contacts sync
+
+With `CARDDAV_URL` set, the CardDAV server holds each mailbox's contacts and the state
+store a synced copy: each contact has its book, URL and ETag. A sync sends first
+(queued deletions, contacts made here, then edits marked dirty, each with If-Match), then
+fetches (sync-collection from the book's token, or a full ETag listing). An edit that
+crossed one made elsewhere is merged three ways against `base`, the card as last synced,
+kept while the contact is dirty: fields changed here take this side's value, the rest
+the server's. Syncs run per mailbox, one at a time, alongside its IMAP runtime (on
+start, every ten minutes, soon after a local change, and on demand), signed in with the
+session's own credentials, and announce themselves on the live-updates stream.
 
 ## Sync
 
@@ -189,6 +203,9 @@ should say which kind it is.
   reaches the internal network or receives passwords (see Settings above), so a stolen
   admin session can't be turned into any of those. The last admin can only be removed
   from the command line, which needs access to the server.
+- **CardDAV** gets each mailbox's own login and password, so `CARDDAV_URL` is
+  environment-only, and only accounts on `IMAP_HOST` sync: a typed-in server's
+  password is never sent to the operator's CardDAV server.
 - **Changing a password** checks the current one with the mail server first, counts
   attempts per mailbox, and hands the change to the operator's link, command, webhook or
   LDAP directory.

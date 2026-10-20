@@ -173,6 +173,15 @@ export interface Contact {
   fields: ContactFields;
 }
 
+/** Syncing with the CardDAV server; server is null when contacts don't sync. */
+export interface ContactSync {
+  server: string | null;
+  syncing: boolean;
+  at: number | null;
+  error: string | null;
+  books: { name: string; count: number }[];
+}
+
 export type ActionName =
   | "archive" | "trash" | "delete" | "spam" | "notspam" | "inbox" | "move"
   | "read" | "unread" | "star" | "unstar" | "label" | "unlabel";
@@ -229,6 +238,7 @@ export interface ServerFacts {
   passwordCommand: boolean;
   passwordWebhook: boolean;
   passwordLdap: string | null;
+  carddav: string | null;
 }
 
 export interface AdminData {

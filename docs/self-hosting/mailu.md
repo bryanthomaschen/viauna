@@ -51,6 +51,10 @@ Notes:
   `PASSWORD_CHANGE: link` and
   `PASSWORD_CHANGE_URL: https://mail.example.com/admin/user/password`. See
   [Password changes](./passwords.md).
+- To sync contacts with Mailu's own CardDAV server, turn it on in Mailu
+  (`WEBDAV=radicale`) and set `CARDDAV_URL: https://mail.example.com/webdav/`. Phones
+  and Thunderbird can then use the same address books. See
+  [Contacts and CardDAV](./contacts.md).
 - To make yourself an admin of Viauna (not of Mailu):
   `docker compose exec viauna viauna admin add you@example.com`. See
   [Admin page and command line](./admin.md).

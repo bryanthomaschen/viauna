@@ -16,7 +16,7 @@ import { spawn } from "node:child_process";
 import crypto from "node:crypto";
 import net from "node:net";
 import { Client, ConstraintViolationError, InvalidCredentialsError, UnwillingToPerformError } from "ldapts";
-import { type LdapTarget, VERSION, config, endpointKey, setting } from "./config.ts";
+import { type LdapTarget, VERSION, config, onOwnServer, setting } from "./config.ts";
 import type { AccountInfo } from "./imap/runtime.ts";
 import { log } from "./log.ts";
 
@@ -41,7 +41,7 @@ const WEBHOOK_MS = 15_000;
  * server someone typed in at sign-in.
  */
 export function passwordChangeFor(account: AccountInfo): PasswordChange | null {
-  if (!config.imap || account.imap.custom || endpointKey(account.imap) !== endpointKey(config.imap)) return null;
+  if (!onOwnServer(account)) return null;
   const method = setting("passwordChange");
   if (method === "link") {
     const url = config.passwordChangeUrl;

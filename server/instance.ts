@@ -13,8 +13,8 @@ import {
   SETTINGS,
   VERSION,
   config,
-  endpointKey,
   lockedBy,
+  onOwnServer,
   parseSetting,
   setOverrides,
   setting,
@@ -215,9 +215,7 @@ export async function recentChanges(limit = 25): Promise<ChangeRecord[]> {
  * The login is compared, not the address typed: it's what the mail server checked.
  */
 export function isAdmin(account: AccountInfo): boolean {
-  if (!config.imap || account.imap.custom) return false;
-  if (endpointKey(account.imap) !== endpointKey(config.imap)) return false;
-  return setting("admins").includes(account.login);
+  return onOwnServer(account) && setting("admins").includes(account.login);
 }
 
 const describeLdap = (t: LdapTarget | undefined) =>
@@ -247,5 +245,6 @@ export function serverFacts() {
     passwordCommand: !!config.passwordCommand,
     passwordWebhook: !!config.passwordWebhook,
     passwordLdap: describeLdap(config.passwordLdap),
+    carddav: config.carddavUrl ?? null,
   };
 }

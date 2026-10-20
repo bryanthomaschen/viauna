@@ -161,6 +161,7 @@ export class AccountRuntime extends EventEmitter {
     }
     this.retryTimers.clear();
     this.pollTimer = null;
+    this.emit("stopped");
     await Promise.all([this.fg.close(), this.bg.close(), this.idle.close()]);
   }
 
