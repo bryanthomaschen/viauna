@@ -34,6 +34,8 @@ export interface AuthContext {
   sessionHash: string;
   cookieKey: string;
   accounts: SessionAccount[];
+  /** The expiry moved on just now: the browser's cookie should too. */
+  extended?: boolean;
 }
 
 interface AccountRecord {
@@ -59,7 +61,8 @@ export async function loadSession(cookie: string | undefined): Promise<AuthConte
     .where("id", "=", hash)
     .executeTakeFirst();
   if (!session || session.expires_at < now) return null;
-  if (now - session.seen_at > 3600_000) {
+  const extended = now - session.seen_at > 3600_000;
+  if (extended) {
     // Sliding expiry, written at most hourly.
     await state()
       .updateTable("sessions")
@@ -79,6 +82,7 @@ export async function loadSession(cookie: string | undefined): Promise<AuthConte
     sessionHash: hash,
     cookieKey: parsed.key,
     accounts: rows.map((r, index) => ({ index, account: accountInfo(r), credential: r.credential })),
+    extended,
   };
 }
 

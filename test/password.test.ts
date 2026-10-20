@@ -143,6 +143,14 @@ describe("who can change a password here", () => {
     expect(pw.passwordChangeFor(account({ ...configured, custom: true }))).toBeNull();
   });
 
+  it("fills in the login, its parts and the address, as the setting promises", async () => {
+    const pw = await loadWith({ PASSWORD_CHANGE: "link", PASSWORD_CHANGE_URL: "https://mail.example.test/{domain}/{user}?login={login}&to={email}" });
+    expect(pw.passwordChangeFor(account())).toEqual({
+      method: "link",
+      url: "https://mail.example.test/example.test/ann?login=ann%40example.test&to=ann%2Bx%40example.test",
+    });
+  });
+
   it("refuses to start with a password page that isn't a web address", async () => {
     for (const url of ["javascript:alert(1)", "mail.example.com", "ftp://x.test"]) {
       await expect(loadWith({ PASSWORD_CHANGE_URL: url })).rejects.toThrow(/PASSWORD_CHANGE_URL must be an http/);

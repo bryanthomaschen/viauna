@@ -181,7 +181,12 @@ export function createApp() {
       const origin = c.req.header("origin") ?? c.req.header("referer") ?? null;
       if (!sameOrigin(c, origin)) return c.json({ error: "Cross-origin request refused." }, 403);
     }
-    c.set("auth", await loadSession(getCookie(c, COOKIE_NAME)));
+    const cookie = getCookie(c, COOKIE_NAME);
+    const auth = await loadSession(cookie);
+    c.set("auth", auth);
+    // The browser keeps the cookie for SESSION_DAYS from when it was last sent, so it's
+    // sent again each time the session is extended: a session in use doesn't lapse.
+    if (auth?.extended && auth.accounts.length && cookie) setSessionCookie(c, cookie);
     c.header("Cache-Control", "no-store");
     await next();
   });

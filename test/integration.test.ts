@@ -99,6 +99,18 @@ describe.skipIf(!enabled)("against a real IMAP server", { timeout: 30_000 }, () 
     expect(cookie).toMatch(/^viauna_session=/);
   });
 
+  it("sends the cookie again when the session is extended, so a session in use doesn't lapse", async () => {
+    const { state } = await import("../server/state/db.ts");
+    await state().updateTable("sessions").set({ seen_at: Date.now() - 2 * 3600_000 }).execute();
+    const res = await app.request("/api/session", { headers: { ...ORIGIN, Cookie: cookie } });
+    const set = res.headers.get("set-cookie") ?? "";
+    expect(set.split(";")[0]).toBe(cookie);
+    expect(set).toMatch(/Max-Age=2592000/);
+    // At most hourly, not on every request.
+    const again = await app.request("/api/session", { headers: { ...ORIGIN, Cookie: cookie } });
+    expect(again.headers.get("set-cookie")).toBeNull();
+  });
+
   it("refuses cross-origin writes", async () => {
     const res = await app.request("/api/u/0/actions", { method: "POST", headers: { Origin: "https://evil.example", Cookie: cookie, "Content-Type": "application/json" }, body: "{}" });
     expect(res.status).toBe(403);

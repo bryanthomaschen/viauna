@@ -45,7 +45,7 @@ export function passwordChangeFor(account: AccountInfo): PasswordChange | null {
   const method = setting("passwordChange");
   if (method === "link") {
     const url = config.passwordChangeUrl;
-    return url ? { method: "link", url: url.replaceAll("{email}", encodeURIComponent(account.email)) } : null;
+    return url ? { method: "link", url: fillTemplate(url.replaceAll("{email}", encodeURIComponent(account.email)), account.login, encodeURIComponent) } : null;
   }
   if (method === "command") return config.passwordCommand ? { method: "form" } : null;
   if (method === "webhook") return config.passwordWebhook ? { method: "form" } : null;
