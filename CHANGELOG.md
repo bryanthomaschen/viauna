@@ -9,6 +9,13 @@ its notes before moving to it. A patch release (0.2.0 to 0.2.1) only fixes thing
 
 ## Unreleased
 
+### Fixed
+
+- Starring a conversation and quickly unstarring it (or any two quick actions on the
+  same conversation) could show the first one again for a moment. The two could also
+  reach the server out of order and leave the first in place; they're now sent in the
+  order you make them.
+
 ## 0.4.0 - 2026-10-20
 
 An address book for every mailbox, which can stay in step with your phone through your

@@ -3,6 +3,7 @@
 // synced from the CardDAV server appear when the sync ends.
 import { type QueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
+import { refreshWhenSettled } from "./actions";
 import { prefs, toast } from "./store";
 
 interface ChangeEvent {
@@ -21,11 +22,9 @@ export function useLiveUpdates(client: QueryClient, accountCount: number, onOpen
 
     const refresh = () => {
       flush = null;
-      for (const index of pending) {
-        void client.invalidateQueries({ queryKey: ["mailboxes", index] });
-        void client.invalidateQueries({ queryKey: ["threads", index] });
-        void client.invalidateQueries({ queryKey: ["thread", index] });
-      }
+      // While actions are in flight, their own refresh follows them; one now would show
+      // the server midway (a star back for a moment after unstarring).
+      for (const index of pending) refreshWhenSettled(client, index);
       pending.clear();
     };
 

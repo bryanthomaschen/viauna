@@ -41,6 +41,42 @@ const MESSAGES: Partial<Record<ActionName, (n: number) => string>> = {
 
 let lastUndo: (() => void) | null = null;
 
+// Actions are sent one at a time per account, in the order they were made, and the lists
+// are refreshed from the server only once none is left. Otherwise a quick star-then-unstar
+// shows the star again for a moment: the star's refresh lands before the unstar is done.
+const queues = new Map<number, Promise<unknown>>();
+const inFlight = new Map<number, number>();
+const deferred = new Set<number>();
+
+function refreshNow(client: QueryClient, account: number) {
+  void client.invalidateQueries({ queryKey: ["threads", account] });
+  void client.invalidateQueries({ queryKey: ["mailboxes", account] });
+  void client.invalidateQueries({ queryKey: ["thread", account] });
+}
+
+/** Refreshes an account's lists, or once its actions in flight are done (live updates use this too). */
+export function refreshWhenSettled(client: QueryClient, account: number) {
+  if (inFlight.get(account)) deferred.add(account);
+  else refreshNow(client, account);
+}
+
+/** Runs fn after the account's earlier actions, and refreshes when the last one ends. */
+function inOrder<T>(client: QueryClient, account: number, fn: () => Promise<T>): Promise<T> {
+  inFlight.set(account, (inFlight.get(account) ?? 0) + 1);
+  const run = (queues.get(account) ?? Promise.resolve()).catch(() => {}).then(fn);
+  queues.set(account, run);
+  const done = () => {
+    const left = (inFlight.get(account) ?? 1) - 1;
+    if (left > 0) return void inFlight.set(account, left);
+    inFlight.delete(account);
+    queues.delete(account);
+    deferred.delete(account);
+    refreshNow(client, account);
+  };
+  run.then(done, done);
+  return run;
+}
+
 /** Gmail's "z": undo the last action. */
 export function undoLast() {
   lastUndo?.();
@@ -81,15 +117,11 @@ export async function runAction(
   req: ActionRequest,
   opts: { quiet?: boolean } = {},
 ): Promise<boolean> {
+  // A list already loading would overwrite the change about to be shown.
+  await client.cancelQueries({ queryKey: ["threads", account] });
   patchLists(client, account, folder, req);
-  const refresh = () => {
-    void client.invalidateQueries({ queryKey: ["threads", account] });
-    void client.invalidateQueries({ queryKey: ["mailboxes", account] });
-    void client.invalidateQueries({ queryKey: ["thread", account] });
-  };
   try {
-    const res = await api.action(account, { ...req, view: viewParam(folder) === "search" ? "all" : viewParam(folder) });
-    refresh();
+    const res = await inOrder(client, account, () => api.action(account, { ...req, view: viewParam(folder) === "search" ? "all" : viewParam(folder) }));
     const n = req.threads?.length ?? 1;
     const text = MESSAGES[req.action]?.(n);
     if (res.undo) {
@@ -97,12 +129,11 @@ export async function runAction(
       const doUndo = async () => {
         lastUndo = null;
         try {
-          await api.undo(account, token);
+          await inOrder(client, account, () => api.undo(account, token));
           toast("Action undone.");
         } catch (err) {
           toast((err as Error).message, { error: true });
         }
-        refresh();
       };
       lastUndo = () => void doUndo();
       if (text && !opts.quiet) toast(text, { action: { label: "Undo", run: () => void doUndo() } });
@@ -111,7 +142,6 @@ export async function runAction(
     }
     return true;
   } catch (err) {
-    refresh();
     toast((err as Error).message, { error: true });
     return false;
   }
