@@ -41,11 +41,6 @@ its notes before moving to it. A patch release (0.2.0 to 0.2.1) only fixes thing
 
 ### Fixed
 
-- A setting changed on the admin page or with the `viauna` command now applies at once
-  in every open page, including the admin's own: before, some (such as allowing
-  forwarding in filters) took effect only after reloading the page. Changes from the
-  command line, or from another instance sharing a PostgreSQL database, are announced
-  to the server rather than picked up every ten seconds.
 - Saving a filter that skips the inbox makes the Archive folder if the mailbox has
   none (some mail servers, Mailu among them, don't make one), so it shows in the
   sidebar at once, before any mail lands in it.
@@ -59,6 +54,16 @@ its notes before moving to it. A patch release (0.2.0 to 0.2.1) only fixes thing
   - `Esc` after closing the label or folder picker didn't go back to the list.
   - `z` pressed before the server had finished an action did nothing, or undid the
     action before it.
+
+## 0.4.2 - 2026-10-20
+
+### Fixed
+
+- A setting changed on the admin page or with the `viauna` command now applies at once
+  in every open page, including the admin's own: before, some (such as the app's name,
+  or turning contacts on or off) took effect only after reloading the page. Changes
+  from the command line are announced to the server rather than picked up every ten
+  seconds.
 - You were signed out `SESSION_DAYS` (30 days) after first signing in on a browser,
   however often you used it: the session was extended, but the browser's cookie wasn't.
   It's now sent again when the session is extended, so you stay signed in for 30 days
