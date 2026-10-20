@@ -60,7 +60,9 @@ function General() {
   const [signature, setSignature] = useState(s?.signature ?? "");
   const editor = useMailEditor(s?.signature ?? "", "", setSignature, false);
   useEffect(() => {
-    if (s && editor && !editor.isFocused && editor.getHTML() !== s.signature) editor.commands.setContent(s.signature);
+    // TipTap destroys an editor whose component took over a millisecond to mount, and
+    // renders again with a new one; the destroyed one throws on getHTML().
+    if (s && editor && !editor.isDestroyed && !editor.isFocused && editor.getHTML() !== s.signature) editor.commands.setContent(s.signature);
   }, [s, editor]);
   if (!s) return <div className="empty"><div className="spinner lg" /></div>;
   const setPref = <K extends keyof typeof p>(k: K, v: (typeof p)[K]) => prefs.set((x) => ({ ...x, [k]: v }));
