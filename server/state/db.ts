@@ -1,6 +1,7 @@
 // The state store: what must survive, unlike the mail index (../db.ts), which is a
 // cache of the IMAP server. Accounts, sessions, settings, label names and colours,
-// trusted senders, and the instance's own settings with a record of their changes. SQLite in DATA_DIR by default; PostgreSQL or MySQL/MariaDB
+// trusted senders, the instance's own settings with a record of their changes, and each
+// mailbox's address book. SQLite in DATA_DIR by default; PostgreSQL or MySQL/MariaDB
 // when DATABASE_URL says so. One schema and one set of queries (Kysely) for all three.
 import fs from "node:fs";
 import path from "node:path";
@@ -66,6 +67,25 @@ export interface AdminLogTable {
   new_value: string | null;
 }
 
+export interface ContactTable {
+  id: Generated<number>;
+  account_id: number;
+  uid: string;
+  name: string;
+  sort_key: string;
+  search: string;
+  vcard: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface ContactEmailTable {
+  contact_id: number;
+  account_id: number;
+  position: number;
+  address: string;
+}
+
 export interface StateSchema {
   accounts: AccountTable;
   sessions: SessionTable;
@@ -74,10 +94,14 @@ export interface StateSchema {
   trusted_senders: TrustedSenderTable;
   instance_settings: InstanceSettingTable;
   admin_log: AdminLogTable;
+  contacts: ContactTable;
+  contact_emails: ContactEmailTable;
 }
 
 /** In dependency order, for copying from one store to another. */
-export const STATE_TABLES = ["accounts", "sessions", "session_accounts", "labels", "trusted_senders", "instance_settings", "admin_log"] as const;
+export const STATE_TABLES = [
+  "accounts", "sessions", "session_accounts", "labels", "trusted_senders", "instance_settings", "admin_log", "contacts", "contact_emails",
+] as const;
 
 export type Dialect = "sqlite" | "postgres" | "mysql";
 

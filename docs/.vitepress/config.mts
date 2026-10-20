@@ -40,6 +40,7 @@ export default defineConfig({
         items: [
           { text: "The basics", link: "/using/basics" },
           { text: "Search", link: "/using/search" },
+          { text: "Contacts", link: "/using/contacts" },
           { text: "Keyboard shortcuts", link: "/using/shortcuts" },
         ],
       },

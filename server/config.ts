@@ -141,7 +141,7 @@ interface Common<K extends string, V extends SettingValue> {
 }
 
 export type SettingDef =
-  | (Common<"allowCustomServers", boolean> & { type: "boolean" })
+  | (Common<"allowCustomServers" | "contacts", boolean> & { type: "boolean" })
   | (Common<"sessionDays" | "maxAccounts" | "maxUploadMb" | "cacheMb", number> & { type: "integer"; min: number; max: number; unit: string })
   | (Common<"appName", string> & { type: "text"; max: number; required?: boolean })
   | (Common<"admins" | "allowedDomains", string[]> & { type: "list"; item: "address" | "domain" })
@@ -153,6 +153,7 @@ export interface SettingValues {
   admins: string[];
   allowedDomains: string[];
   allowCustomServers: boolean;
+  contacts: boolean;
   sessionDays: number;
   maxAccounts: number;
   maxUploadMb: number;
@@ -177,6 +178,11 @@ export const SETTINGS: readonly SettingDef[] = [
     key: "allowCustomServers", env: "ALLOW_CUSTOM_SERVERS", type: "boolean", default: false,
     section: "Who can sign in", label: "Other mail servers",
     help: "Let people enter their own IMAP and SMTP servers, and a username, on the sign-in page.",
+  },
+  {
+    key: "contacts", env: "CONTACTS", type: "boolean", default: true,
+    section: "Features", label: "Contacts",
+    help: "Each mailbox's address book, with vCard import and export, and suggestions from it while writing.",
   },
   {
     key: "sessionDays", env: "SESSION_DAYS", type: "integer", min: 1, max: 3650, unit: "days", default: 30,

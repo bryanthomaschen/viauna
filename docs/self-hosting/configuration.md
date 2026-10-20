@@ -38,6 +38,12 @@ take `true` or `false`, `1` or `0`, `yes` or `no`, `on` or `off`.
 | `APP_NAME` | `Viauna` | **Live.** Shown in the title bar and on the sign-in page. |
 | `HOST`, `PORT` | `0.0.0.0`, `3000` in the image | Where to listen. Outside Docker the default host is `127.0.0.1`. |
 
+## Features
+
+| Variable | Default | |
+|---|---|---|
+| `CONTACTS` | `true` | **Live.** Each mailbox's address book, with vCard import and export, and suggestions from it while writing. Off: the Contacts page is gone and suggestions come only from mail people have exchanged; saved contacts are kept. |
+
 ## Sessions and limits
 
 | Variable | Default | |

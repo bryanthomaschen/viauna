@@ -4,6 +4,9 @@ import type {
   AdminData,
   AdminSetting,
   AppConfig,
+  Contact,
+  ContactFields,
+  ContactSummary,
   Conversation,
   MailboxesResponse,
   MessageRef,
@@ -112,8 +115,19 @@ export const api = {
       "X-Filename": encodeURIComponent(file.name),
     }),
 
-  contacts: (a: number, q: string) =>
-    request<{ contacts: { address: string; name: string | null }[] }>("GET", `${u(a)}/contacts?q=${encodeURIComponent(q)}`),
+  suggestions: (a: number, q: string) =>
+    request<{ contacts: { address: string; name: string | null }[] }>("GET", `${u(a)}/suggestions?q=${encodeURIComponent(q)}`),
+
+  contacts: (a: number, q: string, offset = 0) =>
+    request<{ contacts: ContactSummary[]; total: number }>("GET", `${u(a)}/contacts?q=${encodeURIComponent(q)}&offset=${offset}`),
+  contact: (a: number, id: number) => request<{ contact: Contact }>("GET", `${u(a)}/contacts/${id}`),
+  contactWithAddress: (a: number, address: string) => request<{ id: number | null }>("GET", `${u(a)}/contacts/lookup?address=${encodeURIComponent(address)}`),
+  createContact: (a: number, fields: ContactFields) => request<{ contact: Contact }>("POST", `${u(a)}/contacts`, fields),
+  updateContact: (a: number, id: number, fields: ContactFields) => request<{ contact: Contact }>("PUT", `${u(a)}/contacts/${id}`, fields),
+  deleteContact: (a: number, id: number) => request<{ ok: true }>("DELETE", `${u(a)}/contacts/${id}`),
+  importContacts: (a: number, file: File) =>
+    request<{ added: number; updated: number; unchanged: number; skipped: number }>("POST", `${u(a)}/contacts/import`, file, { "Content-Type": "text/vcard" }),
+  exportContactsUrl: (a: number) => `${u(a)}/contacts/export`,
   settings: (a: number) => request<{ settings: Settings; email: string; password: PasswordChange | null }>("GET", `${u(a)}/settings`),
   changePassword: (a: number, current: string, next: string) =>
     request<{ ok: true; signedOut: number }>("POST", `${u(a)}/password`, { current, next }),

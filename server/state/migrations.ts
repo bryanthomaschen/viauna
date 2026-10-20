@@ -92,6 +92,38 @@ export function migrations(dialect: Dialect): MigrationProvider {
         await db.schema.createIndex("admin_log_at").on("admin_log").column("at").execute();
       },
     },
+
+    // 0.4: the address book. Each contact is kept whole, as its vCard, with the name to
+    // sort by and a lower-cased text to search (the engines differ in case and collation),
+    // and its addresses in their own table, for suggestions and for "is this a contact".
+    "0003_contacts": {
+      async up(db: Kysely<any>) {
+        await table(db, "contacts")
+          .addColumn("id", serial, serialKey)
+          .addColumn("account_id", "integer", (c) => c.notNull())
+          .addColumn("uid", "varchar(255)", (c) => c.notNull())
+          .addColumn("name", "varchar(500)", (c) => c.notNull())
+          .addColumn("sort_key", "varchar(500)", (c) => c.notNull())
+          .addColumn("search", "text", (c) => c.notNull())
+          .addColumn("vcard", dialect === "mysql" ? sql`mediumtext` : "text", (c) => c.notNull()) // MySQL's text is 64 KB
+          .addColumn("created_at", "bigint", (c) => c.notNull())
+          .addColumn("updated_at", "bigint", (c) => c.notNull())
+          .addUniqueConstraint("contacts_uid", ["account_id", "uid"])
+          .addForeignKeyConstraint("contacts_account", ["account_id"], "accounts", ["id"], (fk) => fk.onDelete("cascade"))
+          .execute();
+        await db.schema.createIndex("contacts_sort").on("contacts").columns(["account_id", "sort_key"]).execute();
+
+        await table(db, "contact_emails")
+          .addColumn("contact_id", "integer", (c) => c.notNull())
+          .addColumn("account_id", "integer", (c) => c.notNull())
+          .addColumn("position", "integer", (c) => c.notNull())
+          .addColumn("address", "varchar(320)", (c) => c.notNull()) // lower-cased
+          .addPrimaryKeyConstraint("contact_emails_pk", ["contact_id", "position"])
+          .addForeignKeyConstraint("contact_emails_contact", ["contact_id"], "contacts", ["id"], (fk) => fk.onDelete("cascade"))
+          .execute();
+        await db.schema.createIndex("contact_emails_address").on("contact_emails").columns(["account_id", "address"]).execute();
+      },
+    },
   };
   return { getMigrations: async () => all };
 }

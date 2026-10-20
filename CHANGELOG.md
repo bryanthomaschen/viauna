@@ -9,6 +9,15 @@ its notes before moving to it. A patch release (0.2.0 to 0.2.1) only fixes thing
 
 ## Unreleased
 
+### Added
+
+- **Contacts**: an address book for each mailbox, in the menu on the left. Create
+  contacts, add a sender from a message's menu, and import or export vCard files, as
+  Gmail, Apple Contacts, Thunderbird and Roundcube write them (vCard 2.1, 3.0 and 4.0).
+  Contacts are kept whole, so photos and other apps' fields survive an edit. Suggestions
+  while writing show your contacts first. On by default; turn it off with `CONTACTS` or
+  from the admin page. See [Contacts](https://bryanthomaschen.github.io/viauna/using/contacts).
+
 ## 0.3.0 - 2026-10-20
 
 Run your server from a web page: settings change without a restart, and people can

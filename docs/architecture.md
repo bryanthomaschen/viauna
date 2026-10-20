@@ -14,6 +14,8 @@ server/            Node (TypeScript, Hono)
   storage.ts       opens both stores at startup; upgrades older layouts
   db.ts            the mail index: SQLite schema and helpers (node:sqlite)
   settings.ts      per-mailbox settings, trusted senders
+  contacts.ts      the address book: storage, search, import and export, suggestions
+  vcard.ts         reading and writing vCard (2.1, 3.0, 4.0) without losing anything
   state/
     db.ts          the state store: engines, schema types, helpers (Kysely)
     migrations.ts  its schema, for SQLite, PostgreSQL and MySQL/MariaDB
@@ -45,8 +47,11 @@ Two stores, split by whether the data can be fetched again:
 
 - **The state store** (`server/state/`) holds what a person chose or did: accounts,
   sessions and their encrypted passwords, each mailbox's settings, label names and
-  colours, trusted senders, and the settings admins changed with a record of each
-  change. SQLite in `DATA_DIR/state.db` by default, or PostgreSQL or
+  colours, trusted senders, the settings admins changed with a record of each
+  change, and contacts. A contact is kept whole, as its vCard, and Viauna rewrites only
+  the fields it edits, so whatever another app stored in it (a photo, a postal address,
+  its own fields) survives; its name, a search text and its addresses sit beside it,
+  lower-cased by Viauna, since the engines compare and sort text differently. SQLite in `DATA_DIR/state.db` by default, or PostgreSQL or
   MySQL/MariaDB through `DATABASE_URL`, with one schema and one set of queries
   ([Kysely](https://kysely.dev)). Engines differ only in auto-increment ids, the binary
   type, and MySQL's table options (utf8mb4 with binary collation, so comparisons are

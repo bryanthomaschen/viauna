@@ -17,7 +17,19 @@ import {
   signOutAccount,
   signOutAll,
 } from "./auth.ts";
-import { VERSION, config, parseSetting, settingDef } from "./config.ts";
+import { VERSION, config, parseSetting, setting, settingDef } from "./config.ts";
+import {
+  ContactError,
+  contactWithAddress,
+  createContact,
+  deleteContacts,
+  exportVCards,
+  getContact,
+  importVCards,
+  listContacts,
+  suggest,
+  updateContact,
+} from "./contacts.ts";
 import type { Credentials } from "./crypto.ts";
 import { db } from "./db.ts";
 import { MailboxAuthError, runtimeFor, stillProven } from "./imap/pool.ts";
@@ -28,7 +40,7 @@ import { log } from "./log.ts";
 import { ActionError, type ActionInput, perform, undo } from "./mail/actions.ts";
 import { ComposeError, type ComposeInput, discardDraft, saveDraft, saveUpload, sendMessage } from "./mail/compose.ts";
 import { getParsed, getRaw } from "./mail/fetch.ts";
-import { LabelError, createLabel, deleteLabel, listLabels, searchContacts, updateLabel } from "./mail/labels.ts";
+import { LabelError, createLabel, deleteLabel, listLabels, updateLabel } from "./mail/labels.ts";
 import { attachmentList, editorHtml, render } from "./mail/render.ts";
 import { parseQuery, searchThreads } from "./mail/search.ts";
 import { type View, conversation, listThreads, parseView } from "./mail/views.ts";
@@ -143,6 +155,7 @@ export function createApp() {
     if (err instanceof MailboxAuthError) return c.json({ error: err.message, reauth: true }, 401);
     if (err instanceof ActionError || err instanceof ComposeError) return c.json({ error: err.message }, err.status as 400);
     if (err instanceof LabelError) return c.json({ error: err.message }, 400);
+    if (err instanceof ContactError) return c.json({ error: err.message }, err.status as 400);
     log.error("request failed", { path: c.req.path, error: (err as Error).message, stack: (err as Error).stack });
     const message = /ECONNREFUSED|ETIMEDOUT|ENOTFOUND|Connection not available|closed/i.test((err as Error).message)
       ? "The mail server isn't responding. Try again in a moment."
@@ -171,7 +184,13 @@ export function createApp() {
   });
 
   app.get("/api/config", (c) =>
-    c.json({ appName: config.appName, version: VERSION, customServers: config.allowCustomServers, configured: !!config.imap }),
+    c.json({
+      appName: config.appName,
+      version: VERSION,
+      customServers: config.allowCustomServers,
+      configured: !!config.imap,
+      contacts: setting("contacts"),
+    }),
   );
 
   app.get("/api/session", async (c) => {
@@ -510,7 +529,65 @@ export function createApp() {
     return c.json(result);
   });
 
-  acct.get("/contacts", (c) => c.json({ contacts: searchContacts(c.get("rt").account.id, c.req.query("q") ?? "") }));
+  // Suggestions while writing: saved contacts, then the people this mailbox writes to.
+  acct.get("/suggestions", async (c) =>
+    c.json({ contacts: await suggest(c.get("rt").account.id, c.req.query("q") ?? "", setting("contacts")) }),
+  );
+
+  // ---------------------------------------------------------------- the address book
+
+  const contacts = new Hono<Env>();
+
+  contacts.use("*", async (c, next) => {
+    if (!setting("contacts")) return c.json({ error: "Contacts are turned off on this server." }, 404);
+    await next();
+  });
+
+  contacts.get("/", async (c) =>
+    c.json(await listContacts(c.get("rt").account.id, c.req.query("q") ?? "", Math.max(0, int(c.req.query("offset"), 0)))),
+  );
+
+  contacts.post("/", async (c) => c.json({ contact: await createContact(c.get("rt").account.id, await c.req.json().catch(() => null)) }));
+
+  // Before /:id, so "lookup" and "export" aren't taken for ids.
+  contacts.get("/lookup", async (c) => c.json({ id: await contactWithAddress(c.get("rt").account.id, c.req.query("address") ?? "") }));
+
+  contacts.get("/export", async (c) => {
+    const ids = (c.req.query("ids") ?? "").split(",").filter(Boolean).map((s) => int(s)).filter(Number.isInteger);
+    const body = await exportVCards(c.get("rt").account.id, ids);
+    return new Response(body, {
+      headers: { "Content-Type": "text/vcard; charset=utf-8", "Content-Disposition": contentDisposition("attachment", "contacts.vcf") },
+    });
+  });
+
+  contacts.post("/import", async (c) => {
+    if (int(c.req.header("content-length"), 0) > 20 * 1024 * 1024) return c.json({ error: "That file is too large: import at most 20 MB at a time." }, 413);
+    const text = await c.req.text();
+    if (text.length > 20 * 1024 * 1024) return c.json({ error: "That file is too large: import at most 20 MB at a time." }, 413);
+    return c.json(await importVCards(c.get("rt").account.id, text));
+  });
+
+  contacts.post("/delete", async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    const ids = Array.isArray(body.ids) ? body.ids.filter(Number.isInteger).slice(0, 10_000) : [];
+    return c.json({ deleted: await deleteContacts(c.get("rt").account.id, ids) });
+  });
+
+  contacts.get("/:id", async (c) => {
+    const contact = await getContact(c.get("rt").account.id, int(c.req.param("id")));
+    return contact ? c.json({ contact }) : c.json({ error: "This contact no longer exists." }, 404);
+  });
+
+  contacts.put("/:id", async (c) =>
+    c.json({ contact: await updateContact(c.get("rt").account.id, int(c.req.param("id")), await c.req.json().catch(() => null)) }),
+  );
+
+  contacts.delete("/:id", async (c) => {
+    const n = await deleteContacts(c.get("rt").account.id, [int(c.req.param("id"))]);
+    return n ? c.json({ ok: true }) : c.json({ error: "This contact no longer exists." }, 404);
+  });
+
+  acct.route("/contacts", contacts);
 
   acct.get("/settings", async (c) => {
     const rt = c.get("rt");

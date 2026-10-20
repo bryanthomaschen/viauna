@@ -42,6 +42,8 @@ server you already run.
   drafts autosaved to your server's Drafts folder.
 - **Several accounts at once** with an account switcher (`/u/0`, `/u/1`, …) and
   "send mail as" aliases.
+- **Contacts**: an address book per mailbox, vCard import and export (from Gmail, Apple
+  Contacts, Thunderbird, Roundcube), and suggestions from it as you write.
 - **An admin page** for whoever runs it: who can sign in, limits, password changes,
   changed without a restart and with a record of who changed what. The same from the
   command line, or all of it from environment variables.

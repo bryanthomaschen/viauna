@@ -239,6 +239,34 @@ describe.skipIf(!enabled)("against a real IMAP server", { timeout: 30_000 }, () 
     expect(after.messages[0].answered).toBe(true);
   });
 
+  it("keeps an address book: create, suggest, import, export, and turn it off", async () => {
+    expect((await call("GET", "/api/config")).json.contacts).toBe(true);
+    const created = await call("POST", "/api/u/0/contacts", { firstName: "Ann", lastName: "Ong", emails: [{ address: "ann@example.org", label: "work" }] });
+    expect(created.json.contact).toMatchObject({ name: "Ann Ong", fields: { emails: [{ address: "ann@example.org", label: "work" }] } });
+    // The saved name wins over the one in her mail ("Ann"), and she isn't listed twice.
+    const s = (await call("GET", "/api/u/0/suggestions?q=ann")).json.contacts;
+    expect(s[0]).toEqual({ address: "ann@example.org", name: "Ann Ong" });
+    expect(s.filter((x: any) => x.address === "ann@example.org")).toHaveLength(1);
+    expect((await call("GET", "/api/u/0/contacts/lookup?address=ANN@example.org")).json.id).toBe(created.json.contact.id);
+
+    const vcf = "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Raj Kumar\r\nEMAIL:raj@example.in\r\nEND:VCARD\r\n";
+    const imported = await app.request("/api/u/0/contacts/import", { method: "POST", headers: { ...ORIGIN, Cookie: cookie, "Content-Type": "text/vcard" }, body: vcf });
+    expect(await imported.json()).toEqual({ added: 1, updated: 0, unchanged: 0, skipped: 0 });
+    const list = (await call("GET", "/api/u/0/contacts")).json;
+    expect(list.contacts.map((c: any) => c.name)).toEqual(["Ann Ong", "Raj Kumar"]);
+    const exported = await app.request("/api/u/0/contacts/export", { headers: { Cookie: cookie } });
+    expect(exported.headers.get("content-type")).toMatch(/^text\/vcard/);
+    expect((await exported.text()).match(/BEGIN:VCARD/g)).toHaveLength(2);
+
+    const { COMMAND_LINE, changeSettings } = await import("../server/instance.ts");
+    await changeSettings({ contacts: false }, COMMAND_LINE);
+    expect((await call("GET", "/api/config")).json.contacts).toBe(false);
+    expect((await call("GET", "/api/u/0/contacts")).status).toBe(404);
+    expect((await call("GET", "/api/u/0/suggestions?q=ann")).json.contacts[0]).toMatchObject({ address: "ann@example.org", name: "Ann" });
+    await changeSettings({ contacts: null }, COMMAND_LINE);
+    expect((await call("DELETE", `/api/u/0/contacts/${created.json.contact.id}`)).json).toEqual({ ok: true });
+  });
+
   // Last: afterwards this session holds a password the dev server doesn't accept.
   it("changes the password with the operator's command, and signs the mailbox out elsewhere", async () => {
     expect((await call("GET", "/api/u/0/settings")).json.password).toEqual({ method: "form" });

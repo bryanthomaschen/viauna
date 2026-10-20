@@ -142,6 +142,35 @@ export interface AppConfig {
   version: string;
   customServers: boolean;
   configured: boolean;
+  /** The address book is on. */
+  contacts: boolean;
+}
+
+// ---------------------------------------------------------------- contacts
+
+export interface ContactFields {
+  firstName: string;
+  lastName: string;
+  emails: { address: string; label: string }[];
+  phones: { number: string; label: string }[];
+  organization: string;
+  title: string;
+  birthday: string;
+  notes: string;
+}
+
+export interface ContactSummary {
+  id: number;
+  name: string;
+  emails: string[];
+  phone: string | null;
+  organization: string;
+}
+
+export interface Contact {
+  id: number;
+  name: string;
+  fields: ContactFields;
 }
 
 export type ActionName =

@@ -48,7 +48,7 @@ export function RecipientField({
       return;
     }
     api
-      .contacts(account, q)
+      .suggestions(account, q)
       .then((r) => {
         if (!cancelled) {
           const taken = new Set(value.map((v) => v.address));

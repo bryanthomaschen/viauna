@@ -18,6 +18,8 @@ import { ThreadList } from "./ThreadList";
 // The rich-text editor is most of the bundle; load it with the first compose window.
 const ComposeDock = lazy(() => import("./Compose").then((m) => ({ default: m.ComposeDock })));
 const SettingsView = lazy(() => import("./Settings").then((m) => ({ default: m.SettingsView })));
+const ContactsView = lazy(() => import("./Contacts").then((m) => ({ default: m.ContactsView })));
+const ContactDialog = lazy(() => import("./Contacts").then((m) => ({ default: m.ContactDialog })));
 
 export function Shell({ route, accounts, appName }: { route: Route; accounts: SessionAccount[]; appName: string }) {
   const client = useQueryClient();
@@ -43,6 +45,7 @@ function useDocumentTitle(route: Route, appName: string) {
     let name: string;
     const f = route.folder;
     if (route.name === "settings") name = "Settings";
+    else if (route.name === "contacts") name = "Contacts";
     else if (f.kind === "label") name = acct.labelByKeyword.get(f.keyword)?.name ?? f.keyword;
     else if (f.kind === "folder") name = acct.mailboxById.get(f.id)?.name ?? "Folder";
     else if (f.kind === "search") name = "Search results";
@@ -68,6 +71,7 @@ function ShellInner({ route, appName }: { route: Route; appName: string }) {
   const collapsed = prefs.use((p) => p.sidebarCollapsed);
   const sidebarOpen = ui.use((s) => s.sidebarOpen);
   const composing = composes.use((l) => l.some((c) => c.placement === "dock" && !c.hidden));
+  const contactDialog = ui.use((s) => s.contactDialog);
   useShortcuts(route);
   useDocumentTitle(route, appName);
   return (
@@ -77,9 +81,9 @@ function ShellInner({ route, appName }: { route: Route; appName: string }) {
         <Sidebar route={route} collapsed={collapsed} open={sidebarOpen} />
         {sidebarOpen && <div className="sidebar-scrim" onClick={() => ui.set((s) => ({ ...s, sidebarOpen: false }))} />}
         <main className="main">
-          {route.name === "settings" ? (
+          {route.name === "settings" || route.name === "contacts" ? (
             <Suspense fallback={<div className="empty"><div className="spinner lg" /></div>}>
-              <SettingsView />
+              {route.name === "settings" ? <SettingsView /> : <ContactsView />}
             </Suspense>
           ) : route.thread !== null ? (
             <ConversationView key={`${route.account}:${route.thread}`} route={route} />
@@ -96,6 +100,11 @@ function ShellInner({ route, appName }: { route: Route; appName: string }) {
       )}
       <Toasts />
       <Dialogs />
+      {contactDialog && (
+        <Suspense fallback={null}>
+          <ContactDialog key={contactDialog.id ?? "new"} {...contactDialog} />
+        </Suspense>
+      )}
     </div>
   );
 }

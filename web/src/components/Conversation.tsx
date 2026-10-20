@@ -3,17 +3,17 @@ import * as Popover from "@radix-ui/react-popover";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Archive, ArchiveRestore, ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, Download, EllipsisVertical, ExternalLink,
-  FileText, FolderInput, Forward, Inbox, Mail, OctagonAlert, Paperclip, Reply, ReplyAll, Star, Tag, Trash2,
+  FileText, FolderInput, Forward, Inbox, Mail, OctagonAlert, Paperclip, Reply, ReplyAll, Star, Tag, Trash2, UserPlus,
 } from "lucide-react";
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
-import { listState, useAccount } from "../lib/account";
+import { listState, ui, useAccount } from "../lib/account";
 import { type ActionRequest, runAction } from "../lib/actions";
 import { api } from "../lib/api";
 import { composes, openCompose, openDraft, startForward, startReply } from "../lib/compose";
 import { displayName, fileSize, fullDate, listDate } from "../lib/format";
 import { type Route, folderPath, navigate, threadPath, viewParam } from "../lib/router";
 import { toast } from "../lib/store";
-import type { AttachmentInfo, Conversation, MessageMeta, MessageRef } from "../lib/types";
+import type { Address, AttachmentInfo, Conversation, MessageMeta, MessageRef } from "../lib/types";
 import { Avatar, IconButton } from "./common";
 import { EmailFrame } from "./EmailFrame";
 import { LabelPicker, MovePicker } from "./Pickers";
@@ -22,6 +22,21 @@ import { LabelChip } from "./ThreadList";
 
 const keyOf = (m: MessageMeta) => `${m.mailboxId}:${m.uid}`;
 const InlineCompose = lazy(() => import("./Compose").then((m) => ({ default: m.InlineCompose })));
+
+/** Opens the sender's contact if there is one, or a new one filled in from the message. */
+async function addToContacts(account: number, person: Address) {
+  try {
+    const { id } = await api.contactWithAddress(account, person.address);
+    if (id !== null) {
+      toast(`${displayName(person)} is already in your contacts.`);
+      return ui.set((s) => ({ ...s, contactDialog: { id } }));
+    }
+  } catch (err) {
+    return toast((err as Error).message, { error: true });
+  }
+  const [firstName = "", ...rest] = (person.name ?? "").trim().split(/\s+/);
+  ui.set((s) => ({ ...s, contactDialog: { initial: { firstName, lastName: rest.join(" "), emails: [{ address: person.address, label: "" }] } } }));
+}
 
 export function ConversationView({ route }: { route: Route }) {
   const acct = useAccount();
@@ -285,6 +300,7 @@ function MessageCard({
   const from = msg.from[0];
   const isMe = !!from && acct.me.has(from.address);
   const card = useRef<HTMLDivElement>(null);
+  const contactsOn = !!useQuery({ queryKey: ["config"], queryFn: api.config, staleTime: Infinity }).data?.contacts;
 
   useEffect(() => {
     if (focused) card.current?.scrollIntoView({ block: "nearest" });
@@ -386,6 +402,14 @@ function MessageCard({
                   }}>
                     <Mail size={18} /> Mark unread from here
                   </DropdownMenu.Item>
+                  {contactsOn && from && !isMe && (
+                    <>
+                      <DropdownMenu.Separator className="menu-sep" />
+                      <DropdownMenu.Item className="menu-item" onSelect={() => void addToContacts(acct.index, from)}>
+                        <UserPlus size={18} /> Add {displayName(from).split(/\s+/)[0] || from.address} to contacts
+                      </DropdownMenu.Item>
+                    </>
+                  )}
                   <DropdownMenu.Separator className="menu-sep" />
                   <DropdownMenu.Item className="menu-item" onSelect={() => window.open(api.rawUrl(acct.index, ref), "_blank", "noopener")}>
                     <FileText size={18} /> Show original

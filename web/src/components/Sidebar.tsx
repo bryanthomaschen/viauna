@@ -1,9 +1,10 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { useQueryClient } from "@tanstack/react-query";
-import { Archive, ChevronDown, ChevronUp, EllipsisVertical, File, Folder, FolderPlus, Inbox, Mails, OctagonAlert, Pencil, Plus, Send, Star, Tag, Trash2 } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Archive, BookUser, ChevronDown, ChevronUp, EllipsisVertical, File, Folder, FolderPlus, Inbox, Mails, OctagonAlert, Pencil, Plus, Send, Star, Tag, Trash2 } from "lucide-react";
 import { type DragEvent, type ReactNode, useState } from "react";
 import { ui, useAccount } from "../lib/account";
 import { runAction } from "../lib/actions";
+import { api } from "../lib/api";
 import { openCompose } from "../lib/compose";
 import { type Folder as FolderRoute, type Route, folderPath, navigate, sameFolder } from "../lib/router";
 import { readLocal, writeLocal } from "../lib/store";
@@ -115,6 +116,7 @@ export function Sidebar({ route, collapsed, open }: { route: Route; collapsed: b
   const [more, setMore] = useState(() => readLocal("viauna.sidebar.more", false));
   const a = acct.index;
   const current = route.name === "mail" ? route.folder : null;
+  const config = useQuery({ queryKey: ["config"], queryFn: api.config, staleTime: Infinity });
   const isActive = (f: FolderRoute) => !!current && sameFolder(current, f);
   const s = acct.special;
   const folders = acct.mailboxes.filter((m) => !m.specialUse).sort((x, y) => x.path.localeCompare(y.path));
@@ -160,6 +162,9 @@ export function Sidebar({ route, collapsed, open }: { route: Route; collapsed: b
             <NavItem icon={<Trash2 size={20} />} label="Trash" to={folderPath(a, { kind: "trash" })} active={isActive({ kind: "trash" })}
               onDropThreads={dropTo(s.trash, "trash")} />
           </>
+        )}
+        {config.data?.contacts && (
+          <NavItem icon={<BookUser size={20} />} label="Contacts" to={`/u/${a}/contacts`} active={route.name === "contacts"} />
         )}
       </ul>
 

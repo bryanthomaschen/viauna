@@ -423,6 +423,25 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
 .sig-editor .compose-editor { min-height: 100px; }
 .settings-save { position: sticky; bottom: 0; display: flex; justify-content: flex-end; gap: 8px; padding: 12px 24px; background: var(--surface); border-top: 1px solid var(--border); }
 
+/* ------------------------------------------------------------ contacts */
+
+.contacts-toolbar { gap: 8px; height: 64px; }
+.contacts-toolbar h2 { margin: 0 4px 0 0; font-size: 22px; font-weight: 400; }
+.contacts-search { max-width: 280px; height: 40px; font-size: 14px; }
+.contacts-table { width: 100%; border-collapse: collapse; }
+.contacts-table thead td { padding: 12px 16px; font-size: 12px; font-weight: 500; color: var(--text-3); border-bottom: 1px solid var(--border); }
+.contacts-table tbody tr { cursor: pointer; }
+.contacts-table tbody tr:hover, .contacts-table tbody tr:focus-visible { background: var(--surface-hover); outline: none; }
+.contacts-table tbody td { padding: 8px 16px; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
+.contacts-table .contact-name { display: flex; align-items: center; gap: 12px; font-weight: 500; }
+.contacts-table .more { color: var(--text-3); font-size: 12px; }
+.contact-form { display: flex; flex-direction: column; gap: 10px; }
+.contact-form .text-input { height: 40px; font-size: 14px; }
+.contact-form textarea.text-input { height: auto; padding: 10px 14px; resize: vertical; font: inherit; font-size: 14px; }
+.contact-form .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.contact-form .row-field { display: grid; grid-template-columns: 1fr 130px auto; gap: 8px; align-items: center; }
+.contact-form .add-field { align-self: flex-start; padding-left: 4px; height: 30px; }
+
 .password-form { display: flex; flex-direction: column; gap: 12px; }
 .form-error { color: var(--danger); font-size: 14px; }
 
@@ -492,6 +511,11 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
   .login-form { padding-top: 8px; }
   .setting { grid-template-columns: 1fr; gap: 8px; }
   .admin-main { margin: 0; border-radius: 0; }
+  .contacts-toolbar { flex-wrap: wrap; height: auto; padding: 8px; }
+  .contacts-search { order: 10; max-width: none; flex-basis: 100%; }
+  .contacts-table .hide-narrow { display: none; }
+  .contact-form .pair { grid-template-columns: 1fr; }
+  .contact-form .row-field { grid-template-columns: 1fr 110px auto; }
   .admin-bar .who { display: none; }
   .admin-facts td:first-child { width: auto; white-space: normal; }
   .admin-facts td:last-child { display: none; }

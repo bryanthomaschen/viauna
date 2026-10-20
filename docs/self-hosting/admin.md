@@ -54,6 +54,7 @@ What the page can change:
 | Admin mailboxes | `ADMIN_ADDRESSES` | Who can open the admin page. The page won't remove the last admin; the command line can. |
 | Allowed domains | `ALLOWED_DOMAINS` | Who can sign in. |
 | Other mail servers | `ALLOW_CUSTOM_SERVERS` | Whether people can enter their own IMAP and SMTP servers. |
+| Contacts | `CONTACTS` | The address book, on or off. |
 | Session length, accounts per browser, largest attachment, message cache | `SESSION_DAYS`, `MAX_ACCOUNTS`, `MAX_UPLOAD_MB`, `CACHE_MB` | |
 | Name | `APP_NAME` | |
 | Password changes | `PASSWORD_CHANGE` | Off, or one of the ways the environment set up. See [Password changes](./passwords.md). |
