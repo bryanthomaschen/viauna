@@ -179,9 +179,15 @@ function FilterDialog({ filter, initial, state, onClose }: { filter?: Filter; in
       <input className="text-input" value={c[key] as string} placeholder={placeholder} onChange={(e) => setC({ ...c, [key]: e.target.value })} />
     </label>
   );
+  // Each action is a row of the same height: its checkbox and words, then whatever it
+  // needs (a label, a folder, an address) in one column.
   const check = (key: "skipInbox" | "markRead" | "star" | "delete", label: string) => (
-    <label><input type="checkbox" checked={a[key]} onChange={(e) => setA({ ...a, [key]: e.target.checked })} /> {label}</label>
+    <>
+      <label className="filter-action"><input type="checkbox" checked={a[key]} onChange={(e) => setA({ ...a, [key]: e.target.checked })} /> {label}</label>
+      <span />
+    </>
   );
+  const isAdmin = acct.accounts.some((x) => x.admin);
 
   return (
     <Modal open onClose={onClose} title={filter ? "Edit filter" : "Create a filter"}>
@@ -207,32 +213,53 @@ function FilterDialog({ filter, initial, state, onClose }: { filter?: Filter; in
         <label><input type="checkbox" checked={c.hasAttachment} onChange={(e) => setC({ ...c, hasAttachment: e.target.checked })} /> Has attachment</label>
 
         <div className="filter-then">When a message arrives that matches:</div>
-        {check("skipInbox", "Skip the Inbox (Archive it)")}
-        {check("markRead", "Mark as read")}
-        {check("star", "Star it")}
-        <label>
-          <input type="checkbox" checked={!!a.label} onChange={(e) => setA({ ...a, label: e.target.checked ? (acct.labels[0]?.keyword ?? null) : null })} disabled={!acct.labels.length} />
-          Apply the label
-          <select className="text-input inline-select" aria-label="Label" value={a.label ?? ""} disabled={!a.label} onChange={(e) => setA({ ...a, label: e.target.value || null })}>
-            {acct.labels.map((l) => <option key={l.keyword} value={l.keyword}>{l.name}</option>)}
-          </select>
-        </label>
-        <label>
-          <input type="checkbox" checked={!!a.moveTo} onChange={(e) => setA({ ...a, moveTo: e.target.checked ? (folders[0]?.path ?? null) : null })} disabled={!folders.length} />
-          Move to
-          <select className="text-input inline-select" aria-label="Folder" value={a.moveTo ?? ""} disabled={!a.moveTo} onChange={(e) => setA({ ...a, moveTo: e.target.value || null })}>
-            {folders.map((m) => <option key={m.id} value={m.path}>{m.path}</option>)}
-          </select>
-        </label>
-        {check("delete", "Delete it")}
-        {(state.features.forwarding || a.forwardTo) && (
-          <label>
-            <input type="checkbox" checked={a.forwardTo !== null} onChange={(e) => setA({ ...a, forwardTo: e.target.checked ? "" : null })} />
-            Forward it to
-            <input className="text-input inline-select" type="email" aria-label="Forward to" value={a.forwardTo ?? ""} disabled={a.forwardTo === null}
-              onChange={(e) => setA({ ...a, forwardTo: e.target.value })} />
+        <div className="filter-actions">
+          {check("skipInbox", "Skip the Inbox (Archive it)")}
+          {check("markRead", "Mark as read")}
+          {check("star", "Star it")}
+          <label className={`filter-action ${acct.labels.length ? "" : "off"}`}>
+            <input type="checkbox" checked={!!a.label} disabled={!acct.labels.length}
+              onChange={(e) => setA({ ...a, label: e.target.checked ? (acct.labels[0]?.keyword ?? null) : null })} />
+            Apply the label
           </label>
-        )}
+          {acct.labels.length ? (
+            <select className="text-input" aria-label="Label" value={a.label ?? ""} onChange={(e) => setA({ ...a, label: e.target.value || null })}>
+              <option value="">Choose a label…</option>
+              {acct.labels.map((l) => <option key={l.keyword} value={l.keyword}>{l.name}</option>)}
+            </select>
+          ) : (
+            <span className="filter-note">No labels yet</span>
+          )}
+          <label className={`filter-action ${folders.length ? "" : "off"}`}>
+            <input type="checkbox" checked={!!a.moveTo} disabled={!folders.length}
+              onChange={(e) => setA({ ...a, moveTo: e.target.checked ? (folders[0]?.path ?? null) : null })} />
+            Move to
+          </label>
+          {folders.length ? (
+            <select className="text-input" aria-label="Folder" value={a.moveTo ?? ""} onChange={(e) => setA({ ...a, moveTo: e.target.value || null })}>
+              <option value="">Choose a folder…</option>
+              {folders.map((m) => <option key={m.id} value={m.path}>{m.path}</option>)}
+            </select>
+          ) : (
+            <span className="filter-note">No folders yet</span>
+          )}
+          {check("delete", "Delete it")}
+          {state.features.forwarding || a.forwardTo ? (
+            <>
+              <label className="filter-action">
+                <input type="checkbox" checked={a.forwardTo !== null} onChange={(e) => setA({ ...a, forwardTo: e.target.checked ? "" : null })} />
+                Forward it to
+              </label>
+              <input className="text-input" type="email" aria-label="Forward to" placeholder="address@example.com" value={a.forwardTo ?? ""}
+                onChange={(e) => setA({ ...a, forwardTo: e.target.value })} />
+            </>
+          ) : (
+            <>
+              <label className="filter-action off"><input type="checkbox" disabled /> Forward it to</label>
+              <span className="filter-note">{isAdmin ? "Turned off here: allow it on the admin page." : "Turned off on this server."}</span>
+            </>
+          )}
+        </div>
         {error && <div className="form-error" role="alert">{error}</div>}
         <div className="buttons">
           <button type="button" className="btn btn-text" onClick={onClose}>Cancel</button>
