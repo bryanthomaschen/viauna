@@ -43,11 +43,11 @@ request, read
 ## Releasing
 
 1. Set the new version in `package.json` and `package-lock.json`, and commit:
-   `npm version 0.2.0 --no-git-tag-version` updates both.
-2. Tag the commit and push the tag: `git tag v0.2.0 && git push origin v0.2.0`.
+   `npm version 0.3.0 --no-git-tag-version` updates both.
+2. Tag the commit and push the tag: `git tag v0.3.0 && git push origin v0.3.0`.
 
 The [Release workflow](https://github.com/bryanthomaschen/viauna/blob/main/.github/workflows/release.yml)
-then builds the image for `linux/amd64` and `linux/arm64`, publishes `0.2.0`, `0.2` and
+then builds the image for `linux/amd64` and `linux/arm64`, publishes `0.3.0`, `0.3` and
 `latest` to `ghcr.io/bryanthomaschen/viauna`, and creates the GitHub Release with notes
 generated from the changes since the last one. It refuses a tag that doesn't match
 `package.json`. Every push to `main` also publishes `edge`.

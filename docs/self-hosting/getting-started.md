@@ -25,7 +25,7 @@ docker run -d --name viauna --restart unless-stopped \
   -e TRUST_PROXY=true \
   -e IMAP_HOST=imap.example.com \
   -e SMTP_HOST=smtp.example.com \
-  ghcr.io/bryanthomaschen/viauna:0.1
+  ghcr.io/bryanthomaschen/viauna:0.2
 ```
 
 Or with Docker Compose:
@@ -33,7 +33,7 @@ Or with Docker Compose:
 ```yaml
 services:
   viauna:
-    image: ghcr.io/bryanthomaschen/viauna:0.1
+    image: ghcr.io/bryanthomaschen/viauna:0.2
     restart: unless-stopped
     ports:
       - "127.0.0.1:3000:3000"   # only your reverse proxy should reach it
@@ -57,12 +57,12 @@ Viauna serves plain HTTP and relies on the proxy for TLS.
 
 | Tag | |
 |---|---|
-| `0.1` | The newest 0.1.x release. Recommended: each pull brings fixes, never a new version's changes. |
-| `0.1.0` | Exactly that release. |
+| `0.2` | The newest 0.2.x release. Recommended: each pull brings fixes, never a new version's changes. |
+| `0.2.0` | Exactly that release. |
 | `latest` | The newest release, whatever its version. |
 | `edge` | The current `main` branch: unreleased and less tested. |
 
-Before 1.0, a new minor version (0.2) may change settings or behaviour, so move to it
+Before 1.0, a new minor version (0.3) may change settings or behaviour, so move to it
 after reading its [release notes](https://github.com/bryanthomaschen/viauna/releases).
 
 ## Put it behind your reverse proxy
@@ -90,7 +90,7 @@ cd viauna
 docker build -t viauna .
 ```
 
-Then use `viauna` in place of `ghcr.io/bryanthomaschen/viauna:0.1` above.
+Then use `viauna` in place of `ghcr.io/bryanthomaschen/viauna:0.2` above.
 
 ## Without Docker
 

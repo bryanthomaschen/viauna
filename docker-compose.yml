@@ -2,7 +2,7 @@
 # PUBLIC_URL to the address people will use.
 services:
   viauna:
-    image: ghcr.io/bryanthomaschen/viauna:0.1   # or build: .
+    image: ghcr.io/bryanthomaschen/viauna:0.2   # or build: .
     restart: unless-stopped
     ports:
       - "127.0.0.1:3000:3000"  # reverse proxy in front; don't expose directly
