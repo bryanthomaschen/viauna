@@ -9,6 +9,8 @@ its notes before moving to it. A patch release (0.2.0 to 0.2.1) only fixes thing
 
 ## Unreleased
 
+## 0.4.2 - 2026-10-20
+
 ### Fixed
 
 - A setting changed on the admin page or with the `viauna` command now applies at once
