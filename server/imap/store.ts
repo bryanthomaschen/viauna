@@ -2,9 +2,41 @@
 // engine and by actions (which update it immediately rather than waiting for a resync).
 import type { FetchMessageObject, MessageAddressObject } from "imapflow";
 import { db, placeholders } from "../db.ts";
-import { isSystemKeyword, keywordToLabel, packKeywords, unpackKeywords } from "../mail/keywords.ts";
+import { isSystemKeyword, packKeywords, unpackKeywords } from "../mail/keywords.ts";
 import { countAttachments, findTextPart } from "../mail/structure.ts";
 import { assignThread, normalizeMessageId, parseMessageIds } from "../mail/threading.ts";
+
+export interface IndexAccount {
+  id: number;
+  login: string;
+  email: string;
+  /** Endpoint JSON, as stored in the state store's accounts row. */
+  imap: string;
+  smtp: string;
+}
+
+/**
+ * Makes the index's row for an account match the state store. The index is keyed by
+ * the state store's account ids; if it holds anything under this id, or for this
+ * mailbox under another id, that came from a different state database (or an older
+ * one), so it is dropped rather than shown to the wrong person.
+ */
+export function ensureIndexAccount(a: IndexAccount) {
+  const row = db().get<{ login: string; imap: string }>("SELECT login, imap FROM accounts WHERE id = ?", a.id);
+  if (row && row.login === a.login && row.imap === a.imap) return;
+  db().tx(() => {
+    const stale = db().all<{ id: number }>("SELECT id FROM accounts WHERE id = ? OR (login = ? AND imap = ?)", a.id, a.login, a.imap);
+    for (const { id } of stale) {
+      // thread_refs has no foreign key; everything else cascades from the account.
+      db().run("DELETE FROM thread_refs WHERE account_id = ?", id);
+      db().run("DELETE FROM accounts WHERE id = ?", id);
+    }
+    db().run(
+      "INSERT INTO accounts (id, login, email, imap, smtp, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+      a.id, a.login, a.email, a.imap, a.smtp, Date.now(),
+    );
+  });
+}
 
 export interface MailboxRow {
   id: number;
@@ -222,14 +254,11 @@ function recordContacts(accountId: number, mailbox: MailboxRow, addrs: Addresses
   else for (const a of addrs.from) upsert(a, "received");
 }
 
-/** Keywords set by another client become labels here too. */
+/** Keywords set by another client become labels here too (see mail/labels.ts). */
 function discoverLabels(accountId: number, packed: string) {
   for (const kw of unpackKeywords(packed)) {
     if (isSystemKeyword(kw)) continue;
-    db().run(
-      "INSERT OR IGNORE INTO labels (account_id, keyword, name, created_at) VALUES (?, ?, ?, ?)",
-      accountId, kw, keywordToLabel(kw), Date.now(),
-    );
+    db().run("INSERT OR IGNORE INTO label_keywords (account_id, keyword) VALUES (?, ?)", accountId, kw);
   }
 }
 

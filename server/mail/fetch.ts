@@ -5,8 +5,9 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { ParsedMail } from "mailparser";
-import { config } from "../config.ts";
-import type { AccountRuntime } from "../imap/runtime.ts";
+import { config, endpointKey } from "../config.ts";
+import { sha256 } from "../crypto.ts";
+import type { AccountInfo, AccountRuntime } from "../imap/runtime.ts";
 import type { MailboxRow } from "../imap/store.ts";
 import { log } from "../log.ts";
 import { parseMessage } from "./render.ts";
@@ -15,12 +16,19 @@ const MAX_MESSAGE = 200 * 1024 * 1024;
 const cacheRoot = () => path.join(config.dataDir, "cache");
 let writesSinceTrim = 0;
 
-function cachePath(accountId: number, mb: MailboxRow, uid: number): string {
-  return path.join(cacheRoot(), String(accountId), `${mb.id}-${mb.uidvalidity ?? 0}-${uid}.eml`);
+/**
+ * Files are named by what identifies a message on the server: the account's login
+ * and server, the folder's path, UIDVALIDITY and UID. Never by local ids, which a
+ * rebuilt index, or a different state database, can give to another folder or person.
+ */
+function cachePath(account: AccountInfo, mb: MailboxRow, uid: number): string {
+  const who = sha256(`${account.login}\n${endpointKey(account.imap)}`).slice(0, 32);
+  const box = sha256(mb.path).slice(0, 32);
+  return path.join(cacheRoot(), `a-${who}`, `${box}-${mb.uidvalidity ?? 0}-${uid}.eml`);
 }
 
 export async function getRaw(rt: AccountRuntime, mb: MailboxRow, uid: number): Promise<Buffer | null> {
-  const file = cachePath(rt.account.id, mb, uid);
+  const file = cachePath(rt.account, mb, uid);
   try {
     const buf = await fs.readFile(file);
     const now = new Date();
@@ -80,15 +88,11 @@ export async function trimCache() {
   }
 }
 
-export async function dropAccountCache(accountId: number) {
-  await fs.rm(path.join(cacheRoot(), String(accountId)), { recursive: true, force: true });
-}
-
 const parsedCache = new Map<string, Promise<ParsedMail | null>>();
 const PARSED_MAX = 24;
 
 export function getParsed(rt: AccountRuntime, mb: MailboxRow, uid: number): Promise<ParsedMail | null> {
-  const key = `${rt.account.id}:${mb.id}:${mb.uidvalidity}:${uid}`;
+  const key = cachePath(rt.account, mb, uid);
   let entry = parsedCache.get(key);
   if (entry) {
     parsedCache.delete(key);

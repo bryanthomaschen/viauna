@@ -190,7 +190,7 @@ export async function perform(rt: AccountRuntime, input: ActionInput): Promise<{
   };
   const ops: Op[] = [];
   const touched = new Set<number>();
-  const me = myAddresses(accountId, rt.account.email);
+  const me = await myAddresses(accountId, rt.account.email);
 
   const moveAll = async (selected: MessageRow[], to: MailboxRow) => {
     for (const [from, uids] of groupByMailbox(selected)) {

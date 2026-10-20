@@ -30,6 +30,10 @@ npm run test:integration   # needs `npm run dev:mail` running
   sync server) follows [Backends and lock-in](docs/architecture.md#backends-and-lock-in):
   a standard protocol where one exists, a default that needs no setup, and vendor APIs
   only as optional drivers.
+- Data that must survive, anything a person chose or did, goes in the state store
+  (`server/state/`) with a migration that works on SQLite, PostgreSQL and MySQL. Data
+  that can be fetched again from the mail server goes in the index (`server/db.ts`). See
+  [Storage](docs/architecture.md#storage).
 - Anything people will notice (a feature, a setting, a changed behaviour, a new
   requirement) updates the docs in `docs/` in the same pull request. Preview them with
   `cd docs && npm install && npm run dev`.

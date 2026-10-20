@@ -20,6 +20,22 @@ npm run test:integration  # end-to-end against the dev mail server
 npm run build && npm start
 ```
 
+### On PostgreSQL, MySQL and MariaDB
+
+`npm test` checks the state store on SQLite. To check it on every engine, as CI does,
+start throwaway databases and pass their URLs:
+
+```bash
+npm run dev:databases
+export VIAUNA_TEST_PG=postgres://viauna:viauna@127.0.0.1:55432/viauna
+export VIAUNA_TEST_MYSQL=mysql://viauna:viauna@127.0.0.1:53306/viauna
+export VIAUNA_TEST_MARIADB=mariadb://viauna:viauna@127.0.0.1:53307/viauna
+npm test
+VIAUNA_TEST_DATABASE_URL=$VIAUNA_TEST_PG npm run test:integration   # end-to-end on one of them
+```
+
+The tests empty those databases, so don't point them at anything else.
+
 How the pieces fit together is in [Architecture](./architecture.md). Before opening a pull
 request, read
 [CONTRIBUTING.md](https://github.com/bryanthomaschen/viauna/blob/main/CONTRIBUTING.md).

@@ -4,8 +4,6 @@ Viauna is pre-1.0. Nothing here has a date, and the order is a rough priority.
 
 ## Next
 
-- **Storage engines.** SQLite stays the zero-setup default, with PostgreSQL and
-  MySQL/MariaDB for larger deployments.
 - **An admin page and a command-line tool** to turn features on and off and change
   settings without a restart. Settings given as environment variables stay locked.
 - **Contacts**: an address book with vCard import and export, and optional CardDAV sync.

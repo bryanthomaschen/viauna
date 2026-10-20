@@ -1,12 +1,15 @@
-// SQLite, via the driver built into Node (no native module to compile). One file holds
-// sessions, accounts and the per-account mail index; the index is a cache of the IMAP
-// server and can always be rebuilt from it, so losing it costs a resync, never mail.
+// The mail index: SQLite, via the driver built into Node (no native module to
+// compile), in DATA_DIR/index.db. It is a cache of the IMAP server and can always be
+// rebuilt from it, so losing it costs a resync, never mail. What must survive
+// (accounts, sessions, settings, label colours) is in the state store, state/db.ts.
+//
+// `accounts` here mirrors the state store's ids and identities, for the foreign keys;
+// ensureIndexAccount (imap/store.ts) keeps the two in step.
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
-import { config } from "./config.ts";
 
-const MIGRATIONS: string[] = [
+export const INDEX_MIGRATIONS: readonly string[] = [
   `
   CREATE TABLE accounts (
     id INTEGER PRIMARY KEY,
@@ -132,6 +135,22 @@ const MIGRATIONS: string[] = [
   `,
   // 2: the message count at the last sync, separate from the polled `total`.
   `ALTER TABLE mailboxes ADD COLUMN synced_total INTEGER;`,
+  // 3: sessions, settings, label names and colours, and trusted senders moved to the
+  // state store, which copied them before this runs (storage.ts). The index keeps
+  // which label keywords it has seen on messages.
+  `
+  CREATE TABLE label_keywords (
+    account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    keyword TEXT NOT NULL,
+    PRIMARY KEY (account_id, keyword)
+  ) WITHOUT ROWID;
+  INSERT INTO label_keywords (account_id, keyword) SELECT account_id, keyword FROM labels;
+  DROP TABLE trusted_senders;
+  DROP TABLE labels;
+  DROP TABLE session_accounts;
+  DROP TABLE sessions;
+  UPDATE accounts SET settings = '{}';
+  `,
 ];
 
 export type Row = Record<string, SQLInputValue>;
@@ -150,9 +169,9 @@ export class Database {
 
   private migrate() {
     const { user_version } = this.raw.prepare("PRAGMA user_version").get() as { user_version: number };
-    for (let v = user_version; v < MIGRATIONS.length; v++) {
+    for (let v = user_version; v < INDEX_MIGRATIONS.length; v++) {
       this.tx(() => {
-        this.raw.exec(MIGRATIONS[v]);
+        this.raw.exec(INDEX_MIGRATIONS[v]);
         this.raw.exec(`PRAGMA user_version = ${v + 1}`);
       });
     }
@@ -199,12 +218,12 @@ export class Database {
 
 let instance: Database | null = null;
 
+/** The open mail index. Storage is opened once at startup (storage.ts). */
 export function db(): Database {
-  if (!instance) instance = new Database(path.join(config.dataDir, "viauna.db"));
+  if (!instance) throw new Error("The mail index isn't open; storage must be initialised first.");
   return instance;
 }
 
-/** For tests: point the module at a fresh database. */
 export function setDatabase(next: Database) {
   instance = next;
 }

@@ -10,6 +10,7 @@ import {
   COOKIE_NAME,
   type SessionAccount,
   credentialsFor,
+  isSignedIn,
   loadSession,
   signIn,
   signOutAccount,
@@ -29,7 +30,7 @@ import { LabelError, createLabel, deleteLabel, listLabels, searchContacts, updat
 import { attachmentList, editorHtml, render } from "./mail/render.ts";
 import { parseQuery, searchThreads } from "./mail/search.ts";
 import { type View, conversation, listThreads, parseView } from "./mail/views.ts";
-import { getSettings, myAddresses, updateSettings } from "./settings.ts";
+import { getSettings, isTrustedSender, myAddresses, trustSender, updateSettings } from "./settings.ts";
 
 type Env = {
   Bindings: HttpBindings;
@@ -163,7 +164,7 @@ export function createApp() {
       const origin = c.req.header("origin") ?? c.req.header("referer") ?? null;
       if (!sameOrigin(c, origin)) return c.json({ error: "Cross-origin request refused." }, 403);
     }
-    c.set("auth", loadSession(getCookie(c, COOKIE_NAME)));
+    c.set("auth", await loadSession(getCookie(c, COOKIE_NAME)));
     c.header("Cache-Control", "no-store");
     await next();
   });
@@ -172,15 +173,17 @@ export function createApp() {
     c.json({ appName: config.appName, version: VERSION, customServers: config.allowCustomServers, configured: !!config.imap }),
   );
 
-  app.get("/api/session", (c) => {
+  app.get("/api/session", async (c) => {
     const auth = c.get("auth");
     if (!auth || !auth.accounts.length) return c.json({ accounts: [] });
     return c.json({
-      accounts: auth.accounts.map((sa) => ({
-        index: sa.index,
-        email: sa.account.email,
-        name: getSettings(sa.account.id).name,
-      })),
+      accounts: await Promise.all(
+        auth.accounts.map(async (sa) => ({
+          index: sa.index,
+          email: sa.account.email,
+          name: (await getSettings(sa.account.id)).name,
+        })),
+      ),
     });
   });
 
@@ -203,9 +206,9 @@ export function createApp() {
     const index = typeof body.index === "number" ? body.index : null;
     const sa = index !== null ? auth.accounts[index] : null;
     if (sa) {
-      if (signOutAccount(auth, sa.account.id)) deleteCookie(c, COOKIE_NAME, { path: "/" });
+      if (await signOutAccount(auth, sa.account.id)) deleteCookie(c, COOKIE_NAME, { path: "/" });
     } else {
-      signOutAll(auth);
+      await signOutAll(auth);
       deleteCookie(c, COOKIE_NAME, { path: "/" });
     }
     return c.json({ ok: true });
@@ -228,12 +231,12 @@ export function createApp() {
     await next();
   });
 
-  acct.get("/mailboxes", (c) => {
+  acct.get("/mailboxes", async (c) => {
     const rt = c.get("rt");
     const boxes = getMailboxes(rt.account.id).filter((m) => syncable(m) || !m.selectable);
     return c.json({
       mailboxes: boxes.map((m) => mailboxJson(m, rt.account.id)),
-      labels: listLabels(rt.account.id),
+      labels: await listLabels(rt.account.id),
       status: { error: rt.lastError, ready: boxes.some((b) => b.synced_uidnext > 0) },
     });
   });
@@ -298,10 +301,10 @@ export function createApp() {
 
   acct.get("/threads", async (c) => {
     const rt = c.get("rt");
-    const settings = getSettings(rt.account.id);
+    const settings = await getSettings(rt.account.id);
     const size = [25, 50, 100].includes(int(c.req.query("size"))) ? int(c.req.query("size")) : settings.pageSize;
     const page = Math.max(0, int(c.req.query("page"), 0));
-    const me = myAddresses(rt.account.id, rt.account.email);
+    const me = await myAddresses(rt.account.id, rt.account.email);
     const q = (c.req.query("q") ?? "").trim();
     let view: View;
     if (q) {
@@ -339,9 +342,9 @@ export function createApp() {
     const found = await messageParts(c);
     if (!found) return c.json({ error: "This message no longer exists." }, 404);
     const { rt, mb, uid, parsed } = found;
-    const settings = getSettings(rt.account.id);
+    const settings = await getSettings(rt.account.id);
     const sender = parsed.from?.value[0]?.address?.toLowerCase();
-    const trusted = !!sender && !!db().get("SELECT 1 FROM trusted_senders WHERE account_id = ? AND address = ?", rt.account.id, sender);
+    const trusted = !!sender && (await isTrustedSender(rt.account.id, sender));
     const allowRemote = settings.images === "always" || trusted || c.req.query("images") === "1";
     const a = c.req.param("a");
     const rendered = render(parsed, {
@@ -507,13 +510,13 @@ export function createApp() {
 
   acct.get("/contacts", (c) => c.json({ contacts: searchContacts(c.get("rt").account.id, c.req.query("q") ?? "") }));
 
-  acct.get("/settings", (c) => {
+  acct.get("/settings", async (c) => {
     const rt = c.get("rt");
-    return c.json({ settings: getSettings(rt.account.id), email: rt.account.email });
+    return c.json({ settings: await getSettings(rt.account.id), email: rt.account.email });
   });
 
   acct.put("/settings", async (c) => {
-    const result = updateSettings(c.get("rt").account.id, await c.req.json());
+    const result = await updateSettings(c.get("rt").account.id, await c.req.json());
     if ("error" in result) return c.json(result, 400);
     return c.json({ settings: result });
   });
@@ -522,15 +525,15 @@ export function createApp() {
     const body = await c.req.json();
     const address = String(body.address ?? "").trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+$/.test(address)) throw new ActionError("Invalid address.");
-    db().run("INSERT OR IGNORE INTO trusted_senders (account_id, address) VALUES (?, ?)", c.get("rt").account.id, address);
+    await trustSender(c.get("rt").account.id, address);
     return c.json({ ok: true });
   });
 
-  acct.get("/labels", (c) => c.json({ labels: listLabels(c.get("rt").account.id) }));
+  acct.get("/labels", async (c) => c.json({ labels: await listLabels(c.get("rt").account.id) }));
 
   acct.post("/labels", async (c) => {
     const body = await c.req.json();
-    const label = createLabel(c.get("rt").account.id, body.name, body.color);
+    const label = await createLabel(c.get("rt").account.id, body.name, body.color);
     c.get("rt").notify([]);
     return c.json({ label });
   });
@@ -572,12 +575,7 @@ export function createApp() {
       stream.onAbort(closeAll);
       // Signing out (in any tab) or the session expiring ends the feed for that account
       // at once, so subjects of new mail stop flowing to a signed-out page.
-      const stillSignedIn = (accountId: number) =>
-        !!db().get(
-          `SELECT 1 FROM session_accounts sa JOIN sessions s ON s.id = sa.session_id
-           WHERE sa.session_id = ? AND sa.account_id = ? AND s.expires_at > ?`,
-          auth.sessionHash, accountId, Date.now(),
-        );
+      const stillSignedIn = (accountId: number) => isSignedIn(auth.sessionHash, accountId).catch(() => false);
 
       for (const sa of auth.accounts) {
         if (stream.aborted) break;
@@ -591,8 +589,10 @@ export function createApp() {
           if (stream.aborted) break;
           const id = sa.account.id;
           const listener = (e: ChangeEvent) => {
-            if (!stillSignedIn(id)) return unsubscribe(id);
-            void stream.writeSSE({ event: "change", data: JSON.stringify({ index: sa.index, mailboxIds: e.mailboxIds, arrived: e.arrived }) });
+            void stillSignedIn(id).then((ok) => {
+              if (!ok) return unsubscribe(id);
+              if (!stream.aborted) void stream.writeSSE({ event: "change", data: JSON.stringify({ index: sa.index, mailboxIds: e.mailboxIds, arrived: e.arrived }) });
+            });
           };
           const onAuth = () => void stream.writeSSE({ event: "reauth", data: JSON.stringify({ index: sa.index }) });
           rt.on("change", listener);
@@ -607,7 +607,7 @@ export function createApp() {
       await stream.writeSSE({ event: "ready", data: "{}" });
       while (!stream.aborted) {
         await stream.sleep(25_000);
-        for (const id of [...subs.keys()]) if (!stillSignedIn(id)) unsubscribe(id);
+        for (const id of [...subs.keys()]) if (!(await stillSignedIn(id))) unsubscribe(id);
         if (!subs.size) break;
         if (!stream.aborted) await stream.writeSSE({ event: "ping", data: String(Date.now()) });
       }

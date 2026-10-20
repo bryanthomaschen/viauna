@@ -11,6 +11,27 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-24.04
+    # The state store is tested on every engine it supports (test/databases.ts).
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env: { POSTGRES_USER: viauna, POSTGRES_PASSWORD: viauna, POSTGRES_DB: viauna }
+        ports: ["55432:5432"]
+        options: --health-cmd "pg_isready -U viauna" --health-interval 2s --health-timeout 5s --health-retries 60
+      mysql:
+        image: mysql:8.4
+        env: { MYSQL_ROOT_PASSWORD: root, MYSQL_DATABASE: viauna, MYSQL_USER: viauna, MYSQL_PASSWORD: viauna }
+        ports: ["53306:3306"]
+        options: --health-cmd "mysqladmin ping -uviauna -pviauna --silent" --health-interval 2s --health-timeout 5s --health-retries 90
+      mariadb:
+        image: mariadb:11.4
+        env: { MARIADB_ROOT_PASSWORD: root, MARIADB_DATABASE: viauna, MARIADB_USER: viauna, MARIADB_PASSWORD: viauna }
+        ports: ["53307:3306"]
+        options: --health-cmd "mariadb-admin ping -uviauna -pviauna --silent" --health-interval 2s --health-timeout 5s --health-retries 90
+    env:
+      VIAUNA_TEST_PG: postgres://viauna:viauna@127.0.0.1:55432/viauna
+      VIAUNA_TEST_MYSQL: mysql://viauna:viauna@127.0.0.1:53306/viauna
+      VIAUNA_TEST_MARIADB: mariadb://viauna:viauna@127.0.0.1:53307/viauna
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -25,7 +46,13 @@ jobs:
           docker compose -f dev/compose.yml up -d
           node dev/smtp-sink.mjs &
           for i in $(seq 1 30); do nc -z 127.0.0.1 1143 && nc -z 127.0.0.1 1587 && break; sleep 1; done
-      - run: npm run test:integration
+      - name: Integration tests, once per state store
+        run: |
+          for url in "" "$VIAUNA_TEST_PG" "$VIAUNA_TEST_MYSQL" "$VIAUNA_TEST_MARIADB"; do
+            echo "::group::state store: ${url:-sqlite}"
+            VIAUNA_TEST_DATABASE_URL="$url" npm run test:integration
+            echo "::endgroup::"
+          done
       - run: npm run build
 
   docker:

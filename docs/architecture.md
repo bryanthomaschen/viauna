@@ -7,13 +7,18 @@ server/            Node (TypeScript, Hono)
   app.ts           HTTP API, security headers, CSRF check, SSE
   auth.ts          sign-in, sessions, rate limits
   crypto.ts        session cookies, credential encryption
-  db.ts            SQLite schema and helpers (node:sqlite)
-  settings.ts      per-mailbox settings
+  storage.ts       opens both stores at startup; upgrades older layouts
+  db.ts            the mail index: SQLite schema and helpers (node:sqlite)
+  settings.ts      per-mailbox settings, trusted senders
+  state/
+    db.ts          the state store: engines, schema types, helpers (Kysely)
+    migrations.ts  its schema, for SQLite, PostgreSQL and MySQL/MariaDB
+    copy.ts        copying state between stores, ids kept
   imap/
     connection.ts  imapflow connection wrapper, login check
     runtime.ts     per-account runtime: sync loop, backfill, snippets, IDLE
     pool.ts        runtime registry, credential re-verification
-    store.ts       the local index (mailboxes, messages, contacts)
+    store.ts       the local index (mailboxes, messages, contacts, label keywords)
   mail/
     threading.ts   conversation grouping
     views.ts       thread lists and conversation view
@@ -29,6 +34,34 @@ web/               React app (Vite)
 dev/               local Dovecot, SMTP sink, seed data
 test/              unit tests; integration tests against the dev server
 ```
+
+## Storage
+
+Two stores, split by whether the data can be fetched again:
+
+- **The state store** (`server/state/`) holds what a person chose or did: accounts,
+  sessions and their encrypted passwords, each mailbox's settings, label names and
+  colours, trusted senders. SQLite in `DATA_DIR/state.db` by default, or PostgreSQL or
+  MySQL/MariaDB through `DATABASE_URL`, with one schema and one set of queries
+  ([Kysely](https://kysely.dev)). Engines differ only in auto-increment ids, the binary
+  type, and MySQL's table options (utf8mb4 with binary collation, so comparisons are
+  exact everywhere). SQLite runs on Node's built-in driver through a small adapter, so
+  there is still no native module.
+- **The index** (`server/db.ts`) is a cache of the mail server: mailboxes, messages,
+  threads, autocomplete addresses, and the label keywords seen on messages. Always local
+  SQLite in `DATA_DIR/index.db`, queried synchronously, so sync never waits on a network
+  database. Deleting it costs a resync.
+
+The index keys its rows by the state store's account ids and keeps a copy of each
+account's identity for its foreign keys. If an id ever names a different mailbox (a
+restored or different state database), `ensureIndexAccount` drops what the index held
+under it rather than show it to someone else. For the same reason the message cache is
+named by stable identities (login and server, folder path, UIDVALIDITY, UID), never by
+local ids.
+
+An account's id is part of the key that encrypts its saved passwords, so copying state
+between stores (the upgrade from 0.1, or moving from SQLite to a server database) keeps
+ids as they are.
 
 ## Sync
 
@@ -84,7 +117,7 @@ not built in.
 |---|---|---|---|---|
 | Mail | Any IMAP/SMTP server | — | — | built |
 | Mail index, message cache | Local SQLite and disk | none, by design | — | built |
-| Accounts, sessions, settings, contacts | SQLite in `DATA_DIR` | PostgreSQL, MySQL/MariaDB | — | planned |
+| Accounts, sessions, settings | SQLite in `DATA_DIR` | PostgreSQL, MySQL/MariaDB | — | built |
 | Password change | Off | Link to the mail server's own page; LDAP; vendor drivers | Webhook, command | planned |
 | Contacts | Viauna's database, vCard import/export | CardDAV sync, any server | — | planned |
 | Filters | Off | ManageSieve, when the server offers it | — | planned |

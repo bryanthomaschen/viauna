@@ -1,5 +1,6 @@
-// Per-mailbox settings, shared by every browser signed in to it.
-import { db } from "./db.ts";
+// Per-mailbox settings, shared by every browser signed in to it. Kept in the state
+// store with the account, along with the senders whose images are always shown.
+import { orIgnore, state } from "./state/db.ts";
 
 export interface Identity {
   name: string;
@@ -26,8 +27,8 @@ export const DEFAULT_SETTINGS: AccountSettings = {
   pageSize: 50,
 };
 
-export function getSettings(accountId: number): AccountSettings {
-  const row = db().get<{ settings: string }>("SELECT settings FROM accounts WHERE id = ?", accountId);
+export async function getSettings(accountId: number): Promise<AccountSettings> {
+  const row = await state().selectFrom("accounts").select("settings").where("id", "=", accountId).executeTakeFirst();
   let stored: Partial<AccountSettings> = {};
   try {
     stored = JSON.parse(row?.settings ?? "{}");
@@ -40,8 +41,8 @@ export function getSettings(accountId: number): AccountSettings {
 const MAX_SIGNATURE = 20_000;
 
 /** Validates and merges a partial update. Returns the new settings or an error. */
-export function updateSettings(accountId: number, patch: Record<string, unknown>): AccountSettings | { error: string } {
-  const next = getSettings(accountId);
+export async function updateSettings(accountId: number, patch: Record<string, unknown>): Promise<AccountSettings | { error: string }> {
+  const next = await getSettings(accountId);
   if ("name" in patch) next.name = String(patch.name ?? "").slice(0, 200).trim();
   if ("signature" in patch) {
     const sig = String(patch.signature ?? "");
@@ -63,12 +64,27 @@ export function updateSettings(accountId: number, patch: Record<string, unknown>
     const size = Number(patch.pageSize);
     next.pageSize = size === 25 || size === 100 ? size : 50;
   }
-  db().run("UPDATE accounts SET settings = ? WHERE id = ?", JSON.stringify(next), accountId);
+  await state().updateTable("accounts").set({ settings: JSON.stringify(next) }).where("id", "=", accountId).execute();
   return next;
 }
 
 /** Every address that is "me" for this account: the login address plus aliases. */
-export function myAddresses(accountId: number, email: string): Set<string> {
-  const s = getSettings(accountId);
+export async function myAddresses(accountId: number, email: string): Promise<Set<string>> {
+  const s = await getSettings(accountId);
   return new Set([email.toLowerCase(), ...s.aliases.map((a) => a.address.toLowerCase())]);
+}
+
+/** Senders whose remote images this account always shows. */
+export async function isTrustedSender(accountId: number, address: string): Promise<boolean> {
+  const row = await state()
+    .selectFrom("trusted_senders")
+    .select("address")
+    .where("account_id", "=", accountId)
+    .where("address", "=", address)
+    .executeTakeFirst();
+  return !!row;
+}
+
+export async function trustSender(accountId: number, address: string) {
+  await orIgnore(state().insertInto("trusted_senders").values({ account_id: accountId, address })).execute();
 }

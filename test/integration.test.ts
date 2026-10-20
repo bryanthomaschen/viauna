@@ -1,8 +1,12 @@
 // End-to-end against a real IMAP server: the dev Dovecot from dev/compose.yml and
-// the dev SMTP sink (`npm run dev:mail`). Skipped unless VIAUNA_IT=1.
+// the dev SMTP sink (`npm run dev:mail`). Skipped unless VIAUNA_IT=1. The state store
+// is SQLite unless VIAUNA_TEST_DATABASE_URL names a throwaway server database.
 //
 //   VIAUNA_IT=1 npx vitest run test/integration.test.ts
 import crypto from "node:crypto";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { ImapFlow } from "imapflow";
 import MailComposer from "nodemailer/lib/mail-composer";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -44,6 +48,7 @@ describe.skipIf(!enabled)("against a real IMAP server", { timeout: 30_000 }, () 
   let app: { request: (path: string, init?: RequestInit) => Response | Promise<Response> };
   let cookie = "";
   let stop: () => Promise<void>;
+  let dataDir = "";
 
   const call = async (method: string, path: string, body?: unknown) => {
     const res = await app.request(path, {
@@ -57,8 +62,10 @@ describe.skipIf(!enabled)("against a real IMAP server", { timeout: 30_000 }, () 
   };
 
   beforeAll(async () => {
-    const { Database, setDatabase } = await import("../server/db.ts");
-    setDatabase(new Database(":memory:"));
+    const url = process.env.VIAUNA_TEST_DATABASE_URL || undefined;
+    if (url) await (await import("./databases.ts")).emptyDatabase(url);
+    dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "viauna-it-"));
+    await (await import("../server/storage.ts")).initStorage({ dataDir, databaseUrl: url });
     const { createApp } = await import("../server/app.ts");
     const pool = await import("../server/imap/pool.ts");
     app = createApp();
@@ -71,6 +78,8 @@ describe.skipIf(!enabled)("against a real IMAP server", { timeout: 30_000 }, () 
 
   afterAll(async () => {
     await stop?.();
+    await (await import("../server/storage.ts")).closeStorage().catch(() => {});
+    if (dataDir) fs.rmSync(dataDir, { recursive: true, force: true });
   });
 
   it("rejects a wrong password, then signs in", async () => {
@@ -110,6 +119,17 @@ describe.skipIf(!enabled)("against a real IMAP server", { timeout: 30_000 }, () 
     const r = (await call("GET", `/api/u/0/messages/${m.mailboxId}/${m.uid}`)).json;
     expect(r.remoteContent).toBe(true);
     expect(r.html).not.toContain("t.example.com");
+
+    await call("POST", "/api/u/0/trusted-senders", { address: "news@example.com" });
+    const trusted = (await call("GET", `/api/u/0/messages/${m.mailboxId}/${m.uid}`)).json;
+    expect(trusted.trustedSender).toBe(true);
+    expect(trusted.html).toContain("t.example.com");
+  });
+
+  it("keeps settings with the mailbox", async () => {
+    await call("PUT", "/api/u/0/settings", { name: "Ivy Tester", pageSize: 25 });
+    expect((await call("GET", "/api/u/0/settings")).json.settings).toMatchObject({ name: "Ivy Tester", pageSize: 25 });
+    expect((await call("GET", "/api/session")).json.accounts[0].name).toBe("Ivy Tester");
   });
 
   it("archives with undo, labels, and stars", async () => {
@@ -122,9 +142,12 @@ describe.skipIf(!enabled)("against a real IMAP server", { timeout: 30_000 }, () 
     await call("POST", "/api/u/0/undo", { token: archived.json.undo });
     expect((await call("GET", "/api/u/0/threads?view=inbox")).json.total).toBe(2);
 
-    await call("POST", "/api/u/0/labels", { name: "Food" });
+    await call("POST", "/api/u/0/labels", { name: "Food", color: "#16a766" });
+    expect((await call("POST", "/api/u/0/labels", { name: "food" })).status).toBe(400);
     await call("POST", "/api/u/0/actions", { action: "label", threads: [lunch.id], keyword: "food", view: "inbox" });
     expect((await call("GET", "/api/u/0/threads?view=label:food")).json.total).toBe(1);
+    const labels = (await call("GET", "/api/u/0/labels")).json.labels;
+    expect(labels).toEqual([expect.objectContaining({ keyword: "food", name: "Food", color: "#16a766", total: 1 })]);
     await call("POST", "/api/u/0/actions", { action: "star", threads: [lunch.id], view: "inbox" });
     expect((await call("GET", "/api/u/0/threads?view=starred")).json.total).toBe(1);
   });

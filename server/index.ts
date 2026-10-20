@@ -2,12 +2,12 @@ import { serve } from "@hono/node-server";
 import { createApp } from "./app.ts";
 import { config } from "./config.ts";
 import { getServerSecret } from "./crypto.ts";
-import { db } from "./db.ts";
 import { stopAll } from "./imap/pool.ts";
 import { log } from "./log.ts";
+import { closeStorage, initStorage } from "./storage.ts";
 
-db();
 getServerSecret();
+await initStorage();
 
 if (!config.imap && !config.allowCustomServers) {
   log.warn("no mail server configured: set IMAP_HOST and SMTP_HOST (or ALLOW_CUSTOM_SERVERS=true)");
@@ -21,6 +21,7 @@ async function shutdown(signal: string) {
   log.info("shutting down", { signal });
   server.close();
   await Promise.race([stopAll(), new Promise((r) => setTimeout(r, 5000))]);
+  await closeStorage().catch(() => {});
   process.exit(0);
 }
 process.on("SIGTERM", () => void shutdown("SIGTERM"));

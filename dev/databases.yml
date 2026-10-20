@@ -1,0 +1,17 @@
+# Throwaway databases for testing the state store on every engine: `npm run dev:databases`,
+# then run the tests with the URLs in test/databases.ts. Ports bound to 127.0.0.1 only.
+name: viauna-dev-databases
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment: { POSTGRES_USER: viauna, POSTGRES_PASSWORD: viauna, POSTGRES_DB: viauna }
+    ports: ["127.0.0.1:55432:5432"]
+  mysql:
+    image: mysql:8.4
+    environment: { MYSQL_ROOT_PASSWORD: root, MYSQL_DATABASE: viauna, MYSQL_USER: viauna, MYSQL_PASSWORD: viauna }
+    ports: ["127.0.0.1:53306:3306"]
+  mariadb:
+    image: mariadb:11.4
+    environment: { MARIADB_ROOT_PASSWORD: root, MARIADB_DATABASE: viauna, MARIADB_USER: viauna, MARIADB_PASSWORD: viauna }
+    ports: ["127.0.0.1:53307:3306"]

@@ -145,9 +145,9 @@ interface Built {
 
 async function build(rt: AccountRuntime, sessionHash: string, input: ComposeInput, asDraft: boolean): Promise<Built> {
   const accountId = rt.account.id;
-  const settings = getSettings(accountId);
+  const settings = await getSettings(accountId);
   const fromAddress = String(input.from || rt.account.email).toLowerCase();
-  if (!myAddresses(accountId, rt.account.email).has(fromAddress)) {
+  if (!(await myAddresses(accountId, rt.account.email)).has(fromAddress)) {
     throw new ComposeError("You can only send from your own addresses (add aliases in Settings).");
   }
   const fromName = settings.aliases.find((a) => a.address === fromAddress)?.name || settings.name;

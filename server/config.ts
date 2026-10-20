@@ -53,6 +53,11 @@ function endpoint(prefix: "IMAP" | "SMTP", defaultPort: number): Endpoint | null
   };
 }
 
+/** Stable JSON for an endpoint: part of an account's identity, so key order is fixed. */
+export function endpointKey(e: Endpoint): string {
+  return JSON.stringify({ host: e.host.toLowerCase(), port: e.port, security: e.security, servername: e.servername ?? null, verify: e.verify, ...(e.custom ? { custom: true } : {}) });
+}
+
 const dataDir = path.resolve(env("DATA_DIR", "./data")!);
 
 export const config = {
@@ -60,6 +65,8 @@ export const config = {
   host: env("HOST", "127.0.0.1")!,
   port: int("PORT", 3000),
   dataDir,
+  /** Where accounts, sessions and settings live: unset for SQLite in DATA_DIR, or a postgres:// / mysql:// URL. */
+  databaseUrl: env("DATABASE_URL"),
   /** Public origin, e.g. https://mail.example.com. Used for the CSRF origin check. */
   publicUrl: env("PUBLIC_URL"),
   /** Trust X-Forwarded-For / X-Forwarded-Proto from a reverse proxy. */

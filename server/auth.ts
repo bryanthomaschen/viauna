@@ -2,7 +2,8 @@
 // A browser session can hold several mailboxes (Gmail's account switcher), each
 // proven with its own password at sign-in.
 import net from "node:net";
-import { type Endpoint, type Security, config } from "./config.ts";
+import type { Transaction } from "kysely";
+import { type Endpoint, type Security, config, endpointKey } from "./config.ts";
 import {
   type Credentials,
   decryptCredentials,
@@ -11,11 +12,13 @@ import {
   parseSessionCookie,
   sha256,
 } from "./crypto.ts";
-import { db } from "./db.ts";
 import { verifyLogin } from "./imap/connection.ts";
 import { markProven } from "./imap/pool.ts";
+import { ensureIndexAccount } from "./imap/store.ts";
 import { connectTarget } from "./netpolicy.ts";
 import type { AccountInfo } from "./imap/runtime.ts";
+import { log } from "./log.ts";
+import { type StateSchema, state, stateStore, toNumber } from "./state/db.ts";
 
 export const COOKIE_NAME = "viauna_session";
 const DAY = 86_400_000;
@@ -44,30 +47,33 @@ export function accountInfo(row: AccountRecord): AccountInfo {
   return { id: row.id, login: row.login, email: row.email, imap: JSON.parse(row.imap), smtp: JSON.parse(row.smtp) };
 }
 
-/** Stable JSON for an endpoint: it is part of the account's identity. */
-function endpointKey(e: Endpoint): string {
-  return JSON.stringify({ host: e.host.toLowerCase(), port: e.port, security: e.security, servername: e.servername ?? null, verify: e.verify, ...(e.custom ? { custom: true } : {}) });
-}
-
-export function loadSession(cookie: string | undefined): AuthContext | null {
+export async function loadSession(cookie: string | undefined): Promise<AuthContext | null> {
   const parsed = parseSessionCookie(cookie);
   if (!parsed) return null;
   const hash = sha256(parsed.sid);
   const now = Date.now();
-  const session = db().get<{ id: string; seen_at: number; expires_at: number }>(
-    "SELECT id, seen_at, expires_at FROM sessions WHERE id = ?",
-    hash,
-  );
+  const session = await state()
+    .selectFrom("sessions")
+    .select(["id", "seen_at", "expires_at"])
+    .where("id", "=", hash)
+    .executeTakeFirst();
   if (!session || session.expires_at < now) return null;
   if (now - session.seen_at > 3600_000) {
     // Sliding expiry, written at most hourly.
-    db().run("UPDATE sessions SET seen_at = ?, expires_at = ? WHERE id = ?", now, now + config.sessionDays * DAY, hash);
+    await state()
+      .updateTable("sessions")
+      .set({ seen_at: now, expires_at: now + config.sessionDays * DAY })
+      .where("id", "=", hash)
+      .execute();
   }
-  const rows = db().all<AccountRecord & { credential: Uint8Array }>(
-    `SELECT a.id, a.login, a.email, a.imap, a.smtp, sa.credential FROM session_accounts sa
-     JOIN accounts a ON a.id = sa.account_id WHERE sa.session_id = ? ORDER BY sa.position`,
-    hash,
-  );
+  const rows = await state()
+    .selectFrom("session_accounts as sa")
+    .innerJoin("accounts as a", "a.id", "sa.account_id")
+    .select(["a.id", "a.login", "a.email", "a.imap", "a.smtp", "sa.credential"])
+    .where("sa.session_id", "=", hash)
+    .orderBy("sa.position")
+    .execute();
+  for (const r of rows) ensureIndexAccount(r);
   return {
     sessionHash: hash,
     cookieKey: parsed.key,
@@ -215,15 +221,11 @@ export async function signIn(
   giveBack(`ip:${meta.ip}`);
 
   const now = Date.now();
-  return db().tx(() => {
-    const imapKey = endpointKey(endpoints.imap);
-    db().run(
-      `INSERT INTO accounts (login, email, imap, smtp, created_at) VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT (login, imap) DO UPDATE SET email = excluded.email, smtp = excluded.smtp`,
-      login, email, imapKey, endpointKey(endpoints.smtp), now,
-    );
-    const account = db().get<{ id: number }>("SELECT id FROM accounts WHERE login = ? AND imap = ?", login, imapKey)!;
-    markProven(account.id, creds);
+  const imapKey = endpointKey(endpoints.imap);
+  const { account, cookie, index } = await state().transaction().execute(async (trx) => {
+    const account = await upsertAccount(trx, {
+      login, email, imap: imapKey, imap_hash: sha256(imapKey), smtp: endpointKey(endpoints.smtp), settings: "{}", created_at: now,
+    });
 
     let cookie: string | undefined;
     let sessionHash: string;
@@ -236,45 +238,99 @@ export async function signIn(
       cookie = fresh.value;
       sessionHash = sha256(fresh.sid);
       cookieKey = fresh.key;
-      db().run(
-        "INSERT INTO sessions (id, created_at, seen_at, expires_at, user_agent, ip) VALUES (?, ?, ?, ?, ?, ?)",
-        sessionHash, now, now, now + config.sessionDays * DAY, meta.userAgent.slice(0, 300), meta.ip,
-      );
+      await trx
+        .insertInto("sessions")
+        .values({ id: sessionHash, created_at: now, seen_at: now, expires_at: now + config.sessionDays * DAY, user_agent: meta.userAgent.slice(0, 300), ip: meta.ip })
+        .execute();
     }
     const credential = encryptCredentials(creds, cookieKey, sessionHash, account.id);
-    const current = db().get<{ position: number }>(
-      "SELECT position FROM session_accounts WHERE session_id = ? AND account_id = ?",
-      sessionHash, account.id,
-    );
+    const current = await trx
+      .selectFrom("session_accounts")
+      .select("position")
+      .where("session_id", "=", sessionHash)
+      .where("account_id", "=", account.id)
+      .executeTakeFirst();
     if (current) {
-      db().run("UPDATE session_accounts SET credential = ? WHERE session_id = ? AND account_id = ?", credential, sessionHash, account.id);
+      await trx
+        .updateTable("session_accounts")
+        .set({ credential })
+        .where("session_id", "=", sessionHash)
+        .where("account_id", "=", account.id)
+        .execute();
     } else {
-      const max = db().get<{ p: number | null }>("SELECT MAX(position) AS p FROM session_accounts WHERE session_id = ?", sessionHash);
-      db().run(
-        "INSERT INTO session_accounts (session_id, account_id, position, credential) VALUES (?, ?, ?, ?)",
-        sessionHash, account.id, (max?.p ?? -1) + 1, credential,
-      );
+      const max = await trx
+        .selectFrom("session_accounts")
+        .select((eb) => eb.fn.max("position").as("p"))
+        .where("session_id", "=", sessionHash)
+        .executeTakeFirst();
+      const position = max?.p === null || max?.p === undefined ? 0 : toNumber(max.p) + 1;
+      await trx.insertInto("session_accounts").values({ session_id: sessionHash, account_id: account.id, position, credential }).execute();
     }
-    const ordered = db().all<{ account_id: number }>(
-      "SELECT account_id FROM session_accounts WHERE session_id = ? ORDER BY position",
-      sessionHash,
-    );
-    return { ok: true as const, cookie, index: ordered.findIndex((r) => r.account_id === account.id) };
+    const ordered = await trx
+      .selectFrom("session_accounts")
+      .select("account_id")
+      .where("session_id", "=", sessionHash)
+      .orderBy("position")
+      .execute();
+    return { account, cookie, index: ordered.findIndex((r) => r.account_id === account.id) };
   });
+  ensureIndexAccount(account);
+  markProven(account.id, creds);
+  return { ok: true, cookie, index };
+}
+
+/** Creates the account, or refreshes its address and SMTP server if it exists. */
+async function upsertAccount(trx: Transaction<StateSchema>, values: Omit<AccountRecord, "id"> & { imap_hash: string; settings: string; created_at: number }) {
+  const insert = trx.insertInto("accounts").values(values);
+  const update = { email: values.email, smtp: values.smtp };
+  await (stateStore().dialect === "mysql"
+    ? insert.onDuplicateKeyUpdate(update)
+    : insert.onConflict((oc) => oc.columns(["login", "imap_hash"]).doUpdateSet(update))
+  ).execute();
+  return trx
+    .selectFrom("accounts")
+    .select(["id", "login", "email", "imap", "smtp"])
+    .where("login", "=", values.login)
+    .where("imap_hash", "=", values.imap_hash)
+    .executeTakeFirstOrThrow();
 }
 
 /** Signs one account out of the session; returns true if the session is now empty. */
-export function signOutAccount(ctx: AuthContext, accountId: number): boolean {
-  db().run("DELETE FROM session_accounts WHERE session_id = ? AND account_id = ?", ctx.sessionHash, accountId);
-  const left = db().get<{ n: number }>("SELECT COUNT(*) AS n FROM session_accounts WHERE session_id = ?", ctx.sessionHash)!;
-  if (left.n === 0) db().run("DELETE FROM sessions WHERE id = ?", ctx.sessionHash);
-  return left.n === 0;
+export async function signOutAccount(ctx: AuthContext, accountId: number): Promise<boolean> {
+  return state().transaction().execute(async (trx) => {
+    await trx.deleteFrom("session_accounts").where("session_id", "=", ctx.sessionHash).where("account_id", "=", accountId).execute();
+    const left = await trx
+      .selectFrom("session_accounts")
+      .select((eb) => eb.fn.countAll().as("n"))
+      .where("session_id", "=", ctx.sessionHash)
+      .executeTakeFirst();
+    if (toNumber(left?.n) > 0) return false;
+    await trx.deleteFrom("sessions").where("id", "=", ctx.sessionHash).execute();
+    return true;
+  });
 }
 
-export function signOutAll(ctx: AuthContext) {
-  db().run("DELETE FROM sessions WHERE id = ?", ctx.sessionHash);
+export async function signOutAll(ctx: AuthContext) {
+  await state().deleteFrom("sessions").where("id", "=", ctx.sessionHash).execute();
+}
+
+/** Whether this session is still signed in to the account and unexpired. */
+export async function isSignedIn(sessionHash: string, accountId: number): Promise<boolean> {
+  const row = await state()
+    .selectFrom("session_accounts as sa")
+    .innerJoin("sessions as s", "s.id", "sa.session_id")
+    .select("sa.account_id")
+    .where("sa.session_id", "=", sessionHash)
+    .where("sa.account_id", "=", accountId)
+    .where("s.expires_at", ">", Date.now())
+    .executeTakeFirst();
+  return !!row;
 }
 
 setInterval(() => {
-  db().run("DELETE FROM sessions WHERE expires_at < ?", Date.now());
+  state()
+    .deleteFrom("sessions")
+    .where("expires_at", "<", Date.now())
+    .execute()
+    .catch((err) => log.warn("expired session cleanup failed", { error: (err as Error).message }));
 }, 3600_000).unref();

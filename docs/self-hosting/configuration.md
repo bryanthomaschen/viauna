@@ -44,6 +44,7 @@ Everything is set with environment variables, read when Viauna starts.
 
 | Variable | Default | |
 |---|---|---|
-| `DATA_DIR` | `/data` in the image, `./data` outside it | Database, message cache, uploads and the generated secret. Mount a volume here. |
+| `DATA_DIR` | `/data` in the image, `./data` outside it | State (unless `DATABASE_URL` is set), the mail index, the message cache, uploads and the generated secret. Mount a volume here. |
+| `DATABASE_URL` | — | Where accounts, sessions and settings are kept. Unset: SQLite, as `state.db` in `DATA_DIR`. Or a `postgres://`, `mysql://` or `mariadb://` URL; see [Databases](./databases.md). |
 | `SECRET_KEY` | generated | Mixed into the encryption of saved passwords. If unset, one is generated into `DATA_DIR/secret.key` on first start. Changing or losing it signs everyone out. Generate one with `openssl rand -base64 32`. |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error`. |

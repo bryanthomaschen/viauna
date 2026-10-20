@@ -81,6 +81,7 @@ Everything is on **[the docs site](https://bryanthomaschen.github.io/viauna/)**,
 - **Self-hosting**: [getting started](docs/self-hosting/getting-started.md) ·
   [reverse proxy](docs/self-hosting/reverse-proxy.md) ·
   [configuration](docs/self-hosting/configuration.md) ·
+  [databases](docs/self-hosting/databases.md) ·
   [mail servers](docs/self-hosting/mail-servers.md) · [Mailu](docs/self-hosting/mailu.md) ·
   [upgrades and backups](docs/self-hosting/upgrading.md) ·
   [troubleshooting](docs/self-hosting/troubleshooting.md)
@@ -94,7 +95,8 @@ Everything is on **[the docs site](https://bryanthomaschen.github.io/viauna/)**,
 ```
 browser ──HTTP/SSE──▶ Viauna (Node) ──IMAP──▶ your mail server
                         │        └──SMTP──▶
-                        └── SQLite: sessions, the index, labels, settings
+                        ├── state: accounts, sessions, settings (SQLite, PostgreSQL or MySQL)
+                        └── index: a cache of your mail (SQLite)
 ```
 
 - Signing in is your mailbox's own IMAP login — Viauna has no user database. The

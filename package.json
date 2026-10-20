@@ -13,6 +13,7 @@
     "dev:server": "tsx watch --clear-screen=false --env-file-if-exists=.env server/index.ts",
     "dev:web": "vite",
     "dev:mail": "docker compose -f dev/compose.yml up -d && node dev/smtp-sink.mjs",
+    "dev:databases": "docker compose -f dev/databases.yml up -d",
     "seed": "tsx dev/seed.ts",
     "build": "vite build && node build-server.mjs",
     "start": "node --disable-warning=ExperimentalWarning dist/server/index.js",
@@ -27,9 +28,12 @@
     "hono": "^4.13.13",
     "html-to-text": "^10.0.1",
     "imapflow": "^2.5.2",
+    "kysely": "^0.29.6",
     "linkedom": "^0.18.13",
     "mailparser": "^3.9.40",
+    "mysql2": "^3.24.5",
     "nodemailer": "^10.1.2",
+    "pg": "^8.23.1",
     "sanitize-html": "^2.18.1"
   },
   "devDependencies": {
@@ -47,6 +51,7 @@
     "@types/html-to-text": "^9.0.4",
     "@types/mailparser": "^3.9.0",
     "@types/node": "^26.6.5",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@types/sanitize-html": "^2.16.2",

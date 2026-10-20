@@ -53,7 +53,18 @@ holds one. Turn on HTTP/2 in your proxy.
 
 ## Everyone is signed out after a restart
 
-The data directory isn't on a persistent volume, or `SECRET_KEY` changed between starts.
+The data directory isn't on a persistent volume, `SECRET_KEY` changed between starts, or
+`DATABASE_URL` now points at a different database.
+
+## Viauna stops at startup with a database error
+
+- "DATABASE_URL must start with…": only `postgres://`, `postgresql://`, `mysql://` and
+  `mariadb://` URLs are understood; leave it unset for SQLite.
+- A connection error: check the host, port and password, and that the database server
+  accepts connections from Viauna's address.
+- A permission error: the database user must be able to create tables in its database.
+
+See [Databases](./databases.md).
 
 ## Labels can't be added in some folder
 

@@ -1,10 +1,13 @@
-// Label definitions (display name, colour) live in the local database; the labels
-// themselves are keywords on the messages, on the server. Renaming or deleting a
-// label therefore rewrites keywords on the server, folder by folder.
+// Labels are keywords on the messages, on the server; renaming or deleting one
+// rewrites keywords there, folder by folder. A label exists if its keyword has been
+// seen on a message (the index's label_keywords) or it was created here. The name
+// and colour chosen here are kept in the state store; without one, the name is
+// decoded from the keyword.
 import { db, placeholders } from "../db.ts";
 import { type AccountRuntime, syncable } from "../imap/runtime.ts";
 import { type MessageRow, getMailboxes, updateFlags } from "../imap/store.ts";
-import { labelToKeyword, unpackKeywords } from "./keywords.ts";
+import { isUniqueViolation, state } from "../state/db.ts";
+import { keywordToLabel, labelToKeyword, unpackKeywords } from "./keywords.ts";
 
 export interface Label {
   keyword: string;
@@ -23,11 +26,37 @@ export const LABEL_COLORS = [
 
 export class LabelError extends Error {}
 
-export function listLabels(accountId: number): Label[] {
-  const rows = db().all<{ keyword: string; name: string; color: string | null }>(
-    "SELECT keyword, name, color FROM labels WHERE account_id = ? ORDER BY name COLLATE NOCASE",
-    accountId,
-  );
+interface LabelDef {
+  keyword: string;
+  name: string;
+  color: string | null;
+}
+
+function seen(accountId: number, keyword: string): boolean {
+  return !!db().get("SELECT 1 FROM label_keywords WHERE account_id = ? AND keyword = ?", accountId, keyword);
+}
+
+/** The label with this keyword, if there is one. */
+async function findLabel(accountId: number, keyword: string): Promise<LabelDef | null> {
+  const def = await state()
+    .selectFrom("labels")
+    .select(["keyword", "name", "color"])
+    .where("account_id", "=", accountId)
+    .where("keyword", "=", keyword)
+    .executeTakeFirst();
+  if (def) return def;
+  return seen(accountId, keyword) ? { keyword, name: keywordToLabel(keyword), color: null } : null;
+}
+
+export async function listLabels(accountId: number): Promise<Label[]> {
+  const defs = new Map<string, LabelDef>();
+  for (const d of await state().selectFrom("labels").select(["keyword", "name", "color"]).where("account_id", "=", accountId).execute()) {
+    defs.set(d.keyword, d);
+  }
+  for (const { keyword } of db().all<{ keyword: string }>("SELECT keyword FROM label_keywords WHERE account_id = ?", accountId)) {
+    if (!defs.has(keyword)) defs.set(keyword, { keyword, name: keywordToLabel(keyword), color: null });
+  }
+  const rows = [...defs.values()].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
   return rows.map((r) => {
     const counts = db().get<{ total: number; unread: number }>(
       `SELECT COUNT(DISTINCT thread_id) AS total,
@@ -53,15 +82,20 @@ function validColor(color: unknown): string | null {
   return c;
 }
 
-export function createLabel(accountId: number, name: unknown, color?: unknown): Label {
+export async function createLabel(accountId: number, name: unknown, color?: unknown): Promise<Label> {
   const n = validName(name);
   const keyword = labelToKeyword(n);
-  const exists = db().get("SELECT 1 FROM labels WHERE account_id = ? AND keyword = ?", accountId, keyword);
-  if (exists) throw new LabelError(`There is already a label called "${n}".`);
-  db().run(
-    "INSERT INTO labels (account_id, keyword, name, color, created_at) VALUES (?, ?, ?, ?, ?)",
-    accountId, keyword, n, validColor(color), Date.now(),
-  );
+  const taken = () => new LabelError(`There is already a label called "${n}".`);
+  if (await findLabel(accountId, keyword)) throw taken();
+  try {
+    await state()
+      .insertInto("labels")
+      .values({ account_id: accountId, keyword, name: n, color: validColor(color), created_at: Date.now() })
+      .execute();
+  } catch (err) {
+    if (isUniqueViolation(err)) throw taken();
+    throw err;
+  }
   return { keyword, name: n, color: validColor(color), total: 0, unread: 0 };
 }
 
@@ -103,11 +137,7 @@ async function retag(rt: AccountRuntime, from: string, to: string | null) {
 
 export async function updateLabel(rt: AccountRuntime, keyword: string, patch: { name?: unknown; color?: unknown }): Promise<Label> {
   const accountId = rt.account.id;
-  const row = db().get<{ keyword: string; name: string; color: string | null }>(
-    "SELECT keyword, name, color FROM labels WHERE account_id = ? AND keyword = ?",
-    accountId,
-    keyword,
-  );
+  const row = await findLabel(accountId, keyword);
   if (!row) throw new LabelError("No such label.");
   let next = row.keyword;
   let name = row.name;
@@ -115,26 +145,25 @@ export async function updateLabel(rt: AccountRuntime, keyword: string, patch: { 
     name = validName(patch.name);
     next = labelToKeyword(name);
     if (next !== row.keyword) {
-      if (db().get("SELECT 1 FROM labels WHERE account_id = ? AND keyword = ?", accountId, next)) {
+      if (await findLabel(accountId, next)) {
         throw new LabelError(`There is already a label called "${name}".`);
       }
       await retag(rt, row.keyword, next);
     }
   }
   const color = patch.color !== undefined ? validColor(patch.color) : row.color;
-  db().tx(() => {
-    db().run("DELETE FROM labels WHERE account_id = ? AND keyword = ?", accountId, row.keyword);
-    db().run(
-      "INSERT OR REPLACE INTO labels (account_id, keyword, name, color, created_at) VALUES (?, ?, ?, ?, ?)",
-      accountId, next, name, color, Date.now(),
-    );
+  await state().transaction().execute(async (trx) => {
+    await trx.deleteFrom("labels").where("account_id", "=", accountId).where("keyword", "in", [row.keyword, next]).execute();
+    await trx.insertInto("labels").values({ account_id: accountId, keyword: next, name, color, created_at: Date.now() }).execute();
   });
+  if (next !== row.keyword) db().run("DELETE FROM label_keywords WHERE account_id = ? AND keyword = ?", accountId, row.keyword);
   return { keyword: next, name, color, total: 0, unread: 0 };
 }
 
 export async function deleteLabel(rt: AccountRuntime, keyword: string) {
   await retag(rt, keyword, null);
-  db().run("DELETE FROM labels WHERE account_id = ? AND keyword = ?", rt.account.id, keyword);
+  await state().deleteFrom("labels").where("account_id", "=", rt.account.id).where("keyword", "=", keyword).execute();
+  db().run("DELETE FROM label_keywords WHERE account_id = ? AND keyword = ?", rt.account.id, keyword);
 }
 
 export function searchContacts(accountId: number, q: string, limit = 8) {
