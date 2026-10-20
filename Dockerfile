@@ -31,7 +31,10 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=build /src/dist ./dist
 COPY package.json LICENSE ./
 # Runs unprivileged; /data holds the database, the message cache and uploads.
-RUN mkdir -p /data && chown node:node /data
+# `viauna` is the command line: docker exec viauna viauna admin add you@example.com
+RUN mkdir -p /data && chown node:node /data \
+ && printf '#!/bin/sh\nexec node --disable-warning=ExperimentalWarning /app/dist/server/cli.js "$@"\n' > /usr/local/bin/viauna \
+ && chmod 755 /usr/local/bin/viauna
 USER node
 VOLUME ["/data"]
 EXPOSE 3000

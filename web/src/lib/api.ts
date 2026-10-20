@@ -1,11 +1,16 @@
 import type {
   ActionName,
+  AdminChange,
+  AdminData,
+  AdminSetting,
   AppConfig,
   Conversation,
   MailboxesResponse,
   MessageRef,
+  PasswordChange,
   RenderedMessage,
   SessionAccount,
+  SettingValue,
   Settings,
   ThreadsResponse,
   Label,
@@ -109,7 +114,9 @@ export const api = {
 
   contacts: (a: number, q: string) =>
     request<{ contacts: { address: string; name: string | null }[] }>("GET", `${u(a)}/contacts?q=${encodeURIComponent(q)}`),
-  settings: (a: number) => request<{ settings: Settings; email: string }>("GET", `${u(a)}/settings`),
+  settings: (a: number) => request<{ settings: Settings; email: string; password: PasswordChange | null }>("GET", `${u(a)}/settings`),
+  changePassword: (a: number, current: string, next: string) =>
+    request<{ ok: true; signedOut: number }>("POST", `${u(a)}/password`, { current, next }),
   saveSettings: (a: number, patch: Partial<Settings>) => request<{ settings: Settings }>("PUT", `${u(a)}/settings`, patch),
   trustSender: (a: number, address: string) => request("POST", `${u(a)}/trusted-senders`, { address }),
 
@@ -117,6 +124,10 @@ export const api = {
   updateLabel: (a: number, keyword: string, patch: { name?: string; color?: string | null }) =>
     request<{ label: Label }>("PATCH", `${u(a)}/labels/${encodeURIComponent(keyword)}`, patch),
   deleteLabel: (a: number, keyword: string) => request("DELETE", `${u(a)}/labels/${encodeURIComponent(keyword)}`),
+
+  admin: () => request<AdminData>("GET", "/api/admin"),
+  saveAdmin: (patch: Record<string, SettingValue | null>) =>
+    request<{ changed: string[]; settings: AdminSetting[]; changes: AdminChange[] }>("PUT", "/api/admin/settings", patch),
 
   attachmentUrl: (a: number, ref: MessageRef, index: number, inline = false) =>
     `${u(a)}/messages/${ref.mailboxId}/${ref.uid}/attachments/${index}${inline ? "?inline=1" : ""}`,

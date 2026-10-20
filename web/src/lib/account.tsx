@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createContext, type ReactNode, useContext, useMemo } from "react";
 import { api } from "./api";
 import { createStore } from "./store";
-import type { Identity, Label, Mailbox, SessionAccount, Settings, SpecialUse } from "./types";
+import type { Identity, Label, Mailbox, PasswordChange, SessionAccount, Settings, SpecialUse } from "./types";
 
 export interface AccountContextValue {
   index: number;
@@ -16,6 +16,8 @@ export interface AccountContextValue {
   mailboxById: Map<number, Mailbox>;
   labelByKeyword: Map<string, Label>;
   settings: Settings | undefined;
+  /** How the password is changed here, if it can be. */
+  password: PasswordChange | null;
   identities: Identity[];
   me: Set<string>;
 }
@@ -51,6 +53,7 @@ export function AccountProvider({ index, accounts, children }: { index: number; 
       mailboxById: new Map(boxes.map((m) => [m.id, m])),
       labelByKeyword: new Map(labels.map((l) => [l.keyword, l])),
       settings: s,
+      password: settings.data?.password ?? null,
       identities,
       me: new Set(identities.map((i) => i.address.toLowerCase())),
     };

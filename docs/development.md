@@ -13,6 +13,10 @@ npm run dev           # http://127.0.0.1:5173: sign in as alice@example.test / p
 `npm run seed -- bob@example.test` seeds a second mailbox. Mail sent between them is
 delivered for real, so you can watch live updates arrive.
 
+`npm run cli -- admin add alice@example.test` makes alice an admin of your dev server
+(open `/admin`); `npm run cli -- settings` lists every setting. It's the
+[`viauna` command](./self-hosting/admin.md#the-command-line), run from source.
+
 ```bash
 npm run typecheck
 npm test                  # unit tests

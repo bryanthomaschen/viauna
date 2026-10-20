@@ -1,5 +1,8 @@
 # Throwaway databases for testing the state store on every engine: `npm run dev:databases`,
 # then run the tests with the URLs in test/databases.ts. Ports bound to 127.0.0.1 only.
+# Data lives in memory (tests drop and recreate tables constantly, which is slow on
+# disk), and each reports healthy only once it accepts connections over TCP, which the
+# images' first-start setup servers don't.
 name: viauna-dev-databases
 
 services:
@@ -7,11 +10,17 @@ services:
     image: postgres:17-alpine
     environment: { POSTGRES_USER: viauna, POSTGRES_PASSWORD: viauna, POSTGRES_DB: viauna }
     ports: ["127.0.0.1:55432:5432"]
+    tmpfs: [/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "viauna"], interval: 2s, retries: 60 }
   mysql:
     image: mysql:8.4
     environment: { MYSQL_ROOT_PASSWORD: root, MYSQL_DATABASE: viauna, MYSQL_USER: viauna, MYSQL_PASSWORD: viauna }
     ports: ["127.0.0.1:53306:3306"]
+    tmpfs: [/var/lib/mysql]
+    healthcheck: { test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uviauna", "-pviauna", "--silent"], interval: 2s, retries: 90 }
   mariadb:
     image: mariadb:11.4
     environment: { MARIADB_ROOT_PASSWORD: root, MARIADB_DATABASE: viauna, MARIADB_USER: viauna, MARIADB_PASSWORD: viauna }
     ports: ["127.0.0.1:53307:3306"]
+    tmpfs: [/var/lib/mysql]
+    healthcheck: { test: ["CMD", "mariadb-admin", "ping", "-h", "127.0.0.1", "-uviauna", "-pviauna", "--silent"], interval: 2s, retries: 90 }

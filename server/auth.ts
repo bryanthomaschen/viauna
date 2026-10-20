@@ -3,7 +3,7 @@
 // proven with its own password at sign-in.
 import net from "node:net";
 import type { Transaction } from "kysely";
-import { type Endpoint, type Security, config, endpointKey } from "./config.ts";
+import { type Endpoint, type Security, config, endpointKey, setting } from "./config.ts";
 import {
   type Credentials,
   decryptCredentials,
@@ -13,11 +13,12 @@ import {
   sha256,
 } from "./crypto.ts";
 import { verifyLogin } from "./imap/connection.ts";
-import { markProven } from "./imap/pool.ts";
+import { markProven, stopRuntime } from "./imap/pool.ts";
 import { ensureIndexAccount } from "./imap/store.ts";
 import { connectTarget } from "./netpolicy.ts";
 import type { AccountInfo } from "./imap/runtime.ts";
 import { log } from "./log.ts";
+import { passwordChangeFor, runPasswordChange } from "./password.ts";
 import { type StateSchema, state, stateStore, toNumber } from "./state/db.ts";
 
 export const COOKIE_NAME = "viauna_session";
@@ -293,6 +294,85 @@ async function upsertAccount(trx: Transaction<StateSchema>, values: Omit<Account
     .where("login", "=", values.login)
     .where("imap_hash", "=", values.imap_hash)
     .executeTakeFirstOrThrow();
+}
+
+// ------------------------------------------------------------------ password change
+
+export type PasswordChangeResult = { ok: true; signedOut: number } | { ok: false; status: number; error: string };
+
+const MIN_PASSWORD = 8;
+
+/**
+ * Changes the mailbox password through the operator's command or webhook (password.ts),
+ * after checking the current one with the mail server. Then this session keeps working
+ * with the new password, and every other session signed in to the mailbox is signed out
+ * of it, as after a password change anywhere else.
+ */
+export async function changePassword(
+  ctx: AuthContext,
+  sa: SessionAccount,
+  input: { current?: unknown; next?: unknown },
+  meta: { ip: string },
+): Promise<PasswordChangeResult> {
+  const how = passwordChangeFor(sa.account);
+  if (!how || how.method !== "form") return { ok: false, status: 400, error: "Password changes aren't available here." };
+  const current = typeof input.current === "string" ? input.current : "";
+  const next = typeof input.next === "string" ? input.next : "";
+  if (!current) return { ok: false, status: 400, error: "Enter your current password." };
+  if (next.length < MIN_PASSWORD) return { ok: false, status: 400, error: `Use at least ${MIN_PASSWORD} characters.` };
+  if (next.length > 1024) return { ok: false, status: 400, error: "That password is too long." };
+  if (next === current) return { ok: false, status: 400, error: "Choose a password different from your current one." };
+
+  const { login, email } = sa.account;
+  const key = `password:${login.toLowerCase()}`;
+  if (!take(`ip:${meta.ip}`, 20) || !take(key, 5)) {
+    return { ok: false, status: 429, error: "Too many attempts. Wait a few minutes and try again." };
+  }
+  const check = await verifyLogin(sa.account.imap, { user: login, pass: current });
+  if (!check.ok) {
+    if (check.reason !== "auth") giveBack(key);
+    return check.reason === "auth"
+      ? { ok: false, status: 400, error: "Your current password isn't right." }
+      : { ok: false, status: 502, error: check.message };
+  }
+
+  const result = await runPasswordChange({ login, email, currentPassword: current, newPassword: next });
+  if (!result.ok) return { ok: false, status: 400, error: result.error };
+  giveBack(key);
+  giveBack(`ip:${meta.ip}`);
+
+  const creds: Credentials = { user: login, pass: next };
+  const credential = encryptCredentials(creds, ctx.cookieKey, ctx.sessionHash, sa.account.id);
+  const signedOut = await state().transaction().execute(async (trx) => {
+    await trx
+      .updateTable("session_accounts")
+      .set({ credential })
+      .where("session_id", "=", ctx.sessionHash)
+      .where("account_id", "=", sa.account.id)
+      .execute();
+    const others = (
+      await trx
+        .selectFrom("session_accounts")
+        .select("session_id")
+        .where("account_id", "=", sa.account.id)
+        .where("session_id", "!=", ctx.sessionHash)
+        .execute()
+    ).map((r) => r.session_id);
+    if (!others.length) return 0;
+    await trx.deleteFrom("session_accounts").where("account_id", "=", sa.account.id).where("session_id", "in", others).execute();
+    // A session that held only this mailbox is now empty: end it.
+    const left = new Set(
+      (await trx.selectFrom("session_accounts").select("session_id").where("session_id", "in", others).execute()).map((r) => r.session_id),
+    );
+    const empty = others.filter((id) => !left.has(id));
+    if (empty.length) await trx.deleteFrom("sessions").where("id", "in", empty).execute();
+    return others.length;
+  });
+  // The running sync still logs in with the old password; start it afresh. The new
+  // one is proven on first use, like any other.
+  await stopRuntime(sa.account.id);
+  log.info("password changed", { account: sa.account.id, method: setting("passwordChange"), otherSessionsSignedOut: signedOut });
+  return { ok: true, signedOut };
 }
 
 /** Signs one account out of the session; returns true if the session is now empty. */

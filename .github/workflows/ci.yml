@@ -11,23 +11,24 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-24.04
-    # The state store is tested on every engine it supports (test/databases.ts).
+    # The state store is tested on every engine it supports (test/databases.ts), with
+    # their data in memory, since the tests rebuild tables constantly.
     services:
       postgres:
         image: postgres:17-alpine
         env: { POSTGRES_USER: viauna, POSTGRES_PASSWORD: viauna, POSTGRES_DB: viauna }
         ports: ["55432:5432"]
-        options: --health-cmd "pg_isready -U viauna" --health-interval 2s --health-timeout 5s --health-retries 60
+        options: --tmpfs /var/lib/postgresql/data --health-cmd "pg_isready -h 127.0.0.1 -U viauna" --health-interval 2s --health-timeout 5s --health-retries 60
       mysql:
         image: mysql:8.4
         env: { MYSQL_ROOT_PASSWORD: root, MYSQL_DATABASE: viauna, MYSQL_USER: viauna, MYSQL_PASSWORD: viauna }
         ports: ["53306:3306"]
-        options: --health-cmd "mysqladmin ping -uviauna -pviauna --silent" --health-interval 2s --health-timeout 5s --health-retries 90
+        options: --tmpfs /var/lib/mysql --health-cmd "mysqladmin ping -h 127.0.0.1 -uviauna -pviauna --silent" --health-interval 2s --health-timeout 5s --health-retries 90
       mariadb:
         image: mariadb:11.4
         env: { MARIADB_ROOT_PASSWORD: root, MARIADB_DATABASE: viauna, MARIADB_USER: viauna, MARIADB_PASSWORD: viauna }
         ports: ["53307:3306"]
-        options: --health-cmd "mariadb-admin ping -uviauna -pviauna --silent" --health-interval 2s --health-timeout 5s --health-retries 90
+        options: --tmpfs /var/lib/mysql --health-cmd "mariadb-admin ping -h 127.0.0.1 -uviauna -pviauna --silent" --health-interval 2s --health-timeout 5s --health-retries 90
     env:
       VIAUNA_TEST_PG: postgres://viauna:viauna@127.0.0.1:55432/viauna
       VIAUNA_TEST_MYSQL: mysql://viauna:viauna@127.0.0.1:53306/viauna

@@ -9,6 +9,26 @@ its notes before moving to it. A patch release (0.2.0 to 0.2.1) only fixes thing
 
 ## Unreleased
 
+### Added
+
+- **An admin page** at `/admin` (Admin settings, in the account menu): change who can
+  sign in, session length and limits, the app's name and password changes while Viauna
+  runs, without a restart. Each setting shows where its value comes from and who changed
+  it, and every change is listed. Settings in the environment keep working, and are
+  locked there. See [Admin page and command line](https://bryanthomaschen.github.io/viauna/self-hosting/admin).
+- **The `viauna` command**, to do the same from the server's console. Make yourself an
+  admin with `docker exec viauna viauna admin add you@example.com`, or list admins in
+  `ADMIN_ADDRESSES`.
+- **Password changes** from Settings > Accounts: a link to your mail server's own page
+  (for Mailu, `/admin/user/password`), or a form that hands the change to a command or
+  a signed webhook you provide. Afterwards, other browsers are signed out of that
+  mailbox. Off until you set `PASSWORD_CHANGE`. See [Password changes](https://bryanthomaschen.github.io/viauna/self-hosting/passwords).
+
+### Changed
+
+- A setting with an invalid value, such as a number out of range or `ture` for true,
+  now stops Viauna at startup with a message naming it, instead of being read as off.
+
 ### Fixed
 
 - Settings could open as a blank page, depending on how quickly it loaded.

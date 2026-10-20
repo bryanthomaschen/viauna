@@ -1,6 +1,13 @@
 # Configuration
 
-Everything is set with environment variables, read when Viauna starts.
+Everything can be set with environment variables. Those marked **Live** can also be
+changed while Viauna runs, from the [admin page or the command line](./admin.md); one set
+in the environment wins there and can't be changed except in the environment. The rest
+are read once, when Viauna starts.
+
+Values are checked at startup: an invalid one, such as a number out of range or `ture`
+for true, stops Viauna with a message naming the variable. Settings that are on or off
+take `true` or `false`, `1` or `0`, `yes` or `no`, `on` or `off`.
 
 ## Mail server
 
@@ -17,8 +24,8 @@ Everything is set with environment variables, read when Viauna starts.
 
 | Variable | Default | |
 |---|---|---|
-| `ALLOWED_DOMAINS` | — | Comma-separated email domains allowed to sign in, checked against both the address and the login sent to the server. Empty: any address your IMAP server accepts. |
-| `ALLOW_CUSTOM_SERVERS` | `false` | Let people enter their own IMAP and SMTP servers, and a username different from their address, on the sign-in page. |
+| `ALLOWED_DOMAINS` | — | **Live.** Comma-separated email domains allowed to sign in, checked against both the address and the login sent to the server. Empty: any address your IMAP server accepts. |
+| `ALLOW_CUSTOM_SERVERS` | `false` | **Live.** Let people enter their own IMAP and SMTP servers, and a username different from their address, on the sign-in page. |
 | `ALLOW_PRIVATE_SERVERS` | `false` | With custom servers on, also allow private and loopback addresses. Leave it off on a public instance, or anyone could use Viauna to probe your internal network. |
 
 ## Web
@@ -28,17 +35,28 @@ Everything is set with environment variables, read when Viauna starts.
 | `PUBLIC_URL` | — | The address people use, such as `https://webmail.example.com`. Requests that change anything must come from this origin. Strongly recommended; without it, the origin's host must match the request's `Host` header. |
 | `TRUST_PROXY` | `false` | Trust `X-Forwarded-For` and `X-Forwarded-Host` from one reverse proxy in front of Viauna. The last `X-Forwarded-For` entry is taken as the client. |
 | `SECURE_COOKIES` | on, unless `PUBLIC_URL` starts with `http://` | Mark cookies `Secure`. |
-| `APP_NAME` | `Viauna` | Shown in the title bar and on the sign-in page. |
+| `APP_NAME` | `Viauna` | **Live.** Shown in the title bar and on the sign-in page. |
 | `HOST`, `PORT` | `0.0.0.0`, `3000` in the image | Where to listen. Outside Docker the default host is `127.0.0.1`. |
 
 ## Sessions and limits
 
 | Variable | Default | |
 |---|---|---|
-| `SESSION_DAYS` | `30` | Session lifetime, extended by each visit. |
-| `MAX_ACCOUNTS` | `10` | Mailboxes one browser session can have signed in at once. |
-| `MAX_UPLOAD_MB` | `25` | Largest single attachment. Your proxy and mail server must accept messages at least this big. |
-| `CACHE_MB` | `1024` | Disk cache for downloaded messages. |
+| `SESSION_DAYS` | `30` | **Live.** Session lifetime, extended by each visit. 1 to 3650. |
+| `MAX_ACCOUNTS` | `10` | **Live.** Mailboxes one browser session can have signed in at once. 1 to 100. |
+| `MAX_UPLOAD_MB` | `25` | **Live.** Largest single attachment. Your proxy and mail server must accept messages at least this big. 1 to 10240. |
+| `CACHE_MB` | `1024` | **Live.** Disk cache for downloaded messages. 0 or more. |
+
+## Admins and password changes
+
+| Variable | Default | |
+|---|---|---|
+| `ADMIN_ADDRESSES` | — | **Live.** Comma-separated mailboxes that can open the admin page. They must sign in through `IMAP_HOST`. Set here, the list can't be changed from the page or the command line. See [Admin page and command line](./admin.md). |
+| `PASSWORD_CHANGE` | `off` | **Live.** How people change their password: `off`, `link`, `command` or `webhook`; each needs its variable below. See [Password changes](./passwords.md). |
+| `PASSWORD_CHANGE_URL` | — | For `link`: your mail server's password page. `{email}` is replaced with the person's address. Environment only. |
+| `PASSWORD_CHANGE_COMMAND` | — | For `command`: run with the request as JSON on its standard input. Environment only. |
+| `PASSWORD_CHANGE_WEBHOOK` | — | For `webhook`: POSTed the request as JSON. Environment only. |
+| `PASSWORD_CHANGE_WEBHOOK_SECRET` | — | Signs each webhook request. Required with `PASSWORD_CHANGE_WEBHOOK`. Environment only. |
 
 ## Data and logging
 

@@ -20,11 +20,17 @@ function adapt(table: (typeof STATE_TABLES)[number], row: Record<string, unknown
   return row;
 }
 
-/** Copies every state table from `from` into `to`, in one transaction. Returns row counts. */
+/**
+ * Copies every state table from `from` into `to`, in one transaction. Returns row
+ * counts. Tables the source doesn't have yet (0.1's file predates the admin tables) are
+ * left empty.
+ */
 export async function copyState(from: Kysely<any>, to: StateStore): Promise<Record<string, number>> {
   const counts: Record<string, number> = {};
+  const present = new Set((await from.introspection.getTables()).map((t) => t.name));
   await to.db.transaction().execute(async (trx) => {
     for (const table of STATE_TABLES) {
+      if (!present.has(table)) continue;
       const rows = (await from.selectFrom(table).selectAll().execute()) as Record<string, unknown>[];
       counts[table] = rows.length;
       for (let i = 0; i < rows.length; i += BATCH) {
@@ -33,8 +39,10 @@ export async function copyState(from: Kysely<any>, to: StateStore): Promise<Reco
       }
     }
     if (to.dialect === "postgres") {
-      // The rows kept their ids; move the sequence past them.
-      await sql`SELECT setval(pg_get_serial_sequence('accounts', 'id'), COALESCE((SELECT MAX(id) FROM accounts), 0) + 1, false)`.execute(trx);
+      // The rows kept their ids; move the sequences past them.
+      for (const table of ["accounts", "admin_log"]) {
+        await sql`SELECT setval(pg_get_serial_sequence(${table}, 'id'), COALESCE((SELECT MAX(id) FROM ${sql.table(table)}), 0) + 1, false)`.execute(trx);
+      }
     }
   });
   return counts;

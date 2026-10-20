@@ -3,11 +3,13 @@ import { createApp } from "./app.ts";
 import { config } from "./config.ts";
 import { getServerSecret } from "./crypto.ts";
 import { stopAll } from "./imap/pool.ts";
+import { watchInstanceSettings } from "./instance.ts";
 import { log } from "./log.ts";
 import { closeStorage, initStorage } from "./storage.ts";
 
 getServerSecret();
 await initStorage();
+watchInstanceSettings();
 
 if (!config.imap && !config.allowCustomServers) {
   log.warn("no mail server configured: set IMAP_HOST and SMTP_HOST (or ALLOW_CUSTOM_SERVERS=true)");

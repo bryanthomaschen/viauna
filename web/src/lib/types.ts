@@ -117,6 +117,8 @@ export interface SessionAccount {
   index: number;
   email: string;
   name: string;
+  /** May open the admin page. */
+  admin: boolean;
 }
 
 export interface Identity {
@@ -132,6 +134,9 @@ export interface Settings {
   pageSize: 25 | 50 | 100;
 }
 
+/** How this mailbox's password is changed here: the mail server's own page, or a form. */
+export type PasswordChange = { method: "link"; url: string } | { method: "form" };
+
 export interface AppConfig {
   appName: string;
   version: string;
@@ -146,4 +151,59 @@ export type ActionName =
 export interface MessageRef {
   mailboxId: number;
   uid: number;
+}
+
+// ---------------------------------------------------------------- the admin page
+
+export type SettingValue = boolean | number | string | string[];
+
+export interface AdminSetting {
+  key: string;
+  env: string;
+  type: "boolean" | "integer" | "text" | "list" | "choice";
+  section: string;
+  label: string;
+  help: string;
+  value: SettingValue;
+  default: SettingValue;
+  /** "environment": set there, and locked. */
+  source: "environment" | "changed" | "default";
+  updatedAt: number | null;
+  updatedBy: string | null;
+  min?: number;
+  max?: number;
+  unit?: string;
+  choices?: { value: string; label: string }[];
+}
+
+export interface AdminChange {
+  at: number;
+  actor: string;
+  setting: string;
+  label: string;
+  env: string;
+  /** null: the default. */
+  oldValue: SettingValue | null;
+  newValue: SettingValue | null;
+}
+
+export interface ServerFacts {
+  version: string;
+  imap: string | null;
+  smtp: string | null;
+  database: string;
+  dataDir: string;
+  publicUrl: string | null;
+  trustProxy: boolean;
+  allowPrivateServers: boolean;
+  passwordUrl: string | null;
+  passwordCommand: boolean;
+  passwordWebhook: boolean;
+}
+
+export interface AdminData {
+  you: string;
+  settings: AdminSetting[];
+  changes: AdminChange[];
+  server: ServerFacts;
 }

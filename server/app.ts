@@ -5,11 +5,11 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { type Context, Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { streamSSE } from "hono/streaming";
-import pkg from "../package.json" with { type: "json" };
 import {
   type AuthContext,
   COOKIE_NAME,
   type SessionAccount,
+  changePassword,
   credentialsFor,
   isSignedIn,
   loadSession,
@@ -17,12 +17,13 @@ import {
   signOutAccount,
   signOutAll,
 } from "./auth.ts";
-import { config } from "./config.ts";
+import { VERSION, config, parseSetting, settingDef } from "./config.ts";
 import type { Credentials } from "./crypto.ts";
 import { db } from "./db.ts";
-import { MailboxAuthError, runtimeFor } from "./imap/pool.ts";
+import { MailboxAuthError, runtimeFor, stillProven } from "./imap/pool.ts";
 import { type AccountRuntime, type ChangeEvent, syncable } from "./imap/runtime.ts";
 import { type MailboxRow, getMailbox, getMailboxes, specialUseName } from "./imap/store.ts";
+import { changeSettings, describeSettings, isAdmin, recentChanges, serverFacts } from "./instance.ts";
 import { log } from "./log.ts";
 import { ActionError, type ActionInput, perform, undo } from "./mail/actions.ts";
 import { ComposeError, type ComposeInput, discardDraft, saveDraft, saveUpload, sendMessage } from "./mail/compose.ts";
@@ -31,6 +32,7 @@ import { LabelError, createLabel, deleteLabel, listLabels, searchContacts, updat
 import { attachmentList, editorHtml, render } from "./mail/render.ts";
 import { parseQuery, searchThreads } from "./mail/search.ts";
 import { type View, conversation, listThreads, parseView } from "./mail/views.ts";
+import { passwordChangeFor } from "./password.ts";
 import { getSettings, isTrustedSender, myAddresses, trustSender, updateSettings } from "./settings.ts";
 
 type Env = {
@@ -42,8 +44,6 @@ type Env = {
     creds: Credentials;
   };
 };
-
-export const VERSION = process.env.VIAUNA_VERSION || pkg.version;
 
 const APP_CSP = [
   "default-src 'self'",
@@ -183,6 +183,7 @@ export function createApp() {
           index: sa.index,
           email: sa.account.email,
           name: (await getSettings(sa.account.id)).name,
+          admin: isAdmin(sa.account),
         })),
       ),
     });
@@ -513,7 +514,14 @@ export function createApp() {
 
   acct.get("/settings", async (c) => {
     const rt = c.get("rt");
-    return c.json({ settings: await getSettings(rt.account.id), email: rt.account.email });
+    return c.json({ settings: await getSettings(rt.account.id), email: rt.account.email, password: passwordChangeFor(rt.account) });
+  });
+
+  acct.post("/password", async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    const result = await changePassword(c.get("auth")!, c.get("sa"), body, { ip: clientIp(c) });
+    if (!result.ok) return c.json({ error: result.error }, result.status as 400);
+    return c.json({ ok: true, signedOut: result.signedOut });
   });
 
   acct.put("/settings", async (c) => {
@@ -552,6 +560,54 @@ export function createApp() {
   });
 
   app.route("/api/u/:a", acct);
+
+  // ---------------------------------------------------------------- admin
+
+  // For the first account in the session that isAdmin() accepts. Its password is
+  // re-proven every ten minutes, so admin rights end soon after the password changes or
+  // the mailbox goes away; an unreachable mail server doesn't lock admins out.
+  const admin = new Hono<Env>();
+
+  admin.use("*", async (c, next) => {
+    const auth = c.get("auth");
+    for (const sa of auth?.accounts ?? []) {
+      if (!isAdmin(sa.account)) continue;
+      const creds = credentialsFor(auth!, sa);
+      if (!creds) continue;
+      if ((await stillProven(sa.account, creds)) === false) {
+        return c.json({ error: "The mail server rejected your saved password. Sign in again.", reauth: true }, 401);
+      }
+      c.set("sa", sa);
+      return next();
+    }
+    return c.json({ error: "Only admins can open this page." }, 403);
+  });
+
+  admin.get("/", async (c) =>
+    c.json({
+      you: c.get("sa").account.login,
+      settings: await describeSettings(),
+      changes: await recentChanges(),
+      server: serverFacts(),
+    }),
+  );
+
+  admin.put("/settings", async (c) => {
+    const body = await c.req.json().catch(() => null);
+    if (!body || typeof body !== "object" || Array.isArray(body)) throw new ActionError("Send the settings to change.");
+    if ("admins" in body) {
+      // Removing the last admin from here would lock everyone out of this page.
+      const parsed = body.admins === null ? { value: [] } : parseSetting(settingDef("admins")!, body.admins);
+      if (!("error" in parsed) && !(parsed.value as string[]).length) {
+        throw new ActionError("Keep at least one admin. The command line can remove the last one.");
+      }
+    }
+    const result = await changeSettings(body, c.get("sa").account.login);
+    if ("error" in result) return c.json(result, 400);
+    return c.json({ changed: result.changed, settings: await describeSettings(), changes: await recentChanges() });
+  });
+
+  app.route("/api/admin", admin);
 
   // ---------------------------------------------------------------- live updates
 

@@ -8,7 +8,7 @@ state in the data directory (`/data` in the container), or in your database if y
 
 | Path | Holds | If it's lost |
 |---|---|---|
-| `state.db` | Accounts and sessions; each mailbox's settings (name, signature, send-as addresses, image preference, page size); label names and colours; senders whose images are always shown. Not present if you use `DATABASE_URL`, which holds these instead. | Everyone signs in again, and those settings and colours are gone. Mail is untouched, and labels stay on the messages because they live on the server. **Back this up.** |
+| `state.db` | Accounts and sessions; each mailbox's settings (name, signature, send-as addresses, image preference, page size); label names and colours; senders whose images are always shown; settings changed from the admin page, and the record of changes. Not present if you use `DATABASE_URL`, which holds these instead. | Everyone signs in again, and those settings and colours are gone; so are admins and settings made on the admin page. Mail is untouched, and labels stay on the messages because they live on the server. **Back this up.** |
 | `index.db` | The mail index: folders, conversations, message summaries, label keywords seen on messages, and the addresses you correspond with, for autocomplete | Nothing that matters: Viauna re-syncs from the mail server. |
 | `secret.key` | The generated server secret (absent if you set `SECRET_KEY`) | Everyone signs in again. |
 | `cache/` | Downloaded messages, up to `CACHE_MB` | Nothing: they're fetched again. |
@@ -56,6 +56,16 @@ older version after an upgrade isn't tested. People stay signed in across an upg
 long as the data volume and the secret are kept.
 
 The version you're running is shown at the foot of the sign-in page.
+
+### From 0.2 to 0.3
+
+Nothing to do: the new tables are created on the first start. Two things to know:
+
+- A setting with an invalid value (a number out of range, or anything but `true`,
+  `false`, `1`, `0`, `yes`, `no`, `on` or `off` for one that's on or off) now stops
+  Viauna at startup with a message naming it, where 0.2 quietly read it as off.
+- Most settings can now be changed from the [admin page](./admin.md). Settings in your
+  environment keep working, and stay locked there.
 
 ### From 0.1 to 0.2
 

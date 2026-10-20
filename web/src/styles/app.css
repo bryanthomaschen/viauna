@@ -423,6 +423,32 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
 .sig-editor .compose-editor { min-height: 100px; }
 .settings-save { position: sticky; bottom: 0; display: flex; justify-content: flex-end; gap: 8px; padding: 12px 24px; background: var(--surface); border-top: 1px solid var(--border); }
 
+.password-form { display: flex; flex-direction: column; gap: 12px; }
+.form-error { color: var(--danger); font-size: 14px; }
+
+/* ------------------------------------------------------------ admin page */
+
+.admin-page { display: grid; grid-template-rows: 64px 1fr; height: 100%; background: var(--page); }
+.admin-bar { display: flex; align-items: center; gap: 8px; padding: 8px 16px 8px 8px; min-width: 0; }
+.admin-bar .brand { display: flex; align-items: center; gap: 8px; padding-left: 4px; color: var(--text-2); font-size: 22px; letter-spacing: -0.2px; white-space: nowrap; }
+.admin-bar .brand img { width: 36px; height: 36px; }
+.admin-bar .brand b { font-weight: 400; color: var(--text-3); }
+.admin-bar .who { margin-left: auto; font-size: 14px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-main { margin: 0 16px 16px; background: var(--surface); border-radius: 16px; overflow-y: auto; }
+.admin-main h2 { margin: 0; padding: 28px 24px 8px; font-size: 14px; font-weight: 500; letter-spacing: .2px; color: var(--primary); border-bottom: 1px solid var(--border); }
+.admin-main code { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 12px; padding: 1px 4px; border-radius: 4px; background: var(--chip); color: var(--chip-text); }
+.setting-source { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; font-size: 12px; color: var(--text-3); }
+.setting-source .btn-text { height: 24px; padding: 0 6px; font-size: 12px; }
+.setting-note { font-size: 12px; color: var(--text-3); max-width: 640px; }
+.setting .options label .setting-note { margin-left: 4px; }
+.inline-field { display: flex; align-items: center; gap: 8px; width: 100%; flex-wrap: wrap; }
+.admin-facts td:first-child, .admin-changes td:first-child { color: var(--text-3); white-space: nowrap; }
+.admin-facts td:first-child { width: 260px; }
+.admin-facts td:last-child { text-align: right; }
+.admin-changes { max-width: none !important; }
+.admin-changes thead td { font-weight: 500; color: var(--text-2); }
+.admin-changes td { overflow-wrap: anywhere; }
+
 /* ------------------------------------------------------------ narrow screens */
 
 @media (max-width: 900px) {
@@ -465,6 +491,10 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
   .login-card { grid-template-columns: 1fr; gap: 8px; padding: 24px; }
   .login-form { padding-top: 8px; }
   .setting { grid-template-columns: 1fr; gap: 8px; }
+  .admin-main { margin: 0; border-radius: 0; }
+  .admin-bar .who { display: none; }
+  .admin-facts td:first-child { width: auto; white-space: normal; }
+  .admin-facts td:last-child { display: none; }
   .toolbar .range { display: none; }
   .toasts { left: 8px; right: 8px; bottom: 8px; }
   .toast { min-width: 0; }

@@ -1,10 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { Suspense, lazy, useEffect } from "react";
 import { Login } from "./components/Login";
 import { Shell } from "./components/Shell";
 import { api } from "./lib/api";
 import { navigate, parseRoute, usePath } from "./lib/router";
 import { prefs } from "./lib/store";
+
+const AdminPage = lazy(() => import("./components/Admin").then((m) => ({ default: m.AdminPage })));
 
 function useTheme() {
   const { theme, density } = prefs.use();
@@ -50,6 +52,13 @@ export function App() {
   }
   if (route.name === "login" || !accounts.length) {
     return <Login config={config.data} adding={adding} accounts={accounts} />;
+  }
+  if (route.name === "admin") {
+    return (
+      <Suspense fallback={<div className="login-page"><div className="spinner lg" aria-label="Loading" /></div>}>
+        <AdminPage accounts={accounts} appName={config.data?.appName ?? "Viauna"} />
+      </Suspense>
+    );
   }
   if (route.account >= accounts.length || route.name === "none") return null;
   return <Shell route={route} accounts={accounts} appName={config.data?.appName ?? "Viauna"} />;

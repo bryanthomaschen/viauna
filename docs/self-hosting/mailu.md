@@ -46,3 +46,11 @@ Notes:
   body search in Viauna fast.
 - "Report spam" and "Not spam" move messages into and out of Junk exactly as any other
   client does, so Mailu's spam training on those moves applies.
+- To let people change their password from Viauna, link to Mailu's own page, which
+  checks the current password and refuses breached ones:
+  `PASSWORD_CHANGE: link` and
+  `PASSWORD_CHANGE_URL: https://mail.example.com/admin/user/password`. See
+  [Password changes](./passwords.md).
+- To make yourself an admin of Viauna (not of Mailu):
+  `docker compose exec viauna viauna admin add you@example.com`. See
+  [Admin page and command line](./admin.md).

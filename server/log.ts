@@ -5,7 +5,12 @@ import { config } from "./config.ts";
 const LEVELS = { debug: 10, info: 20, warn: 30, error: 40 } as const;
 type Level = keyof typeof LEVELS;
 
-const threshold = LEVELS[(config.logLevel as Level) in LEVELS ? (config.logLevel as Level) : "info"];
+let threshold: number = LEVELS[(config.logLevel as Level) in LEVELS ? (config.logLevel as Level) : "info"];
+
+/** For the command line, which says what it did itself. */
+export function quietLogs() {
+  threshold = Math.max(threshold, LEVELS.warn);
+}
 
 function write(level: Level, msg: string, fields?: Record<string, unknown>) {
   if (LEVELS[level] < threshold) return;

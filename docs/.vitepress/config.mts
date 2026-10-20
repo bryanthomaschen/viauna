@@ -26,6 +26,8 @@ export default defineConfig({
           { text: "Getting started", link: "/self-hosting/getting-started" },
           { text: "Reverse proxy", link: "/self-hosting/reverse-proxy" },
           { text: "Configuration", link: "/self-hosting/configuration" },
+          { text: "Admin page and command line", link: "/self-hosting/admin" },
+          { text: "Password changes", link: "/self-hosting/passwords" },
           { text: "Databases", link: "/self-hosting/databases" },
           { text: "Mail servers", link: "/self-hosting/mail-servers" },
           { text: "Mailu", link: "/self-hosting/mailu" },

@@ -42,6 +42,9 @@ server you already run.
   drafts autosaved to your server's Drafts folder.
 - **Several accounts at once** with an account switcher (`/u/0`, `/u/1`, …) and
   "send mail as" aliases.
+- **An admin page** for whoever runs it: who can sign in, limits, password changes,
+  changed without a restart and with a record of who changed what. The same from the
+  command line, or all of it from environment variables.
 - **Keyboard shortcuts** — `c` `/` `j` `k` `o` `u` `e` `#` `!` `s` `x` `r` `a` `f` `l` `v`
   `z` `g i` … (press `?`).
 - **Safe by default** — message HTML is sanitized and shown in a sandboxed iframe with
@@ -81,6 +84,7 @@ Everything is on **[the docs site](https://bryanthomaschen.github.io/viauna/)**,
 - **Self-hosting**: [getting started](docs/self-hosting/getting-started.md) ·
   [reverse proxy](docs/self-hosting/reverse-proxy.md) ·
   [configuration](docs/self-hosting/configuration.md) ·
+  [admin page](docs/self-hosting/admin.md) · [password changes](docs/self-hosting/passwords.md) ·
   [databases](docs/self-hosting/databases.md) ·
   [mail servers](docs/self-hosting/mail-servers.md) · [Mailu](docs/self-hosting/mailu.md) ·
   [upgrades and backups](docs/self-hosting/upgrading.md) ·

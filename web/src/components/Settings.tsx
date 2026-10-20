@@ -1,12 +1,12 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ArrowLeft, ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
+import { type FormEvent, useEffect, useState } from "react";
 import { ui, useAccount } from "../lib/account";
 import { api } from "../lib/api";
 import { navigate } from "../lib/router";
 import { type Density, type Theme, prefs, toast } from "../lib/store";
 import type { Identity, Settings } from "../lib/types";
-import { IconButton, confirmDeleteFolder, confirmRemoveLabel } from "./common";
+import { IconButton, Modal, confirmDeleteFolder, confirmRemoveLabel } from "./common";
 import { EditorArea, FormatBar, useMailEditor } from "./Editor";
 
 type Tab = "general" | "accounts" | "labels" | "folders";
@@ -141,6 +141,7 @@ function Accounts() {
   const s = acct.settings;
   const [name, setName] = useState(s?.name ?? "");
   const [aliases, setAliases] = useState<Identity[]>(s?.aliases ?? []);
+  const [changingPassword, setChangingPassword] = useState(false);
   useEffect(() => {
     if (s) {
       setName(s.name);
@@ -180,6 +181,21 @@ function Accounts() {
           </div>
         </div>
       </div>
+      {acct.password && (
+        <div className="setting">
+          <div className="name">Password<small>The password for {acct.email}, here and in your other mail apps.</small></div>
+          <div className="options">
+            {acct.password.method === "link" ? (
+              <a className="btn btn-outline" href={acct.password.url} target="_blank" rel="noopener noreferrer">
+                Change password <ExternalLink size={16} />
+              </a>
+            ) : (
+              <button type="button" className="btn btn-outline" onClick={() => setChangingPassword(true)}>Change password</button>
+            )}
+          </div>
+        </div>
+      )}
+      {changingPassword && <PasswordDialog onClose={() => setChangingPassword(false)} />}
       <div className="setting">
         <div className="name">Signed-in accounts</div>
         <div className="options">
@@ -188,6 +204,50 @@ function Accounts() {
         </div>
       </div>
     </>
+  );
+}
+
+function PasswordDialog({ onClose }: { onClose: () => void }) {
+  const acct = useAccount();
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [again, setAgain] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (next !== again) return setError("The new passwords don't match.");
+    setBusy(true);
+    setError("");
+    try {
+      const r = await api.changePassword(acct.index, current, next);
+      toast(r.signedOut ? `Password changed. ${r.signedOut === 1 ? "Another browser was" : `${r.signedOut} other browsers were`} signed out.` : "Password changed.");
+      onClose();
+    } catch (err) {
+      setError((err as Error).message);
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal open onClose={onClose} title="Change password">
+      <form className="password-form" onSubmit={(e) => void submit(e)}>
+        <input type="text" autoComplete="username" value={acct.email} readOnly hidden />
+        <input className="text-input" type="password" autoComplete="current-password" aria-label="Current password" placeholder="Current password"
+          value={current} autoFocus onChange={(e) => setCurrent(e.target.value)} />
+        <input className="text-input" type="password" autoComplete="new-password" aria-label="New password" placeholder="New password" minLength={8}
+          value={next} onChange={(e) => setNext(e.target.value)} />
+        <input className="text-input" type="password" autoComplete="new-password" aria-label="Confirm new password" placeholder="Confirm new password"
+          value={again} onChange={(e) => setAgain(e.target.value)} />
+        <p className="dialog-text" style={{ fontSize: 14 }}>
+          At least 8 characters. Other browsers signed in to this mailbox will be signed out, and your other mail apps will ask for the new password.
+        </p>
+        {error && <div className="form-error" role="alert">{error}</div>}
+        <div className="buttons">
+          <button type="button" className="btn btn-text" onClick={onClose}>Cancel</button>
+          <button type="submit" className="btn btn-primary" disabled={busy || !current || !next || !again}>{busy ? "Changing…" : "Change password"}</button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 

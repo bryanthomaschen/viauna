@@ -51,6 +51,18 @@ async function retire(rt: AccountRuntime, forget = true) {
   await rt.stop();
 }
 
+/**
+ * Whether a session's password still logs in (checked at most every ten minutes, like
+ * the runtimes' own). A server that can't be reached proves nothing either way: null.
+ */
+export async function stillProven(account: AccountInfo, creds: Credentials): Promise<boolean | null> {
+  try {
+    return await proven(account, creds, credentialFingerprint(creds));
+  } catch {
+    return null;
+  }
+}
+
 /** Sign-in has just proven this password; don't log in a second time to check it. */
 export function markProven(accountId: number, creds: Credentials) {
   verified.set(`${accountId}:${credentialFingerprint(creds)}`, Date.now() + PROOF_MS);

@@ -4,6 +4,7 @@
 //   /u/0/inbox/123             conversation 123, opened from the inbox
 //   /u/0/label/work            a label          /u/0/folder/12   a folder
 //   /u/0/search/from%3Aann     search results   /u/0/settings    settings
+//   /admin                     the admin page, for the whole server rather than one mailbox
 import { useSyncExternalStore } from "react";
 
 const listeners = new Set<() => void>();
@@ -37,7 +38,7 @@ export type Folder =
   | { kind: "search"; query: string };
 
 export interface Route {
-  name: "login" | "mail" | "settings" | "none";
+  name: "login" | "mail" | "settings" | "admin" | "none";
   account: number;
   folder: Folder;
   thread: number | null;
@@ -52,6 +53,7 @@ export function parseRoute(path: string): Route {
   const parts = pathname.split("/").filter(Boolean);
   const none: Route = { name: "none", account: 0, folder: { kind: "inbox" }, thread: null, page: 0 };
   if (parts[0] === "login") return { ...none, name: "login" };
+  if (parts[0] === "admin" && parts.length === 1) return { ...none, name: "admin" };
   if (parts[0] !== "u" || parts.length < 2) return none;
   const account = Number(parts[1]);
   if (!Number.isInteger(account)) return none;

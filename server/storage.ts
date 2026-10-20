@@ -6,12 +6,15 @@
 //   index, is renamed index.db.
 // - Setting DATABASE_URL after running on the default SQLite store: an empty database
 //   is filled from state.db, so switching engines keeps everyone signed in.
+//
+// Then loads the settings changed from the admin page (instance.ts).
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { Kysely, SqliteDialect } from "kysely";
 import { config } from "./config.ts";
 import { Database, setDatabase } from "./db.ts";
+import { loadInstanceSettings } from "./instance.ts";
 import { log } from "./log.ts";
 import { copyState, isEmpty } from "./state/copy.ts";
 import { type StateStore, openState, setState, stateStore } from "./state/db.ts";
@@ -73,6 +76,12 @@ function dropOldCacheLayout(dataDir: string) {
   for (const name of names) if (/^\d+$/.test(name)) fs.rmSync(path.join(root, name), { recursive: true, force: true });
 }
 
+/** DATABASE_URL names an empty database, and state.db is waiting to be copied into it. */
+export async function copyStatePending(dataDir: string): Promise<boolean> {
+  const store = stateStore();
+  return store.dialect !== "sqlite" && fs.existsSync(path.join(dataDir, "state.db")) && (await isEmpty(store.db));
+}
+
 export async function initStorage(opts: StorageOptions = {}) {
   const dataDir = opts.dataDir ?? config.dataDir;
   const databaseUrl = "databaseUrl" in opts ? opts.databaseUrl : config.databaseUrl;
@@ -87,7 +96,7 @@ export async function initStorage(opts: StorageOptions = {}) {
 
   if (fs.existsSync(legacyFile) && !fs.existsSync(indexFile)) {
     await upgradeSingleFile(legacyFile, indexFile, store);
-  } else if (store.dialect !== "sqlite" && fs.existsSync(stateFile) && (await isEmpty(store.db))) {
+  } else if (await copyStatePending(dataDir)) {
     const local = await openState(undefined, stateFile);
     try {
       const counts = await copyState(local.db, store);
@@ -97,6 +106,7 @@ export async function initStorage(opts: StorageOptions = {}) {
     }
   }
 
+  await loadInstanceSettings();
   setDatabase(new Database(indexFile));
   dropOldCacheLayout(dataDir);
 }

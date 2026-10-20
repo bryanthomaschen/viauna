@@ -61,7 +61,15 @@ describe.skipIf(!enabled)("against a real IMAP server", { timeout: 30_000 }, () 
     return { status: res.status, json: (await res.json().catch(() => null)) as any };
   };
 
+  // The operator's password command, for the last test: it records what it's given.
+  let pwOut = "";
+
   beforeAll(async () => {
+    const pwDir = fs.mkdtempSync(path.join(os.tmpdir(), "viauna-it-pw-"));
+    pwOut = path.join(pwDir, "request.json");
+    const script = path.join(pwDir, "change.mjs");
+    fs.writeFileSync(script, `import fs from "node:fs"; let s = ""; process.stdin.on("data", (d) => (s += d)).on("end", () => fs.writeFileSync(${JSON.stringify(pwOut)}, s));`);
+    Object.assign(process.env, { PASSWORD_CHANGE: "command", PASSWORD_CHANGE_COMMAND: `"${process.execPath}" "${script}"` });
     const url = process.env.VIAUNA_TEST_DATABASE_URL || undefined;
     if (url) await (await import("./databases.ts")).emptyDatabase(url);
     dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "viauna-it-"));
@@ -132,6 +140,37 @@ describe.skipIf(!enabled)("against a real IMAP server", { timeout: 30_000 }, () 
     expect((await call("GET", "/api/session")).json.accounts[0].name).toBe("Ivy Tester");
   });
 
+  it("keeps the admin page to admins, and applies their changes at once", async () => {
+    expect((await call("GET", "/api/admin")).status).toBe(403);
+    expect((await call("GET", "/api/session")).json.accounts[0].admin).toBe(false);
+    const { COMMAND_LINE, changeSettings } = await import("../server/instance.ts");
+    await changeSettings({ ADMIN_ADDRESSES: user }, COMMAND_LINE);
+    expect((await call("GET", "/api/session")).json.accounts[0].admin).toBe(true);
+
+    const page = await call("GET", "/api/admin");
+    expect(page.status).toBe(200);
+    expect(page.json.you).toBe(user);
+    expect(page.json.settings.find((s: any) => s.env === "APP_NAME")).toMatchObject({ value: "Viauna", source: "default" });
+    expect(page.json.server).toMatchObject({ imap: "127.0.0.1:1143, unencrypted", passwordCommand: true, passwordWebhook: false });
+    expect(page.json.changes[0]).toMatchObject({ actor: "command line", env: "ADMIN_ADDRESSES", newValue: [user] });
+
+    const saved = await call("PUT", "/api/admin/settings", { appName: "Team Mail" });
+    expect(saved.status).toBe(200);
+    expect(saved.json.changes[0]).toMatchObject({ actor: user, env: "APP_NAME", oldValue: null, newValue: "Team Mail" });
+    expect((await call("GET", "/api/config")).json.appName).toBe("Team Mail");
+
+    expect((await call("PUT", "/api/admin/settings", { admins: [] })).json.error).toMatch(/at least one admin/);
+    expect((await call("PUT", "/api/admin/settings", { maxAccounts: 0 })).json.error).toMatch(/whole number from 1/);
+    const forged = await app.request("/api/admin/settings", {
+      method: "PUT",
+      headers: { Origin: "https://evil.example", Cookie: cookie, "Content-Type": "application/json" },
+      body: JSON.stringify({ appName: "Hijacked" }),
+    });
+    expect(forged.status).toBe(403);
+    expect((await call("PUT", "/api/admin/settings", { appName: null })).status).toBe(200);
+    expect((await call("GET", "/api/config")).json.appName).toBe("Viauna");
+  });
+
   it("archives with undo, labels, and stars", async () => {
     const list = (await call("GET", "/api/u/0/threads?view=inbox")).json;
     const lunch = list.threads.find((t: any) => t.subject === "Lunch?");
@@ -198,5 +237,28 @@ describe.skipIf(!enabled)("against a real IMAP server", { timeout: 30_000 }, () 
     const after = (await call("GET", `/api/u/0/threads/${lunch.id}?view=inbox`)).json;
     expect(after.messages).toHaveLength(3);
     expect(after.messages[0].answered).toBe(true);
+  });
+
+  // Last: afterwards this session holds a password the dev server doesn't accept.
+  it("changes the password with the operator's command, and signs the mailbox out elsewhere", async () => {
+    expect((await call("GET", "/api/u/0/settings")).json.password).toEqual({ method: "form" });
+    const other = await app.request("/api/auth/login", {
+      method: "POST",
+      headers: { ...ORIGIN, "Content-Type": "application/json" },
+      body: JSON.stringify({ email: user, password: "pass" }),
+    });
+    const otherCookie = other.headers.get("set-cookie")!.split(";")[0];
+    const signedIn = async (c: string) => ((await (await app.request("/api/session", { headers: { Cookie: c } })).json()) as any).accounts.length;
+    expect(await signedIn(otherCookie)).toBe(1);
+
+    expect((await call("POST", "/api/u/0/password", { current: "wrong", next: "a new password" })).json.error).toBe("Your current password isn't right.");
+    expect((await call("POST", "/api/u/0/password", { current: "pass", next: "short" })).json.error).toMatch(/at least 8/);
+    expect(fs.existsSync(pwOut)).toBe(false);
+
+    const changed = await call("POST", "/api/u/0/password", { current: "pass", next: "a new password" });
+    expect(changed.json).toEqual({ ok: true, signedOut: 1 });
+    expect(JSON.parse(fs.readFileSync(pwOut, "utf8"))).toEqual({ login: user, email: user, currentPassword: "pass", newPassword: "a new password" });
+    expect(await signedIn(otherCookie)).toBe(0);
+    expect(await signedIn(cookie)).toBe(1);
   });
 });

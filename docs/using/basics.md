@@ -65,3 +65,9 @@ Some settings follow your mailbox to every browser; others apply to this browser
   lets you use.
 - **Desktop notifications** appear for new mail while the tab is in the background.
 - **Theme** follows your device by default; choose Light or Dark to fix it.
+- **Change password** (Settings > Accounts) appears if your server has set it up. It
+  either opens your mail server's own page, or asks for your current and new password
+  here. Afterwards, other browsers signed in to your mailbox are signed out, and your
+  other mail apps ask for the new password.
+- **Admin settings**, in the account menu, appears only for the people who run your
+  server: it changes settings for everyone.

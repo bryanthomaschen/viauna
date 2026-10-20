@@ -5,7 +5,11 @@
 ```
 server/            Node (TypeScript, Hono)
   app.ts           HTTP API, security headers, CSRF check, SSE
-  auth.ts          sign-in, sessions, rate limits
+  config.ts        settings: environment, and the registry of those changeable live
+  instance.ts      live settings in the state store, the record of changes, who is admin
+  cli.ts           the `viauna` command
+  auth.ts          sign-in, sessions, rate limits, password change
+  password.ts      handing password changes to a link, command or webhook
   crypto.ts        session cookies, credential encryption
   storage.ts       opens both stores at startup; upgrades older layouts
   db.ts            the mail index: SQLite schema and helpers (node:sqlite)
@@ -41,7 +45,8 @@ Two stores, split by whether the data can be fetched again:
 
 - **The state store** (`server/state/`) holds what a person chose or did: accounts,
   sessions and their encrypted passwords, each mailbox's settings, label names and
-  colours, trusted senders. SQLite in `DATA_DIR/state.db` by default, or PostgreSQL or
+  colours, trusted senders, and the settings admins changed with a record of each
+  change. SQLite in `DATA_DIR/state.db` by default, or PostgreSQL or
   MySQL/MariaDB through `DATABASE_URL`, with one schema and one set of queries
   ([Kysely](https://kysely.dev)). Engines differ only in auto-increment ids, the binary
   type, and MySQL's table options (utf8mb4 with binary collation, so comparisons are
@@ -127,6 +132,21 @@ themselves live in it. A password change first proves the current password with 
 login; a webhook then receives the address and new password signed with a shared
 secret, and a command gets them on stdin, never in its arguments.
 
+## Settings
+
+Every setting can come from the environment. Those in `SETTINGS` (`server/config.ts`)
+can also be changed while Viauna runs, from the admin page or the `viauna` command:
+`server/instance.ts` keeps them in the state store (a row only for one that was
+changed), and every instance re-reads them every ten seconds, so a change made anywhere
+applies everywhere without a restart. A value in the environment wins and locks the
+setting. Each change is recorded in `admin_log` with who made it.
+
+A setting stays environment-only when changing it live would be unsafe or meaningless:
+where Viauna listens and keeps data, the mail server (part of every account's identity),
+and anything that could run code, reach the internal network, or send people's passwords
+somewhere (where password changes go: a page, a command, a webhook). A new setting
+should say which kind it is.
+
 ## Security model
 
 - **Credentials**: AES-256-GCM, key = HKDF(cookie secret, server secret, session id,
@@ -156,3 +176,18 @@ secret, and a command gets them on stdin, never in its arguments.
   proxy added.
 - **Live updates** stop for an account the moment it is signed out or its session
   expires.
+- **Admins** are mailboxes listed in the admins setting, signed in through the
+  operator's own `IMAP_HOST`; an account on a server entered at sign-in never counts.
+  The login the server accepted is compared, not the address typed, so another
+  mailbox's password can't borrow an admin's address. An admin's password is re-proven
+  every ten minutes, as for mail. The page can't change anything that runs code,
+  reaches the internal network or receives passwords (see Settings above), so a stolen
+  admin session can't be turned into any of those. The last admin can only be removed
+  from the command line, which needs access to the server.
+- **Changing a password** checks the current one with the mail server first, counts
+  attempts per mailbox, and hands the change to the operator's link, command or webhook.
+  The command gets its request on standard input and runs with a stripped environment
+  (no `SECRET_KEY` or `DATABASE_URL`), in its own process group so a timeout ends all of
+  it; the webhook request is signed (HMAC-SHA256 over timestamp and body) and redirects
+  aren't followed. Afterwards the session is re-encrypted with the new password, every
+  other session is signed out of that mailbox, and its sync restarts.

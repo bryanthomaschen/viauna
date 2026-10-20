@@ -17,6 +17,7 @@
     "seed": "tsx dev/seed.ts",
     "build": "vite build && node build-server.mjs",
     "start": "node --disable-warning=ExperimentalWarning dist/server/index.js",
+    "cli": "tsx --env-file-if-exists=.env server/cli.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p web/tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",

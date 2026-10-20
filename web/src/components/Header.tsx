@@ -1,6 +1,6 @@
 import * as Popover from "@radix-ui/react-popover";
 import { useQueryClient } from "@tanstack/react-query";
-import { CircleHelp, LogOut, Menu, Search, Settings, SlidersHorizontal, UserPlus, X } from "lucide-react";
+import { CircleHelp, LogOut, Menu, Search, Settings, ShieldCheck, SlidersHorizontal, UserPlus, X } from "lucide-react";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { ui, useAccount } from "../lib/account";
 import { api } from "../lib/api";
@@ -187,6 +187,12 @@ function AccountMenu() {
               <span className="icon-btn sm" aria-hidden><UserPlus size={20} /></span>
               <span className="t">Add another account</span>
             </button>
+            {acct.accounts.some((a) => a.admin) && (
+              <button type="button" className="account-row" onClick={() => navigate("/admin")}>
+                <span className="icon-btn sm" aria-hidden><ShieldCheck size={20} /></span>
+                <span className="t">Admin settings</span>
+              </button>
+            )}
             <button type="button" className="account-row" onClick={() => void signOut(acct.index)}>
               <span className="icon-btn sm" aria-hidden><LogOut size={20} /></span>
               <span className="t">Sign out of {me.email}</span>
