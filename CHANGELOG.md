@@ -16,6 +16,12 @@ its notes before moving to it. A patch release (0.2.0 to 0.2.1) only fixes thing
   or turning contacts on or off) took effect only after reloading the page. Changes
   from the command line are announced to the server rather than picked up every ten
   seconds.
+- You were signed out `SESSION_DAYS` (30 days) after first signing in on a browser,
+  however often you used it: the session was extended, but the browser's cookie wasn't.
+  It's now sent again when the session is extended, so you stay signed in for 30 days
+  after your last visit, as documented.
+- `PASSWORD_CHANGE_URL` accepted `{login}`, `{user}` and `{domain}` but filled in only
+  `{email}`; all four are filled in now.
 
 ## 0.4.1 - 2026-10-20
 
