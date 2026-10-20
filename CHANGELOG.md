@@ -22,6 +22,8 @@ its notes before moving to it. A patch release (0.2.0 to 0.2.1) only fixes thing
   ways; one that crossed a change made elsewhere is merged, field by field, so neither
   is lost. See [Contacts and CardDAV](https://bryanthomaschen.github.io/viauna/self-hosting/contacts).
 
+## 0.3.1 - 2026-10-20
+
 ### Fixed
 
 - After changing the page size in Settings, going back kept the old page size until the
