@@ -15,6 +15,7 @@ import { Kysely, SqliteDialect } from "kysely";
 import { config } from "./config.ts";
 import { Database, setDatabase } from "./db.ts";
 import { loadInstanceSettings } from "./instance.ts";
+import { configureSettingsBus } from "./settings-bus.ts";
 import { log } from "./log.ts";
 import { copyState, isEmpty } from "./state/copy.ts";
 import { type StateStore, openState, setState, stateStore } from "./state/db.ts";
@@ -106,6 +107,7 @@ export async function initStorage(opts: StorageOptions = {}) {
     }
   }
 
+  configureSettingsBus(dataDir, databaseUrl);
   await loadInstanceSettings();
   setDatabase(new Database(indexFile));
   dropOldCacheLayout(dataDir);

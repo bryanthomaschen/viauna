@@ -156,9 +156,20 @@ secret, and a command gets them on stdin, never in its arguments.
 Every setting can come from the environment. Those in `SETTINGS` (`server/config.ts`)
 can also be changed while Viauna runs, from the admin page or the `viauna` command:
 `server/instance.ts` keeps them in the state store (a row only for one that was
-changed), and every instance re-reads them every ten seconds, so a change made anywhere
-applies everywhere without a restart. A value in the environment wins and locks the
-setting. Each change is recorded in `admin_log` with who made it.
+changed). A value in the environment wins and locks the setting. Each change is
+recorded in `admin_log` with who made it.
+
+A change reaches everything that depends on it without a restart or a reload, by
+being announced rather than polled for. `server/settings-bus.ts` carries the
+announcement between processes: the `viauna` command connects to a socket in the data
+directory, and servers sharing PostgreSQL use `LISTEN`/`NOTIFY`. It only says "changed":
+each server then re-reads the store, which stays the one source of truth, so a lost or
+repeated announcement can't leave a wrong value. A check once a minute is the safety
+net, for MySQL/MariaDB (which can't notify) and a notification lost to a dropped
+connection. Open pages hear of it on the event stream (`settings`, or
+`account-settings` for one mailbox's own) and refetch what depends on it
+(`web/src/lib/config.ts`), as they do after reconnecting. Anything new that reads a
+setting in the page should read it through those queries, not keep its own copy.
 
 A setting stays environment-only when changing it live would be unsafe or meaningless:
 where Viauna listens and keeps data, the mail server (part of every account's identity),

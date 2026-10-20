@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { VERSION, type SettingValue, config, lockedBy, parseSetting, setting, settingDef } from "./config.ts";
 import { COMMAND_LINE, type SettingInfo, changeSettings, describeSettings, loadInstanceSettings, recentChanges } from "./instance.ts";
 import { quietLogs } from "./log.ts";
+import { configureSettingsBus } from "./settings-bus.ts";
 import { copyStatePending } from "./storage.ts";
 import { openState, setState, stateStore } from "./state/db.ts";
 
@@ -24,7 +25,7 @@ const USAGE = `Usage: viauna <command>
   version                     the version of Viauna
 
 Settings set in the environment can only be changed there. Changes apply to the
-running server within seconds.`;
+running server at once.`;
 
 export interface Output {
   out: (line: string) => void;
@@ -160,6 +161,7 @@ async function open({ dataDir, databaseUrl }: Where): Promise<string | null> {
     return "Start Viauna once first: it upgrades this data directory from 0.1 on its first start.";
   }
   setState(await openState(databaseUrl, path.join(dataDir, "state.db")));
+  configureSettingsBus(dataDir, databaseUrl);
   if (await copyStatePending(dataDir)) {
     return "Start Viauna once first: on its first start with DATABASE_URL, it copies state.db into that database.";
   }

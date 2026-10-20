@@ -9,6 +9,14 @@ its notes before moving to it. A patch release (0.2.0 to 0.2.1) only fixes thing
 
 ## Unreleased
 
+### Fixed
+
+- A setting changed on the admin page or with the `viauna` command now applies at once
+  in every open page, including the admin's own: before, some (such as the app's name,
+  or turning contacts on or off) took effect only after reloading the page. Changes
+  from the command line are announced to the server rather than picked up every ten
+  seconds.
+
 ## 0.4.1 - 2026-10-20
 
 ### Fixed

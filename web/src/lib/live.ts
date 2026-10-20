@@ -4,6 +4,7 @@
 import { type QueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { refreshWhenSettled } from "./actions";
+import { refreshAccountSettings, refreshSettings } from "./config";
 import { prefs, toast } from "./store";
 
 interface ChangeEvent {
@@ -17,6 +18,7 @@ export function useLiveUpdates(client: QueryClient, accountCount: number, onOpen
     let source: EventSource | null = null;
     let retry: ReturnType<typeof setTimeout> | null = null;
     let closed = false;
+    let reconnected = false;
     const pending = new Set<number>();
     let flush: ReturnType<typeof setTimeout> | null = null;
 
@@ -44,6 +46,17 @@ export function useLiveUpdates(client: QueryClient, accountCount: number, onOpen
             };
           }
         }
+      });
+      // A setting changed: on the admin page, from the command line, in another tab.
+      source.addEventListener("settings", () => refreshSettings(client));
+      source.addEventListener("account-settings", (e) => {
+        const { index } = JSON.parse((e as MessageEvent).data) as { index: number };
+        refreshAccountSettings(client, index);
+      });
+      // Back after a dropped connection, announcements may have been missed.
+      source.addEventListener("ready", () => {
+        if (reconnected) refreshSettings(client);
+        reconnected = true;
       });
       source.addEventListener("contacts", (e) => {
         const { index } = JSON.parse((e as MessageEvent).data) as { index: number };

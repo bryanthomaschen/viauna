@@ -3,6 +3,7 @@ import { Suspense, lazy, useEffect } from "react";
 import { Login } from "./components/Login";
 import { Shell } from "./components/Shell";
 import { api } from "./lib/api";
+import { useConfig } from "./lib/config";
 import { navigate, parseRoute, usePath } from "./lib/router";
 import { prefs } from "./lib/store";
 
@@ -29,7 +30,7 @@ export function App() {
   useTheme();
   const path = usePath();
   const route = parseRoute(path);
-  const config = useQuery({ queryKey: ["config"], queryFn: api.config, staleTime: Infinity });
+  const config = useConfig();
   const session = useQuery({ queryKey: ["session"], queryFn: api.session, staleTime: 60_000 });
 
   const accounts = session.data?.accounts ?? [];

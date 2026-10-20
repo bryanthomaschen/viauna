@@ -4,8 +4,10 @@
 > The admin page and the `viauna` command need Viauna 0.3 or newer.
 
 Most settings can be changed while Viauna runs, without a restart: from the **admin
-page**, or from the server's console with the **`viauna` command**. Changes apply within
-about ten seconds, on every instance that shares the same database.
+page**, or from the server's console with the **`viauna` command**. A change applies at
+once, in every page people have open (nobody needs to reload), and on every instance
+that shares the same database. With several instances on MySQL or MariaDB, the others
+take up to a minute, since those databases can't announce a change.
 
 A setting given as an environment variable can't be changed either way: the environment
 wins, and the page shows it as locked. So you can keep everything in your compose file,
@@ -95,7 +97,9 @@ docker exec viauna viauna changes                     # recent changes, newest f
 ```
 
 Settings are named by their environment variable. Lists are comma-separated, and `""` is
-an empty list. A change made here is recorded as made by "command line".
+an empty list. A change made here is recorded as made by "command line". The command
+tells the running server through a socket in the data directory (`viauna.sock`), so the
+change applies at once; if it can't, the server still picks it up within a minute.
 
 Without Docker, run `node dist/server/cli.js` from the Viauna directory, with the same
 environment as the server.

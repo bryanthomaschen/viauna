@@ -8,6 +8,8 @@ import { ArrowLeft, Lock, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
 import { ui } from "../lib/account";
 import { ApiError, api } from "../lib/api";
+import { refreshSettings } from "../lib/config";
+import { useLiveUpdates } from "../lib/live";
 import { longDate } from "../lib/format";
 import { navigate } from "../lib/router";
 import { toast } from "../lib/store";
@@ -16,8 +18,12 @@ import { Dialogs, IconButton, Toasts } from "./common";
 
 type Save = (patch: Record<string, SettingValue | null>) => Promise<boolean>;
 
+const noThread = () => {};
+
 export function AdminPage({ accounts, appName }: { accounts: SessionAccount[]; appName: string }) {
   const query = useQuery({ queryKey: ["admin"], queryFn: api.admin, retry: false });
+  // Changes made elsewhere (another admin, the command line) show up here too.
+  useLiveUpdates(useQueryClient(), accounts.length, noThread);
   useEffect(() => {
     document.title = `Admin - ${appName}`;
   }, [appName]);
@@ -78,8 +84,8 @@ function useSave(): Save {
     try {
       const r = await api.saveAdmin(patch);
       client.setQueryData<AdminData>(["admin"], (d) => d && { ...d, settings: r.settings, changes: r.changes });
-      void client.invalidateQueries({ queryKey: ["config"] });
-      void client.invalidateQueries({ queryKey: ["session"] });
+      // Everything else the page shows from settings, in this tab too.
+      refreshSettings(client);
       toast(r.changed.length ? "Saved. It applies now." : "That's already the setting.");
       return true;
     } catch (err) {

@@ -1,8 +1,8 @@
 // The instance's own settings: those in config.ts's SETTINGS, changed from the admin
 // page or the command line while Viauna runs. They live in the state store, so every
-// instance sharing a database sees them, and each re-reads them every few seconds (a
-// change from the command line, another process, lands the same way). A setting given
-// in the environment wins and can't be changed here. Every change is recorded in
+// instance sharing a database sees them; a change made in another process (the command
+// line, another instance) is announced (settings-bus.ts) and re-read at once. A setting
+// given in the environment wins and can't be changed here. Every change is recorded in
 // admin_log, with who made it, for the admin page's list of recent changes.
 import {
   type Endpoint,
@@ -21,14 +21,22 @@ import {
   settingDef,
 } from "./config.ts";
 import type { AccountInfo } from "./imap/runtime.ts";
+import { EventEmitter } from "node:events";
 import { log } from "./log.ts";
+import { announceSettingsChange } from "./settings-bus.ts";
 import { state, stateStore } from "./state/db.ts";
+
+/**
+ * "changed" whenever the instance's settings take new values: changed here, from the
+ * command line, or by another instance (noticed on the next re-read). The live-updates
+ * stream tells every open page, which refreshes whatever it shows from settings.
+ */
+export const settingsEvents = new EventEmitter();
+settingsEvents.setMaxListeners(1000);
+let loadedSignature: string | null = null;
 
 /** Who made a change from the console, in the record of changes. */
 export const COMMAND_LINE = "command line";
-
-/** How often each instance re-reads the settings, so changes made elsewhere apply. */
-const RELOAD_MS = 10_000;
 
 const sameValue = (a: SettingValue, b: SettingValue) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -63,16 +71,11 @@ async function readStored(): Promise<Map<SettingKey, Stored>> {
 
 export async function loadInstanceSettings() {
   const stored = await readStored();
-  setOverrides(new Map([...stored].map(([k, s]) => [k, s.value])));
-}
-
-/** Keeps this instance's settings current; returns a function that stops it. */
-export function watchInstanceSettings(ms = RELOAD_MS): () => void {
-  const timer = setInterval(() => {
-    loadInstanceSettings().catch((err) => log.warn("couldn't re-read the settings", { error: (err as Error).message }));
-  }, ms);
-  timer.unref();
-  return () => clearInterval(timer);
+  const values = new Map([...stored].map(([k, s]) => [k, s.value]));
+  setOverrides(values);
+  const signature = JSON.stringify([...values].sort(([a], [b]) => a.localeCompare(b)));
+  if (loadedSignature !== null && signature !== loadedSignature) settingsEvents.emit("changed");
+  loadedSignature = signature;
 }
 
 export interface SettingInfo {
@@ -176,6 +179,7 @@ export async function changeSettings(patch: Record<string, unknown>, actor: stri
   if (changed.length) {
     log.info("settings changed", { by: actor, settings: changed.map((k) => settingDef(k)!.env) });
     await loadInstanceSettings();
+    await announceSettingsChange();
   }
   return { changed };
 }
