@@ -7,8 +7,9 @@ Viauna keeps two kinds of data, apart:
 
 - **State**, which must survive: accounts and who is signed in, each mailbox's settings
   (name, signature, send-as addresses, image preference, page size), label names and
-  colours, and the senders whose images are always shown. It lives in SQLite by default,
-  or in PostgreSQL, MySQL or MariaDB.
+  colours, the senders whose images are always shown, settings changed on the admin page
+  with the record of changes, and contacts. It lives in SQLite by default, or in
+  PostgreSQL, MySQL or MariaDB.
 - **The mail index**, a cache of your mail server: folders, conversations, message
   summaries, and the addresses you correspond with. It is always SQLite, in
   `DATA_DIR/index.db`, and is rebuilt from the mail server if it's lost.
@@ -74,7 +75,8 @@ Moving the other way, or from one server database to another, isn't automatic ye
 Even with a server database, the mail index, the message cache and attachments being
 written stay in `DATA_DIR`, along with `secret.key` unless you set `SECRET_KEY`. Give each
 Viauna its own data directory. Running several Viauna instances against one database
-isn't supported yet: each keeps its live mail server connections in memory.
+isn't supported yet: each keeps its mail server connections, sign-in limits, undo and
+contacts-sync status in memory.
 
 ## Backups
 

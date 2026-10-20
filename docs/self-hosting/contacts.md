@@ -46,18 +46,22 @@ Once sync is on, the server holds the contacts and Viauna keeps a synced copy fo
 listing, searching and suggestions.
 
 - **The first sync** sends the contacts already saved in Viauna to the person's first
-  address book. A contact the server already has (the same vCard UID, as when both came
-  from the same export) is matched, not doubled.
+  address book, each named after its vCard UID (`<UID>.vcf`). A card the server already
+  has under that name is matched, not doubled, and the server's copy is kept.
 - **A change in Viauna** is sent within a couple of seconds. It's sent only if the card
   hasn't changed on the server since (`If-Match`). If it has, Viauna applies the fields
   changed in Viauna to the server's newer card, so neither side's other changes are
   lost.
-- **Changes made elsewhere** come in when someone opens Contacts, every ten minutes
-  while they're signed in, and with **Sync now**. Viauna asks only for what changed
-  (`sync-collection`, RFC 6578) and lists every card's ETag on a server that lacks it.
+- **Changes made elsewhere** come in every ten minutes while someone has Viauna open,
+  when they open Contacts (if the last sync was more than a minute ago), and with
+  **Sync now**. Viauna asks only for what changed (`sync-collection`, RFC 6578) and lists
+  every card's ETag on a server that lacks it.
 - **Several address books** are all shown; new contacts go to the first.
-- An address book the mailbox can't write to keeps the server's copy of anything
-  changed in Viauna.
+- In an address book the mailbox can't write to, changes made in Viauna aren't sent:
+  the server's copy stands.
+
+When each sync runs, and how a contact changed on both sides is merged, is in
+[How it works: Contacts](../how-it-works/contacts.md).
 
 The Contacts page shows where it syncs and how the last sync went: "Synced with
 dav.example.com 3 minutes ago", or the error.

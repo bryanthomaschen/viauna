@@ -19,10 +19,20 @@ delivered for real, so you can watch live updates arrive.
 
 ```bash
 npm run typecheck
-npm test                  # unit tests
+npm test                  # unit tests, and that the docs match the code
 npm run test:integration  # end-to-end against the dev mail server
 npm run build && npm start
+npm run test:browser      # every shortcut and the command menu, in Chromium (after a build)
 ```
+
+The browser tests need Chromium once: `npx playwright-core install chromium-headless-shell`.
+
+`npm test` includes `test/docs.test.ts`, which fails when the docs and the code drift
+apart: an environment variable missing from [Configuration](./self-hosting/configuration.md),
+a shortcut that differs between the help panel and
+[the shortcuts page](./using/shortcuts.md), a server file missing from the layout in
+[Architecture](./architecture.md), or a page missing from the sidebar. A change to how
+something works, its timings or its limits also belongs in [How it works](./how-it-works/).
 
 ### On PostgreSQL, MySQL and MariaDB
 

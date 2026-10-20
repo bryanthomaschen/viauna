@@ -7,8 +7,10 @@ import { type ConfirmRequest, ui, useAccount } from "../lib/account";
 import { api } from "../lib/api";
 import { avatarColor, initial } from "../lib/format";
 import { folderPath, navigate } from "../lib/router";
-import { dismissToast, toast, toasts } from "../lib/store";
+import { dismissToast, prefs, toast, toasts } from "../lib/store";
 import type { Address, Label, Mailbox } from "../lib/types";
+import { MOD_KEY } from "./CommandMenu";
+import { SHORTCUTS } from "./shortcuts";
 
 export function Avatar({ person, size = 40 }: { person: Address | undefined; size?: number }) {
   const seed = person?.address ?? "?";
@@ -83,49 +85,39 @@ export function Modal({ open, onClose, title, children }: { open: boolean; onClo
   );
 }
 
-const SHORTCUTS: [string, string][] = [
-  ["c", "Compose"],
-  ["/", "Search mail"],
-  ["j / k", "Older / newer conversation"],
-  ["o or Enter", "Open conversation"],
-  ["u", "Back to the list"],
-  ["n / p", "Next / previous message"],
-  ["e", "Archive"],
-  ["#", "Delete"],
-  ["!", "Report spam"],
-  ["s", "Star / unstar"],
-  ["x", "Select conversation"],
-  ["Shift + i", "Mark as read"],
-  ["Shift + u", "Mark as unread"],
-  ["l", "Label as"],
-  ["v", "Move to"],
-  ["r", "Reply"],
-  ["a", "Reply all"],
-  ["f", "Forward"],
-  ["z", "Undo last action"],
-  ["g then i", "Go to Inbox"],
-  ["g then s", "Go to Starred"],
-  ["g then t", "Go to Sent"],
-  ["g then d", "Go to Drafts"],
-  ["g then a", "Go to All Mail"],
-  ["Ctrl + Enter", "Send"],
-  ["Esc", "Close / clear selection"],
-  ["?", "These shortcuts"],
-];
+
+/** The help panel: the command menu, which always works, then Gmail's single-key shortcuts and their switch. */
+function ShortcutsHelp() {
+  const on = prefs.use((p) => p.shortcuts);
+  return (
+    <>
+      <p className="dialog-text shortcut-intro">
+        <kbd>{MOD_KEY}K</kbd> opens the command menu: type what you want to do, or a folder or label, and press Enter.
+      </p>
+      <div className="shortcut-switch">
+        <span>Single-key shortcuts, as in Gmail, are {on ? "on" : "off"}.</span>
+        <button type="button" className="btn btn-text" onClick={() => prefs.set((p) => ({ ...p, shortcuts: !on }))}>
+          {on ? "Turn off" : "Turn on"}
+        </button>
+      </div>
+      <div className={`shortcut-grid ${on ? "" : "off"}`}>
+        {SHORTCUTS.map(([k, v]) => (
+          <div key={k}>
+            <span>{v}</span>
+            <kbd>{k}</kbd>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
 
 export function Dialogs() {
   const state = ui.use();
   return (
     <>
       <Modal open={state.shortcutsOpen} onClose={() => ui.set((s) => ({ ...s, shortcutsOpen: false }))} title="Keyboard shortcuts">
-        <div className="shortcut-grid">
-          {SHORTCUTS.map(([k, v]) => (
-            <div key={k}>
-              <span>{v}</span>
-              <kbd>{k}</kbd>
-            </div>
-          ))}
-        </div>
+        <ShortcutsHelp />
       </Modal>
       {state.labelDialog && <LabelDialog />}
       {state.folderDialog && <FolderDialog />}

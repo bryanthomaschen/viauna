@@ -8,11 +8,16 @@ state in the data directory (`/data` in the container), or in your database if y
 
 | Path | Holds | If it's lost |
 |---|---|---|
-| `state.db` | Accounts and sessions; each mailbox's settings (name, signature, send-as addresses, image preference, page size); label names and colours; senders whose images are always shown; settings changed from the admin page, and the record of changes; contacts. Not present if you use `DATABASE_URL`, which holds these instead. | Everyone signs in again, and those settings and colours are gone; so are admins, settings made on the admin page, and everyone's contacts. Mail is untouched, and labels stay on the messages because they live on the server. **Back this up.** |
+| `state.db` | Accounts and sessions; each mailbox's settings (name, signature, send-as addresses, image preference, page size); label names and colours; senders whose images are always shown; settings changed from the admin page, and the record of changes; contacts. Not present if you use `DATABASE_URL`, which holds these instead. | Everyone signs in again, and those settings and colours are gone; so are admins, settings made on the admin page, and everyone's contacts (unless they sync with a CardDAV server). Mail is untouched, and labels stay on the messages because they live on the server. **Back this up.** |
 | `index.db` | The mail index: folders, conversations, message summaries, label keywords seen on messages, and the addresses you correspond with, for autocomplete | Nothing that matters: Viauna re-syncs from the mail server. |
 | `secret.key` | The generated server secret (absent if you set `SECRET_KEY`) | Everyone signs in again. |
-| `cache/` | Downloaded messages, up to `CACHE_MB` | Nothing: they're fetched again. |
-| `uploads/` | Attachments of messages being written | Those attachments, until they're added again. |
+| `cache/` | Downloaded messages, trimmed to `CACHE_MB` | Nothing: they're fetched again. |
+| `uploads/` | Attachments of messages being written, kept 2 days | Those attachments, until they're added again. |
+| `viauna.sock` | The socket the `viauna` command tells the server of a change through, while it runs | Nothing: it's made again at start. |
+
+`state.db` and `index.db` each have a `-wal` and a `-shm` file beside them while Viauna
+runs; they belong to the database. More on what's kept where, and for how long, is in
+[How it works: Your data](../how-it-works/data.md).
 
 ## Backing up
 
@@ -55,14 +60,22 @@ The database schema updates itself on start. Back up `state.db` first: going bac
 older version after an upgrade isn't tested. People stay signed in across an upgrade as
 long as the data volume and the secret are kept.
 
-The version you're running is shown at the foot of the sign-in page.
+The version you're running is shown at the foot of the sign-in page, and by
+`docker exec viauna viauna version`.
 
 ### From 0.4 to 0.5
 
-Nothing to do. Filters and the vacation responder appear for mailboxes whose server
-offers ManageSieve on the IMAP host's port 4190; if yours is elsewhere, set
-`MANAGESIEVE_HOST` and `MANAGESIEVE_PORT`. Forwarding in filters is off until you turn
-it on (`FILTER_FORWARDING`).
+Nothing to do. Filters and the vacation responder appear for mailboxes on your own mail
+server, and use ManageSieve on the IMAP host's port 4190; if yours is elsewhere, set
+`MANAGESIEVE_HOST` and `MANAGESIEVE_PORT`. If your server has no ManageSieve, set
+`FILTERS=false` and `VACATION=false`, or Settings shows a Filters tab that can't connect.
+Forwarding in filters is off until you turn it on (`FILTER_FORWARDING`).
+
+Gmail's single-key shortcuts are now off until each person turns them on; the ⌘K /
+Ctrl+K command menu is always there. In a browser where someone had changed any display
+setting (theme, density and so on), shortcuts stay on. Tell people who use them where
+the switch is: Settings → Keyboard shortcuts, or *turn on single-key shortcuts* in the
+command menu.
 
 ### From 0.3 to 0.4
 

@@ -21,6 +21,23 @@ its notes before moving to it. A patch release (0.2.0 to 0.2.1) only fixes thing
 - **A vacation responder**, at the bottom of Settings > General: from a first day to an
   optional last day, at most one reply every four days to each sender, sent by your
   mail server.
+- **A command menu**: ⌘K on a Mac, Ctrl+K elsewhere, or the ⌘ button at the top. Type
+  an action (archive, label as, reply…), a folder, a label or a setting and press
+  Enter; with nothing matching, Enter searches your mail. In the list it acts on the
+  ticked conversations. See
+  [Command menu and shortcuts](https://bryanthomaschen.github.io/viauna/using/shortcuts).
+- **How it works**, a new part of the docs: mail sync, live updates and how settings
+  reach open pages, sessions, what's stored and cached where and what leaves the server,
+  how filters run, how contacts sync merges, and every fixed limit. The user and admin
+  pages stay short and link to it.
+
+### Changed
+
+- Gmail's single-key shortcuts are off until each person turns them on (Settings >
+  Keyboard shortcuts, or "turn on single-key shortcuts" in the command menu): single
+  keys get in the way of speech input and some screen readers. In a browser where
+  someone had changed a display setting before, they stay on.
+- The Settings tab is part of the address (`?tab=filters`), so a reload or Back keeps it.
 
 ### Fixed
 
@@ -32,6 +49,16 @@ its notes before moving to it. A patch release (0.2.0 to 0.2.1) only fixes thing
 - Saving a filter that skips the inbox makes the Archive folder if the mailbox has
   none (some mail servers, Mailu among them, don't make one), so it shows in the
   sidebar at once, before any mail lands in it.
+- Keyboard shortcuts that didn't work, found by pressing each one in a browser (a test
+  now does so on every change):
+  - `n` / `p` moved between messages without showing which; the message now gets a bar,
+    and the "N more" fold opens when they reach it.
+  - After clicking into a message, or ticking a conversation's checkbox, no shortcut
+    worked until you clicked elsewhere.
+  - `l` and `v` in the list did nothing with no conversation ticked.
+  - `Esc` after closing the label or folder picker didn't go back to the list.
+  - `z` pressed before the server had finished an action did nothing, or undid the
+    action before it.
 - You were signed out `SESSION_DAYS` (30 days) after first signing in on a browser,
   however often you used it: the session was extended, but the browser's cookie wasn't.
   It's now sent again when the session is extended, so you stay signed in for 30 days

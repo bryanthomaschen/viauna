@@ -4,20 +4,24 @@ import { type FormEvent, useEffect, useState } from "react";
 import { ui, useAccount } from "../lib/account";
 import { api } from "../lib/api";
 import { useConfig } from "../lib/config";
-import { navigate } from "../lib/router";
+import { navigate, usePath } from "../lib/router";
 import { type Density, type Theme, prefs, toast } from "../lib/store";
 import type { Identity, Settings } from "../lib/types";
 import { IconButton, Modal, confirmDeleteFolder, confirmRemoveLabel } from "./common";
 import { EditorArea, FormatBar, useMailEditor } from "./Editor";
+import { MOD_KEY } from "./CommandMenu";
 import { FiltersTab, VacationSetting } from "./Filters";
 
 type Tab = "general" | "accounts" | "labels" | "folders" | "filters";
 
 export function SettingsView() {
-  const [tab, setTab] = useState<Tab>("general");
   const acct = useAccount();
   const config = useConfig().data;
   const tabs: Tab[] = ["general", "accounts", "labels", "folders", ...(config?.filters ? (["filters"] as Tab[]) : [])];
+  // The tab is in the address (?tab=filters), so a reload, Back or the command menu lands on it.
+  const asked = new URLSearchParams(usePath().split("?")[1] ?? "").get("tab") as Tab | null;
+  const tab: Tab = asked && tabs.includes(asked) ? asked : "general";
+  const setTab = (t: Tab) => navigate(`/u/${acct.index}/settings${t === "general" ? "" : `?tab=${t}`}`, { replace: true });
   return (
     <>
       <div className="toolbar">
@@ -109,7 +113,7 @@ function General() {
         </div>
       </div>
       <div className="setting">
-        <div className="name">Keyboard shortcuts</div>
+        <div className="name">Keyboard shortcuts<small>Single keys, as in Gmail. {MOD_KEY}K opens the command menu either way.</small></div>
         <div className="options">
           <label><input type="radio" name="kb" checked={p.shortcuts} onChange={() => setPref("shortcuts", true)} /> Keyboard shortcuts on</label>
           <label><input type="radio" name="kb" checked={!p.shortcuts} onChange={() => setPref("shortcuts", false)} /> Keyboard shortcuts off</label>

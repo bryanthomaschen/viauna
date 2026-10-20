@@ -21,13 +21,13 @@ features:
   - title: Conversations across folders
     details: Your replies, filed in Sent, sit under the message they answer, threaded by Message-ID and References the way Gmail does it.
   - title: Fast and live
-    details: A local index makes lists, counts and paging instant. IMAP IDLE brings new mail to the open page within about a second.
+    details: A local index makes lists, counts and paging instant. IMAP IDLE brings new Inbox mail to the open page within about a second.
   - title: Labels, not just folders
     details: Several labels per conversation, stored on the server as IMAP keywords, so Thunderbird and Apple Mail show them as tags.
   - title: Search the way you already do
     details: from:, has:attachment, older_than:1y, "exact phrase" and the rest, run on the server against its full-text index.
-  - title: Keyboard first
-    details: 'c, /, j, k, e, #, r, a, f, z and the rest of Gmail''s shortcuts. Press ? for the full list.'
+  - title: Keyboard friendly
+    details: 'A command menu (⌘K or Ctrl+K) for every action, folder and setting by name, and Gmail''s single-key shortcuts if you turn them on.'
   - title: Safe by default
     details: Message HTML is sanitized and shown in a sandbox, and tracking images stay blocked until you allow them, per message or per sender.
 ---

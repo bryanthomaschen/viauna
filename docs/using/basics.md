@@ -3,6 +3,10 @@
 Viauna works like Gmail, so if you've used Gmail you already know most of it. This page
 covers the essentials and the parts that differ on your own mail server.
 
+Anything below can also be done from the command menu: press ⌘K (Ctrl+K), type, and press
+Enter. A key in brackets, like (`e`), is its single-key shortcut, which works once you
+turn shortcuts on. See [Command menu and shortcuts](./shortcuts.md).
+
 ## Signing in
 
 Sign in with your mailbox address and password. You stay signed in for 30 days after your
@@ -16,14 +20,19 @@ another account**. Each one has its own address in the browser: `/u/0`, `/u/1` a
 A conversation is a message and its replies, including the ones you sent, which are filed
 in Sent. A reply that changes the subject starts a new conversation, as in Gmail.
 
+New mail appears in the Inbox within about a second, and in other folders within a
+minute. See [How it works: Mail sync](../how-it-works/sync.md).
+
 ## Archive, delete and undo
 
 - **Archive** (`e`) moves a conversation out of the Inbox into your Archive folder, in
   the sidebar. If your mailbox has none, Viauna makes one the first time.
 - **Delete** (`#`) moves it to Trash.
 - **Report spam** (`!`) moves it to Junk; **Not spam** moves it back.
-- Almost anything can be undone: click **Undo** in the notice at the bottom of the
-  screen, or press `z`.
+- In Trash and Spam, Delete becomes **Delete forever**: the messages are removed from your
+  mail server, and that can't be undone.
+- Almost anything else can be undone for 10 minutes: click **Undo** in the notice at the
+  bottom of the screen, or press `z`.
 
 ## Labels and folders
 
@@ -32,7 +41,8 @@ IMAP keywords, so they stay with the mail: Thunderbird and Apple Mail show them 
 Create, rename, recolour and delete labels from the sidebar; renaming or deleting one
 updates your messages on the server.
 
-Folders work too: **Move to** (`v`) files a conversation in one.
+Folders work too: **Move to** (`v`) files a conversation in one. Viauna shows the
+folders you're subscribed to; to see one made in another app, subscribe to it there.
 
 ## Writing mail
 

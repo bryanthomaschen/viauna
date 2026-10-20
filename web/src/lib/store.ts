@@ -79,7 +79,9 @@ export interface Prefs {
 export const prefs = createStore<Prefs>({
   theme: "system",
   density: "default",
-  shortcuts: true,
+  // Single-key shortcuts get in the way of speech input and screen readers, and most
+  // people never use them: they're for those who turn them on, as in Gmail.
+  shortcuts: false,
   notifications: false,
   sidebarCollapsed: false,
   ...readLocal<Partial<Prefs>>("viauna.prefs", {}),

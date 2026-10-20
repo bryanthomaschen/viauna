@@ -31,8 +31,9 @@ To bring your contacts over:
 | Roundcube | Contacts → Export |
 
 Importing the same file again doesn't add anyone twice: a contact that's already here
-is updated instead. Contacts that name nobody (no name, company or address) are
-skipped, and the import says how many.
+(the same vCard UID) is replaced by the file's version. Contacts that name nobody (no
+name, company, email address or phone number), or are over 1 MB, are skipped, and the
+import says how many. One file can be up to 20 MB and 10,000 contacts.
 
 **Export** (the download button) saves every contact as one `.vcf` file that any
 address book can read.
@@ -45,12 +46,13 @@ out with an export.
 
 If your server syncs contacts with a CardDAV server, your contacts are the same in
 Viauna, on your phone and in other apps set up with that server. A change you make here
-is sent within a couple of seconds; changes made elsewhere arrive when you open
-Contacts, every ten minutes while you're signed in, or when you press **Sync now** (the
-circular arrows). The line under the title says when it last synced, or what went
-wrong.
+is sent within a couple of seconds; changes made elsewhere arrive every ten minutes
+while you have Viauna open, when you open Contacts (if it last synced more than a
+minute ago), or when you press **Sync now** (the circular arrows). The line under the
+title says when it last synced, or what went wrong. If a contact was changed in both
+places, the two are merged: see [How it works: Contacts](../how-it-works/contacts.md).
 
 ## While you write
 
 As you type a name or address in To, Cc or Bcc, Viauna suggests your contacts first,
-then people you've exchanged mail with.
+then people you've exchanged mail with, up to 8 in all.

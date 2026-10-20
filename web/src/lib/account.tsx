@@ -80,6 +80,7 @@ export interface ConfirmRequest {
 
 export interface UiState {
   shortcutsOpen: boolean;
+  commandsOpen: boolean;
   labelDialog: null | { label?: Label };
   /** A contact being edited (id) or added (initial). */
   contactDialog: null | { id?: number; initial?: Partial<ContactFields> };
@@ -92,7 +93,7 @@ export interface UiState {
 }
 
 export const ui = createStore<UiState>({
-  shortcutsOpen: false, labelDialog: null, contactDialog: null, filterDialog: null, folderDialog: null, confirm: null, sidebarOpen: false, searchFocus: 0,
+  shortcutsOpen: false, commandsOpen: false, labelDialog: null, contactDialog: null, filterDialog: null, folderDialog: null, confirm: null, sidebarOpen: false, searchFocus: 0,
 });
 
 /** The visible thread list, so j/k inside a conversation can move to its neighbours. */

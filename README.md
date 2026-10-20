@@ -2,7 +2,7 @@
 
 **A fast, Gmail-style webmail client for any IMAP/SMTP server.** Self-hosted, one
 container, no database server to run. Point it at the mail server you already have and
-get conversations, instant search, labels, keyboard shortcuts and a compose window that
+get conversations, instant search, labels, a command menu and a compose window that
 feels like the one you already know.
 
 It uses only standard IMAP and SMTP, so it should work with any compliant server; it is
@@ -17,7 +17,7 @@ docker-mailserver). Reports from other servers are very welcome.
 
 Most open-source webmail looks and behaves like a 2009 desktop client. Viauna copies the
 interaction model people actually use every day — conversations, archive-don't-delete,
-one-key shortcuts, inline replies — on top of plain IMAP, so it works with the mail
+inline replies, Gmail's one-key shortcuts for those who want them — on top of plain IMAP, so it works with the mail
 server you already run.
 
 ## Features
@@ -27,7 +27,8 @@ server you already run.
   a reply that changes the subject starts a new conversation.
 - **Fast.** A local index of every folder (SQLite) makes lists, counts and paging
   instant; newest mail first, older mail backfilled in the background.
-- **Live.** IMAP IDLE pushes new mail to the open page within about a second.
+- **Live.** IMAP IDLE pushes new Inbox mail to the open page within about a second;
+  other folders follow within a minute.
 - **Gmail-style labels** — several per conversation, stored on the server as IMAP
   keywords, so they follow your mail (Thunderbird and Apple Mail show them as tags).
   Plain folders work too.
@@ -50,8 +51,9 @@ server you already run.
 - **An admin page** for whoever runs it: who can sign in, limits, password changes,
   changed without a restart and with a record of who changed what. The same from the
   command line, or all of it from environment variables.
-- **Keyboard shortcuts** — `c` `/` `j` `k` `o` `u` `e` `#` `!` `s` `x` `r` `a` `f` `l` `v`
-  `z` `g i` … (press `?`).
+- **A command menu** — ⌘K or Ctrl+K, then type: any action, folder, label or setting.
+  Gmail's single-key shortcuts (`c` `/` `j` `k` `e` `#` `r` `a` `f` `z` `g i` …) are
+  there too, off until you turn them on.
 - **Safe by default** — message HTML is sanitized and shown in a sandboxed iframe with
   its own content security policy; remote images (tracking pixels) are blocked until you
   allow them, per message or per sender.
@@ -90,12 +92,21 @@ Everything is on **[the docs site](https://bryanthomaschen.github.io/viauna/)**,
   [reverse proxy](docs/self-hosting/reverse-proxy.md) ·
   [configuration](docs/self-hosting/configuration.md) ·
   [admin page](docs/self-hosting/admin.md) · [password changes](docs/self-hosting/passwords.md) ·
+  [contacts and CardDAV](docs/self-hosting/contacts.md) ·
+  [filters and vacation](docs/self-hosting/filters.md) ·
   [databases](docs/self-hosting/databases.md) ·
   [mail servers](docs/self-hosting/mail-servers.md) · [Mailu](docs/self-hosting/mailu.md) ·
   [upgrades and backups](docs/self-hosting/upgrading.md) ·
   [troubleshooting](docs/self-hosting/troubleshooting.md)
 - **Using Viauna**: [the basics](docs/using/basics.md) · [search](docs/using/search.md) ·
+  [contacts](docs/using/contacts.md) · [filters and vacation](docs/using/filters.md) ·
   [keyboard shortcuts](docs/using/shortcuts.md)
+- **How it works**: [overview](docs/how-it-works/index.md) ·
+  [mail sync](docs/how-it-works/sync.md) ·
+  [live updates and settings](docs/how-it-works/live-updates.md) ·
+  [sessions](docs/how-it-works/sessions.md) · [your data](docs/how-it-works/data.md) ·
+  [filters](docs/how-it-works/filters.md) · [contacts](docs/how-it-works/contacts.md) ·
+  [limits](docs/how-it-works/limits.md)
 - **The project**: [architecture](docs/architecture.md) · [development](docs/development.md) ·
   [roadmap](docs/roadmap.md) · [changelog](CHANGELOG.md) · [contributing](CONTRIBUTING.md) ·
   [security](SECURITY.md)
@@ -105,20 +116,24 @@ Everything is on **[the docs site](https://bryanthomaschen.github.io/viauna/)**,
 ```
 browser ──HTTP/SSE──▶ Viauna (Node) ──IMAP──▶ your mail server
                         │        └──SMTP──▶
-                        ├── state: accounts, sessions, settings (SQLite, PostgreSQL or MySQL)
-                        └── index: a cache of your mail (SQLite)
+                        ├── state: accounts, sessions, settings, contacts (SQLite, PostgreSQL or MySQL)
+                        └── index and message cache: copies of your mail (SQLite, disk)
 ```
 
 - Signing in is your mailbox's own IMAP login — Viauna has no user database. The
-  password is encrypted (AES-256-GCM) with a key that exists only in your browser's
-  session cookie, so the database alone opens nothing.
+  password is encrypted (AES-256-GCM) with a key derived from your browser's session
+  cookie and the server's secret, so the database alone opens nothing.
 - Per signed-in mailbox, Viauna keeps three IMAP connections while you're active: one for
-  your clicks, one for background sync, one idling on the Inbox. They close after ten
-  idle minutes; the index persists, so the next visit syncs only what changed.
-- The index is a cache of the server. Delete it and Viauna rebuilds it; your mail is only
-  ever on your mail server.
+  your clicks, one for background sync, one idling on the Inbox. They close ten minutes
+  after the last tab is closed; the index persists, so the next visit syncs only what
+  changed.
+- The index, and a disk cache of the messages people open (up to `CACHE_MB`, 1 GB by
+  default), are copies of the server: delete them and Viauna fetches again. Your mail
+  itself lives on your mail server. What's kept where, and what leaves the server:
+  [Your data](docs/how-it-works/data.md).
 
-More detail in [`docs/architecture.md`](docs/architecture.md).
+More detail in [How it works](docs/how-it-works/index.md), and for the code,
+[`docs/architecture.md`](docs/architecture.md).
 
 ## License
 

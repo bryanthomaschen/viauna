@@ -117,6 +117,19 @@ export async function runAction(
   req: ActionRequest,
   opts: { quiet?: boolean } = {},
 ): Promise<boolean> {
+  // "z" means this action from the moment it's made: pressed before the server has said
+  // how to undo it, the undo follows as soon as it has. (Until then it would have undone
+  // the action before this one.)
+  let undo: (() => Promise<void>) | null = null;
+  let undoWanted = false;
+  const mine = () => {
+    if (undo) void undo();
+    else undoWanted = true;
+  };
+  lastUndo = mine;
+  const forget = () => {
+    if (lastUndo === mine) lastUndo = null;
+  };
   // A list already loading would overwrite the change about to be shown.
   await client.cancelQueries({ queryKey: ["threads", account] });
   patchLists(client, account, folder, req);
@@ -126,8 +139,12 @@ export async function runAction(
     const text = MESSAGES[req.action]?.(n);
     if (res.undo) {
       const token = res.undo;
-      const doUndo = async () => {
-        lastUndo = null;
+      let undone = false;
+      undo = async () => {
+        // Once, whether from "z" or the notice's Undo.
+        if (undone) return;
+        undone = true;
+        forget();
         try {
           await inOrder(client, account, () => api.undo(account, token));
           toast("Action undone.");
@@ -135,13 +152,16 @@ export async function runAction(
           toast((err as Error).message, { error: true });
         }
       };
-      lastUndo = () => void doUndo();
-      if (text && !opts.quiet) toast(text, { action: { label: "Undo", run: () => void doUndo() } });
-    } else if (text && !opts.quiet && req.action === "delete") {
-      toast(text);
+      if (undoWanted) void undo();
+      else if (text && !opts.quiet) toast(text, { action: { label: "Undo", run: () => void undo?.() } });
+    } else {
+      forget();
+      if (undoWanted) toast("That can't be undone.");
+      else if (text && !opts.quiet && req.action === "delete") toast(text);
     }
     return true;
   } catch (err) {
+    forget();
     toast((err as Error).message, { error: true });
     return false;
   }

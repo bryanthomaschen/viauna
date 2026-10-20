@@ -34,9 +34,14 @@ If yours is elsewhere:
 | `MANAGESIEVE_HOST` | `IMAP_HOST` | |
 | `MANAGESIEVE_PORT` | `4190` | |
 | `MANAGESIEVE_SECURITY` | `starttls` (`none` if IMAP's is) | `starttls`, `tls` or `none` (testing only). |
-| `MANAGESIEVE_TLS_SERVERNAME`, `MANAGESIEVE_TLS_VERIFY` | IMAP's | |
+| `MANAGESIEVE_TLS_SERVERNAME`, `MANAGESIEVE_TLS_VERIFY` | IMAP's | The certificate name is IMAP's only while `MANAGESIEVE_HOST` is unset or the same as `IMAP_HOST`. |
 
 Only mailboxes on your own mail server (`IMAP_HOST`) have filters.
+
+Settings > Filters shows whenever `IMAP_HOST` is set and `FILTERS` is on: Viauna doesn't
+check first whether the server offers ManageSieve. If yours doesn't, the tab shows the
+connection error and the vacation responder stays hidden; turn `FILTERS` and `VACATION`
+off to hide both.
 
 ## On the admin page
 
@@ -65,7 +70,8 @@ again.
 
 The script starts with a comment holding Viauna's own copy of the filters, which is how
 it reads them back exactly. If someone edits the script by hand, Viauna notices and
-warns before replacing it.
+warns before replacing it. What each filter becomes in Sieve, and what follows from it,
+is in [How it works: Filters](../how-it-works/filters.md).
 
 Mailu has its own auto-reply and forwarding, in its admin pages; they run before every
 mailbox's script. If someone turns on both Mailu's auto-reply and Viauna's vacation

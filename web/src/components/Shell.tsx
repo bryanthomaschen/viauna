@@ -8,10 +8,11 @@ import { useLiveUpdates } from "../lib/live";
 import { type Route, navigate } from "../lib/router";
 import { prefs } from "../lib/store";
 import type { SessionAccount } from "../lib/types";
+import { CommandMenu } from "./CommandMenu";
 import { ConversationView } from "./Conversation";
 import { Dialogs, Toasts } from "./common";
 import { Header } from "./Header";
-import { useShortcuts } from "./shortcuts";
+import { useCommandMenuKey, useShortcuts } from "./shortcuts";
 import { Sidebar } from "./Sidebar";
 import { ThreadList } from "./ThreadList";
 
@@ -75,6 +76,7 @@ function ShellInner({ route, appName }: { route: Route; appName: string }) {
   const contactDialog = ui.use((s) => s.contactDialog);
   const filterDialog = ui.use((s) => s.filterDialog);
   useShortcuts(route);
+  useCommandMenuKey();
   useDocumentTitle(route, appName);
   return (
     <div className="app">
@@ -102,6 +104,7 @@ function ShellInner({ route, appName }: { route: Route; appName: string }) {
       )}
       <Toasts />
       <Dialogs />
+      <CommandMenu />
       {contactDialog && (
         <Suspense fallback={null}>
           <ContactDialog key={contactDialog.id ?? "new"} {...contactDialog} />

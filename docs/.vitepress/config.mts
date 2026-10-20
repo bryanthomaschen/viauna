@@ -44,7 +44,20 @@ export default defineConfig({
           { text: "Search", link: "/using/search" },
           { text: "Contacts", link: "/using/contacts" },
           { text: "Filters and vacation", link: "/using/filters" },
-          { text: "Keyboard shortcuts", link: "/using/shortcuts" },
+          { text: "Command menu and shortcuts", link: "/using/shortcuts" },
+        ],
+      },
+      {
+        text: "How it works",
+        items: [
+          { text: "Overview", link: "/how-it-works/" },
+          { text: "Mail sync", link: "/how-it-works/sync" },
+          { text: "Live updates and settings", link: "/how-it-works/live-updates" },
+          { text: "Sessions", link: "/how-it-works/sessions" },
+          { text: "Your data", link: "/how-it-works/data" },
+          { text: "Filters", link: "/how-it-works/filters" },
+          { text: "Contacts", link: "/how-it-works/contacts" },
+          { text: "Limits", link: "/how-it-works/limits" },
         ],
       },
       {

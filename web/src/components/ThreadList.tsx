@@ -15,7 +15,7 @@ import { toast } from "../lib/store";
 import type { Label, ThreadSummary } from "../lib/types";
 import { IconButton } from "./common";
 import { LabelPicker, MovePicker } from "./Pickers";
-import { useViewHandlers } from "./shortcuts";
+import { steeringByKeyboard, useViewHandlers } from "./shortcuts";
 import { THREAD_DRAG } from "./Sidebar";
 
 export function LabelChip({ label, keyword, onRemove, large }: { label?: Label; keyword: string; onRemove?: () => void; large?: boolean }) {
@@ -250,6 +250,41 @@ export function ThreadList({ route }: { route: Route }) {
     setTimeout(() => ghost.remove(), 0);
   };
 
+  const pick = (which: "label" | "move") => {
+    if (!sel.length && threads[cursor]) toggleSelect(threads[cursor].id, false);
+    if (targets.length) setMenu(which);
+  };
+
+  // The command menu acts on the selection, or on the row under the cursor while it's
+  // showing; with neither, it offers no conversation commands rather than guess.
+  const commands = () => {
+    const ids = sel.length ? sel : steeringByKeyboard() && threads[cursor] ? [threads[cursor].id] : [];
+    if (!ids.length) return null;
+    const chosen = threads.filter((t) => ids.includes(t.id));
+    const starred = chosen.every((t) => t.starred);
+    const read = chosen.every((t) => !t.unread);
+    const pickFor = (which: "label" | "move") => {
+      if (!sel.length) listState.set((s) => ({ ...s, selected: new Set(ids) }));
+      setMenu(which);
+    };
+    return {
+      target: ids.length === 1 ? chosen[0]?.subject || "(no subject)" : `${ids.length} conversations`,
+      items: [
+        ...(caps.archive ? [{ label: "Archive", icon: Archive, key: "e", run: () => act({ action: "archive", threads: ids }) }] : []),
+        ...(caps.toInbox ? [{ label: "Move to Inbox", icon: ArchiveRestore, run: () => act({ action: "inbox", threads: ids }) }] : []),
+        { label: caps.deleteForever ? "Delete forever" : "Delete", icon: Trash2, key: "#", run: () => act({ action: caps.deleteForever ? "delete" : "trash", threads: ids }) },
+        ...(caps.spam ? [{ label: "Report spam", icon: OctagonAlert, key: "!", run: () => act({ action: "spam", threads: ids }) }] : []),
+        ...(caps.notSpam ? [{ label: "Not spam", icon: Inbox, key: "!", run: () => act({ action: "notspam", threads: ids }) }] : []),
+        read
+          ? { label: "Mark as unread", icon: Mail, key: "Shift + u", run: () => act({ action: "unread", threads: ids }) }
+          : { label: "Mark as read", icon: MailOpen, key: "Shift + i", run: () => act({ action: "read", threads: ids }) },
+        { label: starred ? "Remove star" : "Add star", icon: Star, key: "s", run: () => act({ action: starred ? "unstar" : "star", threads: ids }) },
+        { label: "Label as…", icon: Tag, key: "l", run: () => pickFor("label") },
+        { label: "Move to…", icon: FolderInput, key: "v", run: () => pickFor("move") },
+      ],
+    };
+  };
+
   useViewHandlers({
     next: () => listState.set((s) => ({ ...s, cursor: Math.min(s.cursor + 1, threads.length - 1) })),
     prev: () => listState.set((s) => ({ ...s, cursor: Math.max(s.cursor - 1, 0) })),
@@ -264,9 +299,12 @@ export function ThreadList({ route }: { route: Route }) {
     },
     read: () => targets.length && act({ action: "read", threads: targets }),
     unread: () => targets.length && act({ action: "unread", threads: targets }),
-    label: () => targets.length && setMenu("label"),
-    move: () => targets.length && setMenu("move"),
+    // The pickers are in the selection's toolbar: with nothing selected, the row under
+    // the cursor is selected first, so the toolbar (and the picker) appear.
+    label: () => pick("label"),
+    move: () => pick("move"),
     escape: () => listState.set((s) => ({ ...s, selected: new Set() })),
+    commands,
   });
 
   const total = data?.total ?? 0;

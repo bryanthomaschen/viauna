@@ -3,6 +3,9 @@
 // to our own composer. Links open in a new tab.
 import { useEffect, useRef, useState } from "react";
 
+/** Message documents whose clicks and keys are already handled. */
+const listened = new WeakSet<Document>();
+
 export function EmailFrame({ html, plain, onMailto }: { html: string; plain: boolean; onMailto: (href: string) => void }) {
   const ref = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(48);
@@ -27,6 +30,10 @@ export function EmailFrame({ html, plain, onMailto }: { html: string; plain: boo
       observer.observe(doc.documentElement);
       if (doc.body) observer.observe(doc.body);
       for (const img of Array.from(doc.images)) if (!img.complete) img.addEventListener("load", measure, { once: true });
+      // Setup can run again on the same document (the effect re-runs without a reload):
+      // the listeners below go on once.
+      if (listened.has(doc)) return;
+      listened.add(doc);
       doc.addEventListener("click", (e) => {
         const a = (e.target as Element)?.closest?.("a");
         const href = a?.getAttribute("href") ?? "";
@@ -34,6 +41,16 @@ export function EmailFrame({ html, plain, onMailto }: { html: string; plain: boo
           e.preventDefault();
           mailto.current(href);
         }
+      });
+      // Keys pressed after clicking into the message reach this page's shortcuts and
+      // command menu, as if the frame weren't there.
+      doc.addEventListener("keydown", (e) => {
+        const copy = new KeyboardEvent("keydown", {
+          key: e.key, code: e.code, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, altKey: e.altKey, repeat: e.repeat,
+          bubbles: true, cancelable: true,
+        });
+        frame.dispatchEvent(copy);
+        if (copy.defaultPrevented) e.preventDefault();
       });
       // <details> toggles ("•••") change the height without resizing the body in some engines.
       doc.addEventListener("toggle", measure, true);

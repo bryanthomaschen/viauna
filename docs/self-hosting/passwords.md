@@ -32,8 +32,10 @@ PASSWORD_CHANGE: link
 PASSWORD_CHANGE_URL: https://mail.example.com/password
 ```
 
-`{email}` in the address is replaced with the person's address, if your page wants it,
-as in `https://accounts.example.com/reset?user={email}`.
+`{email}` in the address is filled in with the person's address, if your page wants it,
+as in `https://accounts.example.com/reset?user={email}`. `{login}`, `{user}` and
+`{domain}` are filled in with their login, the part before the `@` and the part after.
+Each is URL-encoded.
 
 For **Mailu**, the page is `/admin/user/password` on your mail hostname (with Mailu's
 default `WEB_ADMIN`). It asks for the current password and refuses ones known from data
@@ -55,7 +57,9 @@ current one with your mail server, then hands the change on. When it succeeds:
 - their other mail apps ask for the new password, as they would after any change.
 
 Your command or webhook should make the change take effect before it answers. Viauna
-allows five wrong current passwords per mailbox per 15 minutes.
+allows 5 attempts that don't succeed per mailbox every 15 minutes: a wrong current
+password counts, and so does a change your command, webhook or directory refused. See
+[sign-in limits](../how-it-works/sessions.md#sign-in-limits).
 
 A command and a webhook receive the same request:
 
@@ -167,7 +171,8 @@ PASSWORD_CHANGE_LDAP_USER_DN: uid={user},ou=people,dc=example,dc=com
 ```
 
 `{login}` is the whole login (`ann@example.com`), `{user}` the part before the `@`
-(`ann`), and `{domain}` the part after. Each is escaped, so no login can change the DN.
+(`ann`), and `{domain}` the part after. The template must contain `{user}` or `{login}`.
+Each is escaped, so no login can change the DN.
 
 Or by a search, as a service account if your directory doesn't allow anonymous ones:
 
@@ -180,8 +185,14 @@ PASSWORD_CHANGE_LDAP_BIND_DN: cn=viauna,ou=services,dc=example,dc=com
 PASSWORD_CHANGE_LDAP_BIND_PASSWORD: the service account's password
 ```
 
-The search must find exactly one entry. The service account only searches: the change is
-made as the person, with their own password.
+The filter must contain `{user}` or `{login}`, and the search must find exactly one
+entry. Set either `PASSWORD_CHANGE_LDAP_USER_DN` or the search, not both; a service
+account needs both its DN and its password. The service account only searches: the
+change is made as the person, with their own password.
+
+`PASSWORD_CHANGE_LDAP_URL` is the directory's address alone, with a port if it isn't the
+usual one, and no path: `ldaps://ldap.example.com:6360`. Viauna won't start with any of
+these wrong, and says which.
 
 - **Encryption.** `ldaps://` (port 636) is encrypted from the start. With `ldap://` (port
   389), Viauna upgrades the connection with StartTLS before sending any password. Set

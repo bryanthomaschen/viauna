@@ -6,8 +6,14 @@ in the environment wins there and can't be changed except in the environment. Th
 are read once, when Viauna starts.
 
 Values are checked at startup: an invalid one, such as a number out of range or `ture`
-for true, stops Viauna with a message naming the variable. Settings that are on or off
-take `true` or `false`, `1` or `0`, `yes` or `no`, `on` or `off`.
+for true, stops Viauna with a message naming the variable (all but `LOG_LEVEL`, below).
+Settings that are on or off take `true` or `false`, `1` or `0`, `yes` or `no`, `on` or
+`off`.
+
+> [!TIP]
+> A **Live** change applies without a restart, but some only to what happens next: a
+> narrower `ALLOWED_DOMAINS` stops new sign-ins, and signs nobody out. See
+> [when each change takes effect](../how-it-works/live-updates.md#when-each-change-takes-effect).
 
 ## Mail server
 
@@ -19,14 +25,14 @@ take `true` or `false`, `1` or `0`, `yes` or `no`, `on` or `off`.
 | `IMAP_TLS_SERVERNAME` | — | Name to check the certificate against, when `IMAP_HOST` is an internal alias or an IP address. |
 | `IMAP_TLS_VERIFY` | `true` | Turn off only for a test server with a self-signed certificate. |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURITY`, `SMTP_TLS_SERVERNAME`, `SMTP_TLS_VERIFY` | —, `465`, `tls`, —, `true` | The same, for sending. |
-| `MANAGESIEVE_HOST`, `MANAGESIEVE_PORT`, `MANAGESIEVE_SECURITY`, `MANAGESIEVE_TLS_SERVERNAME`, `MANAGESIEVE_TLS_VERIFY` | IMAP's host, `4190`, `starttls`, IMAP's, IMAP's | The same, for filters and the vacation responder (ManageSieve). See [Filters and vacation](./filters.md). |
+| `MANAGESIEVE_HOST`, `MANAGESIEVE_PORT`, `MANAGESIEVE_SECURITY`, `MANAGESIEVE_TLS_SERVERNAME`, `MANAGESIEVE_TLS_VERIFY` | IMAP's host, `4190`, `starttls` (`none` if IMAP's is), IMAP's, IMAP's | The same, for filters and the vacation responder (ManageSieve). The certificate name is IMAP's only while `MANAGESIEVE_HOST` is unset or the same as `IMAP_HOST`. See [Filters and vacation](./filters.md). |
 
 ## Who can sign in
 
 | Variable | Default | |
 |---|---|---|
-| `ALLOWED_DOMAINS` | — | **Live.** Comma-separated email domains allowed to sign in, checked against both the address and the login sent to the server. Empty: any address your IMAP server accepts. |
-| `ALLOW_CUSTOM_SERVERS` | `false` | **Live.** Let people enter their own IMAP and SMTP servers, and a username different from their address, on the sign-in page. |
+| `ALLOWED_DOMAINS` | — | **Live.** Comma-separated email domains allowed to sign in, checked against both the address and the login sent to the server, so a username without a domain can't sign in. Empty: any address your IMAP server accepts. Checked at sign-in only. |
+| `ALLOW_CUSTOM_SERVERS` | `false` | **Live.** Let people enter their own IMAP and SMTP servers, and a username different from their address, on the sign-in page. Turning it off stops new sign-ins that way; it doesn't sign out those already in. |
 | `ALLOW_PRIVATE_SERVERS` | `false` | With custom servers on, also allow private and loopback addresses. Leave it off on a public instance, or anyone could use Viauna to probe your internal network. |
 
 ## Web
@@ -44,7 +50,7 @@ take `true` or `false`, `1` or `0`, `yes` or `no`, `on` or `off`.
 | Variable | Default | |
 |---|---|---|
 | `CONTACTS` | `true` | **Live.** Each mailbox's address book, with vCard import and export, and suggestions from it while writing. Off: the Contacts page is gone and suggestions come only from mail people have exchanged; saved contacts are kept. |
-| `CARDDAV_URL` | — | A CardDAV server to sync contacts with, signed in as each mailbox with its own password. `{login}`, `{user}` and `{domain}` are filled in. Environment only. See [Contacts and CardDAV](./contacts.md). |
+| `CARDDAV_URL` | — | A CardDAV server to sync contacts with, signed in as each mailbox with its own password. `{login}` (or `{email}`, the same), `{user}` and `{domain}` are filled in. Environment only. See [Contacts and CardDAV](./contacts.md). |
 | `CONTACTS_SYNC` | `true` | **Live.** Sync with `CARDDAV_URL`, when it's set. |
 | `FILTERS` | `true` | **Live.** Filters, kept on the mail server as Sieve. See [Filters and vacation](./filters.md). |
 | `FILTER_FORWARDING` | `false` | **Live.** Let a filter forward mail to another address. |
@@ -54,10 +60,10 @@ take `true` or `false`, `1` or `0`, `yes` or `no`, `on` or `off`.
 
 | Variable | Default | |
 |---|---|---|
-| `SESSION_DAYS` | `30` | **Live.** Session lifetime, extended by each visit. 1 to 3650. |
+| `SESSION_DAYS` | `30` | **Live.** Session lifetime, extended by each visit (at most hourly). 1 to 3650. A change reaches each session the next time it's extended. |
 | `MAX_ACCOUNTS` | `10` | **Live.** Mailboxes one browser session can have signed in at once. 1 to 100. |
 | `MAX_UPLOAD_MB` | `25` | **Live.** Largest single attachment. Your proxy and mail server must accept messages at least this big. 1 to 10240. |
-| `CACHE_MB` | `1024` | **Live.** Disk cache for downloaded messages. 0 or more. |
+| `CACHE_MB` | `1024` | **Live.** Disk cache for downloaded messages. 0 to 10,000,000. It's trimmed after every 50 downloads, least recently opened first, so it can run over in between; `0` still writes each message, then removes it at the next trim. |
 
 ## Admins and password changes
 
@@ -65,14 +71,14 @@ take `true` or `false`, `1` or `0`, `yes` or `no`, `on` or `off`.
 |---|---|---|
 | `ADMIN_ADDRESSES` | — | **Live.** Comma-separated mailboxes that can open the admin page. They must sign in through `IMAP_HOST`. Set here, the list can't be changed from the page or the command line. See [Admin page and command line](./admin.md). |
 | `PASSWORD_CHANGE` | `off` | **Live.** How people change their password: `off`, `link`, `command`, `webhook` or `ldap`; each needs its variables below. See [Password changes](./passwords.md). |
-| `PASSWORD_CHANGE_URL` | — | For `link`: your mail server's password page. `{email}` is replaced with the person's address. Environment only. |
+| `PASSWORD_CHANGE_URL` | — | For `link`: your mail server's password page. `{email}` is filled in with the person's address, and `{login}`, `{user}` and `{domain}` with their login, the part before the `@` and the part after, all URL-encoded. Environment only. |
 | `PASSWORD_CHANGE_COMMAND` | — | For `command`: run with the request as JSON on its standard input. Environment only. |
 | `PASSWORD_CHANGE_WEBHOOK` | — | For `webhook`: POSTed the request as JSON. Environment only. |
 | `PASSWORD_CHANGE_WEBHOOK_SECRET` | — | Signs each webhook request. Required with `PASSWORD_CHANGE_WEBHOOK`. Environment only. |
-| `PASSWORD_CHANGE_LDAP_URL` | — | For `ldap`: your directory, as `ldaps://host` or `ldap://host` (then upgraded with StartTLS). Environment only, like the rest of these. |
-| `PASSWORD_CHANGE_LDAP_USER_DN` | — | The person's entry, as a template such as `uid={user},ou=people,dc=example,dc=com`. Or find it with a search: |
-| `PASSWORD_CHANGE_LDAP_SEARCH_BASE`, `PASSWORD_CHANGE_LDAP_SEARCH_FILTER` | —, `(mail={login})` | Where to search for the entry, and the filter that finds it. |
-| `PASSWORD_CHANGE_LDAP_BIND_DN`, `PASSWORD_CHANGE_LDAP_BIND_PASSWORD` | — | A service account for the search, if anonymous searches aren't allowed. |
+| `PASSWORD_CHANGE_LDAP_URL` | — | For `ldap`: your directory, as `ldaps://host` or `ldap://host` (then upgraded with StartTLS), with a port if needed but no path. Environment only, like the rest of these. |
+| `PASSWORD_CHANGE_LDAP_USER_DN` | — | The person's entry, as a template containing `{user}` or `{login}`, such as `uid={user},ou=people,dc=example,dc=com`. Or find it with a search; set one or the other, not both: |
+| `PASSWORD_CHANGE_LDAP_SEARCH_BASE`, `PASSWORD_CHANGE_LDAP_SEARCH_FILTER` | —, `(mail={login})` | Where to search for the entry, and the filter that finds it, containing `{user}` or `{login}`. |
+| `PASSWORD_CHANGE_LDAP_BIND_DN`, `PASSWORD_CHANGE_LDAP_BIND_PASSWORD` | — | A service account for the search, if anonymous searches aren't allowed. Set both or neither. |
 | `PASSWORD_CHANGE_LDAP_STARTTLS` | `true` | For `ldap://`: upgrade with StartTLS. `false` sends passwords unencrypted. |
 | `PASSWORD_CHANGE_LDAP_TLS_VERIFY` | `true` | Check the directory's certificate. |
 
@@ -81,6 +87,22 @@ take `true` or `false`, `1` or `0`, `yes` or `no`, `on` or `off`.
 | Variable | Default | |
 |---|---|---|
 | `DATA_DIR` | `/data` in the image, `./data` outside it | State (unless `DATABASE_URL` is set), the mail index, the message cache, uploads and the generated secret. Mount a volume here. |
-| `DATABASE_URL` | — | Where accounts, sessions and settings are kept. Unset: SQLite, as `state.db` in `DATA_DIR`. Or a `postgres://`, `mysql://` or `mariadb://` URL; see [Databases](./databases.md). |
+| `DATABASE_URL` | — | Where accounts, sessions, settings and contacts are kept. Unset: SQLite, as `state.db` in `DATA_DIR`. Or a `postgres://` (or `postgresql://`), `mysql://` or `mariadb://` URL; see [Databases](./databases.md). |
 | `SECRET_KEY` | generated | Mixed into the encryption of saved passwords. If unset, one is generated into `DATA_DIR/secret.key` on first start. Changing or losing it signs everyone out. Generate one with `openssl rand -base64 32`. |
-| `LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error`. |
+| `LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error`; anything else means `info`. Logs are one JSON object per line: `debug` and `info` on standard output, `warn` and `error` on standard error. |
+
+The image's health check fetches `/api/config` every 30 seconds; a load balancer can use
+the same address. It answers without signing in, with the app's name, its version and
+which features are on.
+
+What's kept in the data directory, and what leaves the server, is in
+[How it works: Your data](../how-it-works/data.md).
+
+## Internal
+
+Set by the image or the build; you don't need them.
+
+| Variable | |
+|---|---|
+| `WEB_ROOT` | Where the built web app is. The image sets `/app/dist/web`. |
+| `VIAUNA_VERSION` | The version shown at the foot of the sign-in page, set when the image is built (for `edge`, the release it follows and its commit). Defaults to `package.json`'s. |

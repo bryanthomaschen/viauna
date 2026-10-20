@@ -1,11 +1,12 @@
 import * as Popover from "@radix-ui/react-popover";
 import { useQueryClient } from "@tanstack/react-query";
-import { CircleHelp, LogOut, Menu, Search, Settings, ShieldCheck, SlidersHorizontal, UserPlus, X } from "lucide-react";
+import { CircleHelp, Command, LogOut, Menu, Search, Settings, ShieldCheck, SlidersHorizontal, UserPlus, X } from "lucide-react";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { ui, useAccount } from "../lib/account";
 import { api } from "../lib/api";
 import { type Route, folderPath, navigate } from "../lib/router";
 import { prefs } from "../lib/store";
+import { MOD_KEY } from "./CommandMenu";
 import { Avatar, IconButton } from "./common";
 
 export function Header({ route, appName }: { route: Route; appName: string }) {
@@ -26,6 +27,9 @@ export function Header({ route, appName }: { route: Route; appName: string }) {
       <SearchBox route={route} />
       <div className="spacer" />
       <div className="header-actions">
+        <IconButton label={`Commands (${MOD_KEY}K)`} className="hide-narrow" onClick={() => ui.set((s) => ({ ...s, commandsOpen: true }))}>
+          <Command size={22} />
+        </IconButton>
         <IconButton label="Keyboard shortcuts" className="hide-narrow" onClick={() => ui.set((s) => ({ ...s, shortcutsOpen: true }))}>
           <CircleHelp size={22} />
         </IconButton>

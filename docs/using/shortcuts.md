@@ -1,7 +1,33 @@
-# Keyboard shortcuts
+# The command menu and keyboard shortcuts
 
-Gmail's shortcuts, on by default. Press `?` in Viauna to see them, and turn them off in
-**Settings → Keyboard shortcuts**. They're ignored while you're typing.
+## The command menu
+
+Press **⌘K** on a Mac or **Ctrl+K** elsewhere, or click the **⌘** button at the top.
+Type what you want and press **Enter**:
+
+- something to do with the conversation you're reading, or the ones you've ticked:
+  *archive*, *delete*, *star*, *label as*, *move to*, *reply*, *mark as unread*…
+- a folder or label to go to: *starred*, *receipts*, *contacts*, *filters*;
+- something to make: *compose*, *new label*, *new folder*, *new contact*;
+- a setting: *dark theme*, *compact density*, *turn on single-key shortcuts*.
+
+A few letters are enough (*arch* finds Archive). When nothing matches, **Enter** searches
+your mail for what you typed. **Esc** closes the menu. Beside each command is its
+single-key shortcut, when those are on.
+
+In the list, the menu acts on the conversations you've ticked. With none ticked it
+offers no conversation commands, rather than guess which one you mean. It works whether
+or not single-key shortcuts are on, and while you're reading a message too.
+
+## Single-key shortcuts
+
+Gmail's one-key shortcuts are here for anyone who wants them. They're off until you turn
+them on: in **Settings → Keyboard shortcuts**, from the command menu (*turn on
+single-key shortcuts*), or with **Turn on** in the panel the **?** button at the top
+opens. Each browser remembers its own choice. They're ignored while you're typing.
+
+They're off to start with because single keys get in the way of speech input and some
+screen readers, where a spoken word can set off several of them.
 
 | Key | Action |
 |---|---|
@@ -10,7 +36,7 @@ Gmail's shortcuts, on by default. Press `?` in Viauna to see them, and turn them
 | `j` / `k` | Older / newer conversation |
 | `o` or `Enter` | Open conversation |
 | `u` | Back to the list |
-| `n` / `p` | Next / previous message in a conversation |
+| `n` / `p` | Next / previous message, in a conversation |
 | `e` | Archive |
 | `#` | Delete |
 | `!` | Report spam |
@@ -31,4 +57,13 @@ Gmail's shortcuts, on by default. Press `?` in Viauna to see them, and turn them
 | `g` then `a` | Go to All Mail |
 | `Ctrl` + `Enter` | Send (`⌘` + `Enter` on a Mac) |
 | `Esc` | Close / clear selection |
-| `?` | Show these shortcuts |
+| `?` | These shortcuts |
+
+A few details:
+
+- `n` and `p` mark the message they move to with a bar at its left, and open the
+  "N more" fold when they move into it. `o` or `Enter` then opens or closes it.
+- `l` and `v` with nothing ticked act on the conversation under the cursor.
+- `z` undoes your last action for up to 10 minutes, even when pressed before the server
+  has finished it.
+- `Ctrl` + `Enter` sends whether or not shortcuts are on.

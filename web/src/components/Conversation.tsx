@@ -124,6 +124,13 @@ export function ConversationView({ route }: { route: Route }) {
 
   const labelState = useMemo(() => new Map((conv?.labels ?? []).map((k) => [k, "all" as const])), [conv?.labels]);
 
+  // n / p: a message folded into "N more" unfolds them all, so the one focused is seen.
+  const focusMessage = (i: number) => {
+    if (i < 0) return;
+    if (!showAll && messages.length > 4 && i > 0 && i < messages.length - 2) setShowAll(true);
+    setFocusIdx(i);
+  };
+
   useViewHandlers({
     back,
     next: () => go(1),
@@ -141,13 +148,37 @@ export function ConversationView({ route }: { route: Route }) {
     reply: () => reply(lastReal, "reply"),
     replyAll: () => reply(lastReal, "replyAll"),
     forward: () => reply(lastReal, "forward"),
-    nextMessage: () => setFocusIdx((i) => Math.min(i + 1, messages.length - 1)),
-    prevMessage: () => setFocusIdx((i) => Math.max(i - 1, 0)),
+    read: () => void act({ action: "read" }, false),
+    nextMessage: () => focusMessage(Math.min(focusIdx + 1, messages.length - 1)),
+    prevMessage: () => focusMessage(Math.max(focusIdx - 1, 0)),
     open: () => {
       const m = messages[focusIdx];
       if (m) setExpanded((s) => { const n = new Set(s); n.has(keyOf(m)) ? n.delete(keyOf(m)) : n.add(keyOf(m)); return n; });
     },
     escape: back,
+    commands: () =>
+      conv
+        ? {
+            target: conv.subject || "(no subject)",
+            items: [
+              { label: "Reply", icon: Reply, key: "r", run: () => reply(lastReal, "reply") },
+              { label: "Reply all", icon: ReplyAll, key: "a", run: () => reply(lastReal, "replyAll") },
+              { label: "Forward", icon: Forward, key: "f", run: () => reply(lastReal, "forward") },
+              ...(inInbox ? [{ label: "Archive", icon: Archive, key: "e", run: () => void act({ action: "archive" }, true) }] : []),
+              { label: inTrash ? "Delete forever" : "Delete", icon: Trash2, key: "#", run: () => void act({ action: inTrash ? "delete" : "trash" }, true) },
+              inSpam
+                ? { label: "Not spam", icon: Inbox, key: "!", run: () => void act({ action: "notspam" }, true) }
+                : { label: "Report spam", icon: OctagonAlert, key: "!", run: () => void act({ action: "spam" }, true) },
+              messages.some((m) => m.flagged)
+                ? { label: "Remove star", icon: Star, key: "s", run: () => void act({ action: "unstar" }, false) }
+                : { label: "Add star", icon: Star, key: "s", run: () => void act({ action: "star" }, false) },
+              { label: "Mark as unread", icon: Mail, key: "Shift + u", run: () => void act({ action: "unread" }, true) },
+              { label: "Label as…", icon: Tag, key: "l", run: () => setMenu("label") },
+              { label: "Move to…", icon: FolderInput, key: "v", run: () => setMenu("move") },
+              { label: "Back to the list", icon: ArrowLeft, key: "u", run: back },
+            ],
+          }
+        : null,
   });
 
   // Long conversations: first message, "N more", and the last two (plus anything open).

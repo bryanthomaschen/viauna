@@ -29,7 +29,7 @@ The address, or the login it uses, isn't in `ALLOWED_DOMAINS`.
 
 Viauna's own limit: 20 sign-in attempts per client address, and 8 per login, every
 15 minutes. If everyone gets it at once, `TRUST_PROXY` is probably off, so every client
-looks like your proxy.
+looks like your proxy. The counts are kept in memory, so restarting Viauna clears them.
 
 ## Nobody can sign in, though the passwords are right
 
@@ -46,10 +46,33 @@ match: `https://webmail.example.com`, with no path.
 Your proxy is buffering the live-update stream. Turn response buffering off for Viauna
 (`proxy_buffering off;` in nginx); see [Reverse proxy](./reverse-proxy.md).
 
+New mail in the Inbox should appear within about a second. Mail in other folders,
+including what filters file there, takes up to a minute: that's expected. See
+[How it works: Mail sync](../how-it-works/sync.md#how-fresh-the-list-is).
+
+## A folder doesn't show
+
+Viauna shows the folders the mailbox is subscribed to, and the special ones (Inbox,
+Sent, Drafts, Archive, Junk, Trash). Subscribe to the folder in another mail app.
+
+## Settings > Filters can't connect
+
+Viauna reaches ManageSieve on the IMAP host's port 4190 unless told otherwise. Set
+`MANAGESIEVE_HOST`, `MANAGESIEVE_PORT` and `MANAGESIEVE_SECURITY` for your server, or,
+if it has no ManageSieve, `FILTERS=false` and `VACATION=false`. See
+[Filters and vacation](./filters.md).
+
 ## A seventh tab never finishes loading
 
 Browsers allow six connections per site over HTTP/1.1, and each tab's live-update stream
 holds one. Turn on HTTP/2 in your proxy.
+
+## Someone still signed in after being removed from `ALLOWED_DOMAINS`
+
+`ALLOWED_DOMAINS` and `ALLOW_CUSTOM_SERVERS` are checked at sign-in only. Sessions already
+open run until they expire (`SESSION_DAYS` after their last use) or the person signs
+out. An admin can't end someone's session yet; changing `SECRET_KEY` and restarting signs
+everyone out.
 
 ## Everyone is signed out after a restart
 

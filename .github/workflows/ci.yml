@@ -70,6 +70,10 @@ jobs:
             echo "::endgroup::"
           done
       - run: npm run build
+      - name: Browser tests (shortcuts and the command menu)
+        run: |
+          npx playwright-core install --with-deps chromium-headless-shell
+          npm run test:browser
 
   docker:
     runs-on: ubuntu-24.04

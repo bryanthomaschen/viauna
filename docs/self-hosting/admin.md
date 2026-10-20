@@ -5,9 +5,13 @@
 
 Most settings can be changed while Viauna runs, without a restart: from the **admin
 page**, or from the server's console with the **`viauna` command**. A change applies at
-once, in every page people have open (nobody needs to reload), and on every instance
-that shares the same database. With several instances on MySQL or MariaDB, the others
-take up to a minute, since those databases can't announce a change.
+once, in every page people have open (nobody needs to reload).
+
+Some changes apply only to what happens next. Narrowing who can sign in
+(`ALLOWED_DOMAINS`, `ALLOW_CUSTOM_SERVERS`) or lowering `MAX_ACCOUNTS` applies to the
+next sign-in and signs nobody out; a new `SESSION_DAYS` reaches each session the next
+time it's extended. See
+[when each change takes effect](../how-it-works/live-updates.md#when-each-change-takes-effect).
 
 A setting given as an environment variable can't be changed either way: the environment
 wins, and the page shows it as locked. So you can keep everything in your compose file,
@@ -47,7 +51,8 @@ Each setting shows where its value comes from:
 - **Set in the environment**: locked, and changed there.
 
 Below the settings, **This server** shows what the environment fixed at startup, and
-**Recent changes** lists every change: when, who, and from what to what.
+**Recent changes** lists the 25 most recent: when, who, and from what to what. Every
+change is kept; `viauna changes` shows the last 50.
 
 What the page can change:
 
@@ -69,8 +74,9 @@ Some settings are read only from the environment, at startup:
 - where Viauna listens and keeps its data (`HOST`, `PORT`, `DATA_DIR`, `DATABASE_URL`,
   `SECRET_KEY`), and how it sits behind your proxy (`PUBLIC_URL`, `TRUST_PROXY`,
   `SECURE_COOKIES`);
-- your mail server (`IMAP_*`, `SMTP_*`): it's part of each account's identity, so
-  changing it would make every account a new, empty one;
+- your mail server (`IMAP_*`, `SMTP_*`, `MANAGESIEVE_*`): the IMAP server is part of
+  each account's identity, so changing it would make every account a new, empty one;
+- `LOG_LEVEL`;
 - anything that could run code, reach your internal network, or send people's passwords
   somewhere: `ALLOW_PRIVATE_SERVERS`, where password changes go
   (`PASSWORD_CHANGE_URL`, `PASSWORD_CHANGE_COMMAND`, `PASSWORD_CHANGE_WEBHOOK`,
@@ -95,6 +101,7 @@ docker exec viauna viauna admin list
 docker exec viauna viauna admin add you@example.com
 docker exec viauna viauna admin remove you@example.com
 docker exec viauna viauna changes                     # recent changes, newest first
+docker exec viauna viauna version
 ```
 
 Settings are named by their environment variable. Lists are comma-separated, and `""` is

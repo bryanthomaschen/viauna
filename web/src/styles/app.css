@@ -236,6 +236,9 @@ a { color: var(--primary); }
 
 .msg { border-top: 1px solid transparent; }
 .msg + .msg { border-top-color: var(--border); }
+/* n / p: the focused message gets the list's cursor bar, while steering by keyboard. */
+.msg { position: relative; }
+:root[data-keyboard] .msg.focused::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--focus-bar); z-index: 1; }
 .msg-collapsed { display: flex; align-items: center; gap: 12px; padding: 10px 8px 10px 16px; cursor: pointer; }
 .msg-collapsed:hover { background: color-mix(in srgb, var(--text) 3%, transparent); }
 .msg-collapsed .who { flex: 0 0 auto; max-width: 240px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -381,6 +384,20 @@ a { color: var(--primary); }
 .color-dot.on { border-color: var(--text); }
 .shortcut-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 4px 24px; font-size: 13px; }
 .shortcut-grid div { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; }
+.shortcut-intro { margin-bottom: 12px; }
+.shortcut-switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0 12px; margin-bottom: 8px; border-bottom: 1px solid var(--border); font-size: 14px; }
+.shortcut-grid.off { opacity: .55; }
+
+/* The command menu (CommandMenu.tsx, cmdk). */
+.cmdk { position: fixed; top: 12vh; left: 50%; transform: translateX(-50%); width: min(640px, calc(100vw - 32px)); max-height: 70vh; display: flex; flex-direction: column; background: var(--surface); color: var(--text); border-radius: 16px; box-shadow: var(--shadow-2); z-index: 91; overflow: hidden; animation: fade .08s ease-out; }
+.cmdk-input { display: flex; align-items: center; gap: 12px; padding: 0 16px; border-bottom: 1px solid var(--border); color: var(--text-2); }
+.cmdk-input input { flex: 1; min-width: 0; height: 52px; border: 0; outline: none; background: transparent; color: var(--text); font: inherit; font-size: 16px; }
+.cmdk [cmdk-list] { overflow-y: auto; overscroll-behavior: contain; padding: 6px 0 8px; }
+.cmdk [cmdk-group-heading] { padding: 10px 16px 4px; font-size: 12px; font-weight: 500; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmdk [cmdk-item] { display: flex; align-items: center; gap: 12px; min-height: 36px; padding: 0 16px; margin: 0 6px; border-radius: 8px; cursor: pointer; font-size: 14px; user-select: none; }
+.cmdk [cmdk-item] svg { color: var(--text-2); flex-shrink: 0; }
+.cmdk [cmdk-item][data-selected="true"] { background: var(--surface-hover); }
+.cmdk-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4px; background: var(--chip); color: var(--chip-text); border: 1px solid var(--border); }
 
 .toasts { position: fixed; left: 24px; bottom: 24px; display: flex; flex-direction: column; gap: 8px; z-index: 100; }

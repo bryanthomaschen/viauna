@@ -2,48 +2,56 @@
 
 ## Layout
 
+Every file under `server/` is listed by its path relative to `server/`. How things
+behave, with timings and limits, is in [How it works](./how-it-works/index.md).
+
 ```
-server/            Node (TypeScript, Hono)
-  app.ts           HTTP API, security headers, CSRF check, SSE
-  config.ts        settings: environment, and the registry of those changeable live
-  instance.ts      live settings in the state store, the record of changes, who is admin
-  cli.ts           the `viauna` command
-  auth.ts          sign-in, sessions, rate limits, password change
-  password.ts      handing password changes to a link, command, webhook or LDAP directory
-  crypto.ts        session cookies, credential encryption
-  storage.ts       opens both stores at startup; upgrades older layouts
-  db.ts            the mail index: SQLite schema and helpers (node:sqlite)
-  settings.ts      per-mailbox settings, trusted senders
-  contacts.ts      the address book: storage, search, import and export, suggestions
-  contacts-sync.ts keeping contacts in step with a CardDAV server
-  carddav.ts       a small CardDAV client: discovery, sync-collection, multiget, If-Match
-  vcard.ts         reading and writing vCard (2.1, 3.0, 4.0) without losing anything
-  filters.ts       filters and the vacation responder: checking, loading, saving
-  sieve.ts         them as a Sieve script, and reading back the script Viauna wrote
-  managesieve.ts   a ManageSieve client (STARTTLS, PLAIN, scripts)
-  state/
-    db.ts          the state store: engines, schema types, helpers (Kysely)
-    migrations.ts  its schema, for SQLite, PostgreSQL and MySQL/MariaDB
-    copy.ts        copying state between stores, ids kept
-  imap/
-    connection.ts  imapflow connection wrapper, login check
-    runtime.ts     per-account runtime: sync loop, backfill, snippets, IDLE
-    pool.ts        runtime registry, credential re-verification
-    store.ts       the local index (mailboxes, messages, contacts, label keywords)
-  mail/
-    threading.ts   conversation grouping
-    views.ts       thread lists and conversation view
-    actions.ts     archive/move/flag/label with undo
-    search.ts      Gmail query syntax → IMAP SEARCH
-    render.ts      sanitizing and rendering message HTML
-    fetch.ts       message download + disk cache
-    compose.ts     MIME building, SMTP send, drafts, uploads
-    labels.ts      label definitions, rename/delete, contacts search
-web/               React app (Vite)
-  src/lib          API client, router, stores, compose state, actions
-  src/components   the UI
-dev/               local Dovecot, SMTP sink, seed data
-test/              unit tests; integration tests against the dev server
+server/                Node (TypeScript, Hono)
+  index.ts             the server's entry point: opens storage, listens, shuts down cleanly
+  app.ts               HTTP API, security headers, CSRF check, the live-updates stream
+  config.ts            settings: environment, and the registry of those changeable live
+  instance.ts          live settings in the state store, the record of changes, who is admin
+  settings-bus.ts      announcing a settings change to the server (socket, LISTEN/NOTIFY)
+  cli.ts               the `viauna` command
+  log.ts               one-line JSON logs
+  auth.ts              sign-in, sessions, rate limits, password change
+  password.ts          handing password changes to a link, command, webhook or LDAP directory
+  crypto.ts            session cookies, credential encryption, the server secret
+  netpolicy.ts         vetting servers entered at sign-in: public addresses only, pinned
+  storage.ts           opens both stores at startup; upgrades older layouts
+  db.ts                the mail index: SQLite schema and helpers (node:sqlite)
+  settings.ts          per-mailbox settings, trusted senders
+  contacts.ts          the address book: storage, search, import and export, suggestions
+  contacts-sync.ts     keeping contacts in step with a CardDAV server
+  carddav.ts           a small CardDAV client: discovery, sync-collection, multiget, If-Match
+  vcard.ts             reading and writing vCard (2.1, 3.0, 4.0) without losing anything
+  filters.ts           filters and the vacation responder: checking, loading, saving
+  sieve.ts             them as a Sieve script, and reading back the script Viauna wrote
+  managesieve.ts       a ManageSieve client (STARTTLS, PLAIN, scripts)
+  state/db.ts          the state store: engines, schema types, helpers (Kysely)
+  state/migrations.ts  its schema, for SQLite, PostgreSQL and MySQL/MariaDB
+  state/copy.ts        copying state between stores, ids kept
+  state/node-sqlite.ts Kysely's SQLite interface over Node's built-in driver
+  imap/connection.ts   imapflow connection wrapper, login check
+  imap/runtime.ts      per-account runtime: sync loop, backfill, snippets, IDLE
+  imap/pool.ts         runtime registry, credential re-verification
+  imap/store.ts        the index's rows: mailboxes, messages, correspondents, label keywords
+  mail/threading.ts    conversation grouping
+  mail/views.ts        thread lists and conversation view
+  mail/actions.ts      archive/move/flag/label with undo
+  mail/search.ts       Gmail query syntax → IMAP SEARCH
+  mail/render.ts       sanitizing and rendering message HTML
+  mail/fetch.ts        message download + disk cache
+  mail/compose.ts      MIME building, SMTP send, drafts, uploads
+  mail/labels.ts       label definitions, rename/delete, correspondent search
+  mail/keywords.ts     label names as IMAP keywords, and back
+  mail/structure.ts    what a list needs from a message's structure: attachments, text part
+  mail/snippet.ts      the preview text, from the first bytes of the text part
+web/                   React app (Vite)
+  src/lib              API client, router, stores, compose state, actions, live updates
+  src/components       the UI
+dev/                   local Dovecot, SMTP sink, test databases, seed data, release checks
+test/                  unit tests; integration tests against the dev server
 ```
 
 ## Storage
@@ -87,8 +95,9 @@ fetches (sync-collection from the book's token, or a full ETag listing). An edit
 crossed one made elsewhere is merged three ways against `base`, the card as last synced,
 kept while the contact is dirty: fields changed here take this side's value, the rest
 the server's. Syncs run per mailbox, one at a time, alongside its IMAP runtime (on
-start, every ten minutes, soon after a local change, and on demand), signed in with the
-session's own credentials, and announce themselves on the live-updates stream.
+start, every ten minutes, soon after a local change, on opening Contacts, and on
+demand), signed in with the mailbox's own password, and announce themselves on the
+live-updates stream. Details: [How it works: Contacts](./how-it-works/contacts.md).
 
 ## Filters
 
@@ -96,11 +105,11 @@ Filters and the vacation responder live in the mailbox's Sieve script on the mai
 which runs it on delivery; Viauna holds no copy. It owns one script, `viauna`, written
 from its own model, which it keeps (base64 JSON) in a comment at the top together with a
 hash of the rules, so it reads its filters back exactly and notices a hand edit. A script
-another app made, active when Viauna first saves, is included after Viauna's rules
+another app made, active when Viauna saves, is included after Viauna's rules
 (`include :optional`), so those rules keep running and none of them can `stop` Viauna's.
 The script `require`s only the extensions its rules use, and the server's own
 CHECKSCRIPT runs before every save. Each request opens its own ManageSieve connection,
-signed in as the mailbox.
+signed in as the mailbox. Details: [How it works: Filters](./how-it-works/filters.md).
 
 ## Sync
 
@@ -116,12 +125,13 @@ HIGHESTMODSEQ, message count) and how far the index has caught up
 - **Snippets** are filled in by a separate pass that fetches only the first 3 KB of each
   message's text part (`BINARY.PEEK[part]<0.3072>` where supported).
 - **Triggers**: IDLE on INBOX (a dedicated connection), a LIST-STATUS poll of every
-  folder each minute while someone is looking, and the user's own actions (which update
-  the index directly, using COPYUID from MOVE when the server sends it).
+  folder each minute while the account's runtime runs, and the user's own actions (which
+  update the index directly, using COPYUID from MOVE when the server sends it).
 
 Tasks run one at a time on the background connection in priority order: folder list,
 INBOX, other folders, snippets, backfill. User actions use a separate connection and
-never wait behind sync.
+never wait behind sync. Only subscribed and special-use folders are synced. Timings,
+backoff and the runtime's lifecycle: [How it works: Mail sync](./how-it-works/sync.md).
 
 ## Conversations
 
@@ -129,7 +139,7 @@ never wait behind sync.
 replies — to a thread. A new message joins the threads of the ids it references (its
 own, `In-Reply-To`, `References`), merging threads when it bridges two, but only threads
 whose normalised subject matches (`Re:`/`Fwd:`/`[list]` stripped). A copy of a known
-message in another folder always joins its original's thread. Conversations are shown
+message in another folder, from the same sender, always joins its original's thread. Conversations are shown
 with every copy de-duplicated by Message-ID, and with Trash and Spam hidden unless you
 are looking at them.
 
@@ -141,7 +151,7 @@ not built in.
 - **Standards first.** Where a protocol or format exists, use it: IMAP, SMTP, CardDAV,
   CalDAV, ManageSieve, vCard, iCalendar. A vendor's API is only ever an optional driver.
 - **A default that needs no setup**, with alternatives picked on the admin page (or by
-  environment variable or CLI), each with a test button. A setting given in the
+  environment variable or CLI), and in time a button to test each (none has one yet). A setting given in the
   environment is locked and shown read-only.
 - **A custom method where it makes sense**: an HTTP webhook or a local command, so an
   unusual system can be wired up without changing Viauna.
@@ -157,9 +167,9 @@ not built in.
 | Mail | Any IMAP/SMTP server | — | — | built |
 | Mail index, message cache | Local SQLite and disk | none, by design | — | built |
 | Accounts, sessions, settings | SQLite in `DATA_DIR` | PostgreSQL, MySQL/MariaDB | — | built |
-| Password change | Off | Link to the mail server's own page; LDAP; vendor drivers | Webhook, command | planned |
-| Contacts | Viauna's database, vCard import/export | CardDAV sync, any server | — | planned |
-| Filters | Off | ManageSieve, when the server offers it | — | planned |
+| Password change | Off | Link to the mail server's own page; LDAP | Webhook, command | built; no vendor drivers yet |
+| Contacts | Viauna's database, vCard import/export | CardDAV sync, any server | — | built |
+| Filters, vacation responder | On, kept on the mail server over ManageSieve | — | — | built |
 
 The database is chosen by `DATABASE_URL`, not the admin page, because the settings
 themselves live in it. A password change first proves the current password with an IMAP
@@ -174,17 +184,11 @@ can also be changed while Viauna runs, from the admin page or the `viauna` comma
 changed). A value in the environment wins and locks the setting. Each change is
 recorded in `admin_log` with who made it.
 
-A change reaches everything that depends on it without a restart or a reload, by
-being announced rather than polled for. `server/settings-bus.ts` carries the
-announcement between processes: the `viauna` command connects to a socket in the data
-directory, and servers sharing PostgreSQL use `LISTEN`/`NOTIFY`. It only says "changed":
-each server then re-reads the store, which stays the one source of truth, so a lost or
-repeated announcement can't leave a wrong value. A check once a minute is the safety
-net, for MySQL/MariaDB (which can't notify) and a notification lost to a dropped
-connection. Open pages hear of it on the event stream (`settings`, or
-`account-settings` for one mailbox's own) and refetch what depends on it
-(`web/src/lib/config.ts`), as they do after reconnecting. Anything new that reads a
-setting in the page should read it through those queries, not keep its own copy.
+A change is announced rather than polled for (`server/settings-bus.ts`), and open pages
+refetch what depends on it (`web/src/lib/config.ts`); how, and when each change takes
+effect, is in [How it works: Live updates](./how-it-works/live-updates.md#settings-changes).
+Anything new that reads a setting in the page should read it through those queries, not
+keep its own copy.
 
 A setting stays environment-only when changing it live would be unsafe or meaningless:
 where Viauna listens and keeps data, the mail server (part of every account's identity),
@@ -219,8 +223,8 @@ should say which kind it is.
   parallel bursts can't slip under the limit), per IP and per login; with
   `TRUST_PROXY` the client address is the last `X-Forwarded-For` entry, the one your
   proxy added.
-- **Live updates** stop for an account the moment it is signed out or its session
-  expires.
+- **Live updates** stop for an account once it is signed out or its session expires:
+  the stream checks before each event and every 25 s.
 - **Admins** are mailboxes listed in the admins setting, signed in through the
   operator's own `IMAP_HOST`; an account on a server entered at sign-in never counts.
   The login the server accepted is compared, not the address typed, so another

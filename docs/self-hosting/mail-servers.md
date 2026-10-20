@@ -17,6 +17,10 @@ docker-mailserver.
 CONDSTORE/QRESYNC, MOVE, UIDPLUS, SPECIAL-USE and IDLE are used when the server offers
 them, with fallbacks when it doesn't.
 
+Each mailbox in use holds three IMAP connections from Viauna, and logs in briefly about
+every 10 minutes to check its password again. See
+[How it works: Mail sync](../how-it-works/sync.md#the-connections-to-your-mail-server).
+
 For **filters and the vacation responder**: ManageSieve, usually port 4190. See
 [Filters and vacation](./filters.md).
 

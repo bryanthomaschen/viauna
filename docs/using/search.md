@@ -23,10 +23,14 @@ mail server, so they cover message text, not just what Viauna has downloaded.
 
 Combine as many as you like: all of them must match. There's no `OR` yet.
 
-Without `in:`, search looks in every folder except Trash and Spam.
+Without `in:`, search looks in every folder in your sidebar except Trash and Spam.
 
 `older:` and `newer:` work as `before:` and `after:`, and `since:` as `after:`. Dates
 are the day the server received the message.
 
 How fast searching message text is depends on your server's full-text index; see
 [Mail servers](../self-hosting/mail-servers.md#what-the-server-needs).
+
+Good to know: each folder gives its newest 3,000 matches, and the same search again
+within a minute shows the same results. See
+[How it works: Mail sync](../how-it-works/sync.md#search).

@@ -81,6 +81,7 @@ mail server accepts can sign in, unless you limit it with `ALLOWED_DOMAINS`.
 - [Configuration](./configuration.md): every setting.
 - [Upgrades and backups](./upgrading.md): what's in `/data` and what to keep.
 - [Troubleshooting](./troubleshooting.md), if signing in fails.
+- [How it works](../how-it-works/index.md): what Viauna does behind the scenes.
 
 ## Building the image yourself
 

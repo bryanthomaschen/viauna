@@ -4,7 +4,8 @@ Viauna serves plain HTTP on port 3000 and needs a reverse proxy in front to term
 TLS. Whichever you use, it needs to:
 
 - **Not buffer responses.** Every open tab holds a live-update stream (`/api/events`,
-  server-sent events). A proxy that buffers it holds new mail back.
+  server-sent events; see [Live updates](../how-it-works/live-updates.md)). A proxy that
+  buffers it holds new mail back.
 - **Speak HTTP/2 to browsers.** Over HTTP/1.1 a browser allows six connections per site,
   and each tab's stream holds one, so a seventh tab would hang.
 - **Accept large uploads**: attachments up to `MAX_UPLOAD_MB` (25 MB by default), plus
