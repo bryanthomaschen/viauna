@@ -4,13 +4,6 @@ Viauna is pre-1.0. Work is planned as batches, one release each, in this order; 
 here has a date. What's already out is in the
 [changelog](https://github.com/bryanthomaschen/viauna/blob/main/CHANGELOG.md).
 
-## 0.3: Admin
-
-- **An admin page and a command-line tool** to turn features on and off and change
-  settings without a restart. Settings given as environment variables stay locked.
-- **Password change**: a link to your mail server's own page, LDAP, or a webhook or
-  command you provide.
-
 ## 0.4: Contacts
 
 - **An address book** with vCard import and export, and optional CardDAV sync.

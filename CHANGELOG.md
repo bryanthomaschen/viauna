@@ -9,26 +9,42 @@ its notes before moving to it. A patch release (0.2.0 to 0.2.1) only fixes thing
 
 ## Unreleased
 
-### Added
+## 0.3.0 - 2026-10-20
 
-- **An admin page** at `/admin` (Admin settings, in the account menu): change who can
-  sign in, session length and limits, the app's name and password changes while Viauna
-  runs, without a restart. Each setting shows where its value comes from and who changed
-  it, and every change is listed. Settings in the environment keep working, and are
-  locked there. See [Admin page and command line](https://bryanthomaschen.github.io/viauna/self-hosting/admin).
-- **The `viauna` command**, to do the same from the server's console. Make yourself an
-  admin with `docker exec viauna viauna admin add you@example.com`, or list admins in
-  `ADMIN_ADDRESSES`.
-- **Password changes** from Settings > Accounts: a link to your mail server's own page
-  (for Mailu, `/admin/user/password`); or a form that changes it in your LDAP directory
-  (Password Modify, RFC 3062), or hands it to a command or a signed webhook you provide.
-  Afterwards, other browsers are signed out of that mailbox. Off until you set
-  `PASSWORD_CHANGE`. See [Password changes](https://bryanthomaschen.github.io/viauna/self-hosting/passwords).
+Run your server from a web page: settings change without a restart, and people can
+change their own password.
 
-### Changed
+### An admin page
 
-- A setting with an invalid value, such as a number out of range or `ture` for true,
-  now stops Viauna at startup with a message naming it, instead of being read as off.
+Open **Admin settings** in the account menu (or go to `/admin`) to change who can sign
+in, session length and limits, the app's name, and how passwords are changed, while
+Viauna runs. Each setting shows where its value comes from: the default, an admin's
+change (who, and when), or the environment, where it stays locked. Every change is
+listed. Settings that could run code, reach your network or send passwords somewhere
+stay in the environment only. See [Admin page and command line](https://bryanthomaschen.github.io/viauna/self-hosting/admin).
+
+Nobody is an admin to begin with. Make yourself one from the server:
+
+```bash
+docker exec viauna viauna admin add you@example.com
+```
+
+or list admins in `ADMIN_ADDRESSES`. The same `viauna` command lists and changes every
+setting.
+
+### Password changes
+
+Settings > Accounts can now change a mailbox's password, in the way that suits your mail
+server: a link to its own page (for Mailu, `/admin/user/password`), your LDAP directory
+(Password Modify, RFC 3062), or a command or signed webhook you provide. Afterwards,
+other browsers are signed out of that mailbox. It's off until you set it up; see
+[Password changes](https://bryanthomaschen.github.io/viauna/self-hosting/passwords).
+
+### Upgrading from 0.2
+
+Nothing to do: the new tables are created on the first start. One change to know
+about: a setting with an invalid value, such as a number out of range or `ture` for
+true, now stops Viauna at startup with a message naming it, where 0.2 read it as off.
 
 ## 0.2.1 - 2026-10-20
 
