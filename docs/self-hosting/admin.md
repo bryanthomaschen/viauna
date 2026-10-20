@@ -5,9 +5,12 @@
 
 Most settings can be changed while Viauna runs, without a restart: from the **admin
 page**, or from the server's console with the **`viauna` command**. A change applies at
-once, in every page people have open (nobody needs to reload), and on every instance
-that shares the same database. With several instances on MySQL or MariaDB, the others
-take up to a minute, since those databases can't announce a change.
+once, in every page people have open (nobody needs to reload).
+
+Some changes apply only to what happens next. Narrowing who can sign in
+(`ALLOWED_DOMAINS`, `ALLOW_CUSTOM_SERVERS`) or lowering `MAX_ACCOUNTS` applies to the
+next sign-in and signs nobody out; a new `SESSION_DAYS` reaches each session the next
+time it's extended (on use, at most hourly).
 
 A setting given as an environment variable can't be changed either way: the environment
 wins, and the page shows it as locked. So you can keep everything in your compose file,

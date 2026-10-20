@@ -32,8 +32,10 @@ PASSWORD_CHANGE: link
 PASSWORD_CHANGE_URL: https://mail.example.com/password
 ```
 
-`{email}` in the address is replaced with the person's address, if your page wants it,
-as in `https://accounts.example.com/reset?user={email}`.
+`{email}` in the address is filled in with the person's address, if your page wants it,
+as in `https://accounts.example.com/reset?user={email}`. `{login}`, `{user}` and
+`{domain}` are filled in with their login, the part before the `@` and the part after.
+Each is URL-encoded.
 
 For **Mailu**, the page is `/admin/user/password` on your mail hostname (with Mailu's
 default `WEB_ADMIN`). It asks for the current password and refuses ones known from data

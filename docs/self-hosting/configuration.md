@@ -61,7 +61,7 @@ take `true` or `false`, `1` or `0`, `yes` or `no`, `on` or `off`.
 |---|---|---|
 | `ADMIN_ADDRESSES` | — | **Live.** Comma-separated mailboxes that can open the admin page. They must sign in through `IMAP_HOST`. Set here, the list can't be changed from the page or the command line. See [Admin page and command line](./admin.md). |
 | `PASSWORD_CHANGE` | `off` | **Live.** How people change their password: `off`, `link`, `command`, `webhook` or `ldap`; each needs its variables below. See [Password changes](./passwords.md). |
-| `PASSWORD_CHANGE_URL` | — | For `link`: your mail server's password page. `{email}` is replaced with the person's address. Environment only. |
+| `PASSWORD_CHANGE_URL` | — | For `link`: your mail server's password page. `{email}` is filled in with the person's address, and `{login}`, `{user}` and `{domain}` with their login, the part before the `@` and the part after, all URL-encoded. Environment only. |
 | `PASSWORD_CHANGE_COMMAND` | — | For `command`: run with the request as JSON on its standard input. Environment only. |
 | `PASSWORD_CHANGE_WEBHOOK` | — | For `webhook`: POSTed the request as JSON. Environment only. |
 | `PASSWORD_CHANGE_WEBHOOK_SECRET` | — | Signs each webhook request. Required with `PASSWORD_CHANGE_WEBHOOK`. Environment only. |

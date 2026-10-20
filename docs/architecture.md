@@ -162,7 +162,8 @@ recorded in `admin_log` with who made it.
 A change reaches everything that depends on it without a restart or a reload, by
 being announced rather than polled for. `server/settings-bus.ts` carries the
 announcement between processes: the `viauna` command connects to a socket in the data
-directory, and servers sharing PostgreSQL use `LISTEN`/`NOTIFY`. It only says "changed":
+directory, and servers sharing PostgreSQL would use `LISTEN`/`NOTIFY` (several
+instances on one database aren't supported yet). It only says "changed":
 each server then re-reads the store, which stays the one source of truth, so a lost or
 repeated announcement can't leave a wrong value. A check once a minute is the safety
 net, for MySQL/MariaDB (which can't notify) and a notification lost to a dropped
