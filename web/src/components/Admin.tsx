@@ -225,6 +225,7 @@ function ChoiceControl({ s, save, locked, server }: { s: AdminSetting; save: Sav
     link: server.passwordUrl ? null : "PASSWORD_CHANGE_URL",
     command: server.passwordCommand ? null : "PASSWORD_CHANGE_COMMAND",
     webhook: server.passwordWebhook ? null : "PASSWORD_CHANGE_WEBHOOK",
+    ldap: server.passwordLdap ? null : "PASSWORD_CHANGE_LDAP_URL",
   };
   return (
     <>
@@ -317,6 +318,7 @@ function Facts({ server }: { server: ServerFacts }) {
     ["Password page", server.passwordUrl ?? "Not set", "PASSWORD_CHANGE_URL"],
     ["Password change command", server.passwordCommand ? "Set" : "Not set", "PASSWORD_CHANGE_COMMAND"],
     ["Password change webhook", server.passwordWebhook ? "Set" : "Not set", "PASSWORD_CHANGE_WEBHOOK"],
+    ["Password change directory", server.passwordLdap ?? "Not set", "PASSWORD_CHANGE_LDAP_URL"],
   ];
   return (
     <div className="setting" style={{ gridTemplateColumns: "1fr" }}>

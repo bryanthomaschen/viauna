@@ -42,7 +42,8 @@ describe("parsing a setting", () => {
     expect(parseSetting(def("APP_NAME"), " ")).toHaveProperty("error");
     expect(parseSetting(def("APP_NAME"), "a\nb")).toHaveProperty("error");
     expect(parseSetting(def("PASSWORD_CHANGE"), "link")).toEqual({ value: "link" });
-    expect(parseSetting(def("PASSWORD_CHANGE"), "ldap")).toHaveProperty("error");
+    expect(parseSetting(def("PASSWORD_CHANGE"), "ldap")).toEqual({ value: "ldap" });
+    expect(parseSetting(def("PASSWORD_CHANGE"), "carrier pigeon")).toHaveProperty("error");
   });
 
   it("keeps where passwords go out of reach of the admin page", () => {

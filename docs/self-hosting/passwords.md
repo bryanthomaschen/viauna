@@ -13,11 +13,12 @@ you choose with `PASSWORD_CHANGE`, from the [admin page](./admin.md) or the envi
 | `link` | A button to your mail server's own page | `PASSWORD_CHANGE_URL` |
 | `command` | A form; Viauna runs your command | `PASSWORD_CHANGE_COMMAND` |
 | `webhook` | A form; Viauna calls your webhook | `PASSWORD_CHANGE_WEBHOOK`, `PASSWORD_CHANGE_WEBHOOK_SECRET` |
+| `ldap` | A form; Viauna changes it in your directory | `PASSWORD_CHANGE_LDAP_URL`, and how to find the person |
 
 Only mailboxes on your own mail server (`IMAP_HOST`) see it, never one on a server
 someone typed in at sign-in.
 
-Where each one goes (the page, the command, the webhook) is set only in the environment,
+Where each one goes (the page, the command, the webhook, the directory) is set only in the environment,
 never from the admin page: a page that could change them could send everyone to a page
 or a program that collects their passwords. The admin page can turn password changes off,
 or choose among the ways you've set up.
@@ -45,7 +46,7 @@ PASSWORD_CHANGE_URL: https://mail.example.com/admin/user/password
 
 ## The form
 
-With a command or a webhook, people change their password inside Viauna. It asks for the
+With a command, a webhook or LDAP, people change their password inside Viauna. It asks for the
 current password and the new one (at least 8 characters, and different), checks the
 current one with your mail server, then hands the change on. When it succeeds:
 
@@ -56,7 +57,7 @@ current one with your mail server, then hands the change on. When it succeeds:
 Your command or webhook should make the change take effect before it answers. Viauna
 allows five wrong current passwords per mailbox per 15 minutes.
 
-Both receive the same request:
+A command and a webhook receive the same request:
 
 ```json
 {
@@ -146,3 +147,49 @@ function fromViauna(headers, rawBody, secret) {
 ```
 
 Viauna won't start with a webhook but no secret.
+
+### An LDAP directory
+
+When your mail accounts live in LDAP (OpenLDAP, 389 Directory Server, FreeIPA and the
+like), Viauna can change the password there itself. It binds as the person with their
+current password, then asks the directory to change it with the standard Password Modify
+operation ([RFC 3062](https://www.rfc-editor.org/rfc/rfc3062)). The directory hashes the
+new password and applies its own password policy; when the policy refuses one, its
+reason is shown to the person.
+
+Tell Viauna where the directory is, and how to find the person's entry. Either with a
+template:
+
+```yaml
+PASSWORD_CHANGE: ldap
+PASSWORD_CHANGE_LDAP_URL: ldaps://ldap.example.com
+PASSWORD_CHANGE_LDAP_USER_DN: uid={user},ou=people,dc=example,dc=com
+```
+
+`{login}` is the whole login (`ann@example.com`), `{user}` the part before the `@`
+(`ann`), and `{domain}` the part after. Each is escaped, so no login can change the DN.
+
+Or by a search, as a service account if your directory doesn't allow anonymous ones:
+
+```yaml
+PASSWORD_CHANGE: ldap
+PASSWORD_CHANGE_LDAP_URL: ldaps://ldap.example.com
+PASSWORD_CHANGE_LDAP_SEARCH_BASE: ou=people,dc=example,dc=com
+PASSWORD_CHANGE_LDAP_SEARCH_FILTER: (mail={login})   # the default
+PASSWORD_CHANGE_LDAP_BIND_DN: cn=viauna,ou=services,dc=example,dc=com
+PASSWORD_CHANGE_LDAP_BIND_PASSWORD: the service account's password
+```
+
+The search must find exactly one entry. The service account only searches: the change is
+made as the person, with their own password.
+
+- **Encryption.** `ldaps://` (port 636) is encrypted from the start. With `ldap://` (port
+  389), Viauna upgrades the connection with StartTLS before sending any password. Set
+  `PASSWORD_CHANGE_LDAP_STARTTLS=false` only on a network you trust completely: the
+  passwords then travel unencrypted.
+- **Certificates** are checked against the directory's name. For a test directory with a
+  self-signed certificate, `PASSWORD_CHANGE_LDAP_TLS_VERIFY=false` skips that.
+- **Access.** The directory's rules must let people change their own password, as most do
+  by default (in OpenLDAP, `access to attrs=userPassword by self write`).
+- **Active Directory** changes passwords differently (the `unicodePwd` attribute); use a
+  command for it.

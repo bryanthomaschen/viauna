@@ -20,14 +20,17 @@ its notes before moving to it. A patch release (0.2.0 to 0.2.1) only fixes thing
   admin with `docker exec viauna viauna admin add you@example.com`, or list admins in
   `ADMIN_ADDRESSES`.
 - **Password changes** from Settings > Accounts: a link to your mail server's own page
-  (for Mailu, `/admin/user/password`), or a form that hands the change to a command or
-  a signed webhook you provide. Afterwards, other browsers are signed out of that
-  mailbox. Off until you set `PASSWORD_CHANGE`. See [Password changes](https://bryanthomaschen.github.io/viauna/self-hosting/passwords).
+  (for Mailu, `/admin/user/password`); or a form that changes it in your LDAP directory
+  (Password Modify, RFC 3062), or hands it to a command or a signed webhook you provide.
+  Afterwards, other browsers are signed out of that mailbox. Off until you set
+  `PASSWORD_CHANGE`. See [Password changes](https://bryanthomaschen.github.io/viauna/self-hosting/passwords).
 
 ### Changed
 
 - A setting with an invalid value, such as a number out of range or `ture` for true,
   now stops Viauna at startup with a message naming it, instead of being read as off.
+
+## 0.2.1 - 2026-10-20
 
 ### Fixed
 

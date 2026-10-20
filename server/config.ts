@@ -65,6 +65,44 @@ function webAddress(name: string): string | undefined {
   return value;
 }
 
+/** Where a password change over LDAP goes (password.ts). */
+export interface LdapTarget {
+  url: string;
+  /** For an ldap:// address: upgrade with StartTLS before sending any password. */
+  startTls: boolean;
+  /** Check the directory's certificate. */
+  verify: boolean;
+  /** The user's DN, from a template with {user}, {login} and {domain} in it. */
+  userDn?: string;
+  /** Or found by a search, as the service account if one is given. */
+  search?: { base: string; filter: string; bindDn?: string; bindPassword?: string };
+}
+
+function ldapTarget(): LdapTarget | undefined {
+  const url = env("PASSWORD_CHANGE_LDAP_URL");
+  if (url === undefined) return undefined;
+  const scheme = /^(ldaps?):\/\/[^/?#\s]+\/?$/i.exec(url)?.[1]?.toLowerCase();
+  if (!scheme) throw new Error(`PASSWORD_CHANGE_LDAP_URL must be an ldap:// or ldaps:// address with no path, got "${url}"`);
+  const placeholder = /\{(user|login)\}/;
+  const userDn = env("PASSWORD_CHANGE_LDAP_USER_DN");
+  const base = env("PASSWORD_CHANGE_LDAP_SEARCH_BASE");
+  if (!userDn === !base) {
+    throw new Error("With PASSWORD_CHANGE_LDAP_URL, set either PASSWORD_CHANGE_LDAP_USER_DN or PASSWORD_CHANGE_LDAP_SEARCH_BASE");
+  }
+  if (userDn && !placeholder.test(userDn)) throw new Error("PASSWORD_CHANGE_LDAP_USER_DN must contain {user} or {login}");
+  const filter = env("PASSWORD_CHANGE_LDAP_SEARCH_FILTER", "(mail={login})")!;
+  if (base && !placeholder.test(filter)) throw new Error("PASSWORD_CHANGE_LDAP_SEARCH_FILTER must contain {user} or {login}");
+  const bindDn = env("PASSWORD_CHANGE_LDAP_BIND_DN");
+  const bindPassword = env("PASSWORD_CHANGE_LDAP_BIND_PASSWORD");
+  if (!bindDn !== !bindPassword) throw new Error("PASSWORD_CHANGE_LDAP_BIND_DN and PASSWORD_CHANGE_LDAP_BIND_PASSWORD go together");
+  return {
+    url,
+    startTls: scheme === "ldap" && bool("PASSWORD_CHANGE_LDAP_STARTTLS", true),
+    verify: bool("PASSWORD_CHANGE_LDAP_TLS_VERIFY", true),
+    ...(userDn ? { userDn } : { search: { base: base!, filter, bindDn, bindPassword } }),
+  };
+}
+
 function security(name: string, fallback: Security): Security {
   const value = (env(name) ?? fallback).toLowerCase();
   if (value === "tls" || value === "starttls" || value === "none") return value;
@@ -120,7 +158,7 @@ export interface SettingValues {
   maxUploadMb: number;
   cacheMb: number;
   appName: string;
-  passwordChange: "off" | "link" | "command" | "webhook";
+  passwordChange: "off" | "link" | "command" | "webhook" | "ldap";
 }
 
 /** In the order the admin page and `viauna settings` show them. */
@@ -172,6 +210,7 @@ export const SETTINGS: readonly SettingDef[] = [
       { value: "link", label: "A link to your mail server's own page" },
       { value: "command", label: "A command you provide" },
       { value: "webhook", label: "A webhook you provide" },
+      { value: "ldap", label: "Your LDAP directory" },
     ],
     section: "Password changes", label: "Change password",
     help: "How people change their mailbox password, from Settings > Accounts. Where each one goes is set in the environment.",
@@ -300,6 +339,8 @@ export const config = {
   /** POSTed a signed JSON request to change a password. */
   passwordWebhook: env("PASSWORD_CHANGE_WEBHOOK"),
   passwordWebhookSecret: env("PASSWORD_CHANGE_WEBHOOK_SECRET"),
+  /** A directory that changes the password with the LDAP Password Modify operation. */
+  passwordLdap: ldapTarget(),
 
   logLevel: env("LOG_LEVEL", "info")!,
 

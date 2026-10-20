@@ -1,6 +1,6 @@
 {
   "name": "viauna",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "A fast, Gmail-style webmail client for any IMAP/SMTP server.",
   "license": "AGPL-3.0-only",
@@ -31,6 +31,7 @@
     "html-to-text": "^10.0.1",
     "imapflow": "^2.5.2",
     "kysely": "^0.29.6",
+    "ldapts": "^9.2.0",
     "linkedom": "^0.18.13",
     "mailparser": "^3.9.40",
     "mysql2": "^3.24.5",

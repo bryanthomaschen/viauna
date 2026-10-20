@@ -34,6 +34,7 @@ npm run dev:databases
 export VIAUNA_TEST_PG=postgres://viauna:viauna@127.0.0.1:55432/viauna
 export VIAUNA_TEST_MYSQL=mysql://viauna:viauna@127.0.0.1:53306/viauna
 export VIAUNA_TEST_MARIADB=mariadb://viauna:viauna@127.0.0.1:53307/viauna
+export VIAUNA_TEST_LDAP=ldap://127.0.0.1:53389   # password changes over LDAP
 npm test
 VIAUNA_TEST_DATABASE_URL=$VIAUNA_TEST_PG npm run test:integration   # end-to-end on one of them
 ```

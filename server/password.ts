@@ -5,13 +5,18 @@
 //   command  PASSWORD_CHANGE_COMMAND, run with the request as JSON on its stdin
 //   webhook  PASSWORD_CHANGE_WEBHOOK, POSTed the request as JSON, signed with
 //            PASSWORD_CHANGE_WEBHOOK_SECRET
+//   ldap     PASSWORD_CHANGE_LDAP_URL: bind as the user with the current password, then
+//            the standard Password Modify operation (RFC 3062), so the directory applies
+//            its own password policy and hashing
 //
 // The admin page can choose among these, but where each goes is set only in the
 // environment: a page that could change them could send everyone to a page or a
 // program that collects their passwords.
 import { spawn } from "node:child_process";
 import crypto from "node:crypto";
-import { VERSION, config, endpointKey, setting } from "./config.ts";
+import net from "node:net";
+import { Client, ConstraintViolationError, InvalidCredentialsError, UnwillingToPerformError } from "ldapts";
+import { type LdapTarget, VERSION, config, endpointKey, setting } from "./config.ts";
 import type { AccountInfo } from "./imap/runtime.ts";
 import { log } from "./log.ts";
 
@@ -44,6 +49,7 @@ export function passwordChangeFor(account: AccountInfo): PasswordChange | null {
   }
   if (method === "command") return config.passwordCommand ? { method: "form" } : null;
   if (method === "webhook") return config.passwordWebhook ? { method: "form" } : null;
+  if (method === "ldap") return config.passwordLdap ? { method: "form" } : null;
   return null;
 }
 
@@ -143,11 +149,99 @@ export async function callPasswordWebhook(url: string, secret: string, request: 
   return { ok: false, error: message ?? FAILED };
 }
 
+// ------------------------------------------------------------ LDAP
+
+const PASSWORD_MODIFY = "1.3.6.1.4.1.4203.1.11.1";
+const LDAP_MS = 15_000;
+
+/** A value placed in a DN, escaped as RFC 4514 says, so a login can't add to the DN. */
+export function escapeDnValue(value: string): string {
+  return value
+    .replace(/[\\,+"<>;=]/g, "\\$&")
+    .replace(/\0/g, "\\00")
+    .replace(/^#/, "\\#")
+    .replace(/^ | $/g, "\\ ");
+}
+
+/** A value placed in a search filter, escaped as RFC 4515 says. */
+export function escapeFilterValue(value: string): string {
+  return value.replace(/[\\*()\0]/g, (c) => "\\" + c.charCodeAt(0).toString(16).padStart(2, "0"));
+}
+
+/** Fills {login}, {user} (before the @) and {domain} (after it), each escaped. */
+export function fillTemplate(template: string, login: string, escape: (v: string) => string): string {
+  const at = login.lastIndexOf("@");
+  const parts = { login, user: at < 0 ? login : login.slice(0, at), domain: at < 0 ? "" : login.slice(at + 1) };
+  return template.replace(/\{(login|user|domain)\}/g, (_, k: keyof typeof parts) => escape(parts[k]));
+}
+
+function tlv(tag: number, value: Buffer): Buffer {
+  const n = value.length;
+  const length = n < 0x80 ? [n] : n < 0x100 ? [0x81, n] : [0x82, n >> 8, n & 0xff];
+  return Buffer.concat([Buffer.from([tag, ...length]), value]);
+}
+
+/**
+ * RFC 3062's PasswdModifyRequestValue, BER-encoded: [1] the old password and [2] the
+ * new one. With no userIdentity, it changes the password of the user who is bound.
+ */
+export function passwordModifyRequest(oldPassword: string, newPassword: string): Buffer {
+  return tlv(0x30, Buffer.concat([tlv(0x81, Buffer.from(oldPassword, "utf8")), tlv(0x82, Buffer.from(newPassword, "utf8"))]));
+}
+
+/**
+ * Finds the user (a DN template, or a search), binds as them with the current password,
+ * and asks the directory to change it. A policy refusal says why, so that's shown.
+ */
+export async function changeViaLdap(target: LdapTarget, request: PasswordRequest, timeoutMs = LDAP_MS): Promise<PasswordResult> {
+  const host = new URL(target.url).hostname.replace(/^\[|\]$/g, "");
+  // Node checks the certificate against the name it's given; an address can't be one.
+  const tlsOptions = { rejectUnauthorized: target.verify, ...(net.isIP(host) ? {} : { servername: host }) };
+  // ldapts makes any connection given tlsOptions a TLS one, so only ldaps:// gets them;
+  // ldap:// is upgraded with StartTLS (or, if the operator said so, left in the clear).
+  const secure = target.url.toLowerCase().startsWith("ldaps:");
+  const client = new Client({ url: target.url, timeout: timeoutMs, connectTimeout: timeoutMs, ...(secure ? { tlsOptions } : {}) });
+  try {
+    if (target.startTls) await client.startTLS(tlsOptions);
+    let dn: string;
+    if (target.userDn) {
+      dn = fillTemplate(target.userDn, request.login, escapeDnValue);
+    } else {
+      const { base, filter, bindDn, bindPassword } = target.search!;
+      if (bindDn) await client.bind(bindDn, bindPassword);
+      const { searchEntries } = await client.search(base, {
+        scope: "sub",
+        filter: fillTemplate(filter, request.login, escapeFilterValue),
+        attributes: ["1.1"],
+        sizeLimit: 2,
+      });
+      if (searchEntries.length !== 1) {
+        log.warn("password change: the directory search didn't find exactly one entry", { found: searchEntries.length });
+        return { ok: false, error: searchEntries.length ? FAILED : "Your account wasn't found in the directory." };
+      }
+      dn = searchEntries[0].dn;
+    }
+    await client.bind(dn, request.currentPassword);
+    await client.exop(PASSWORD_MODIFY, passwordModifyRequest(request.currentPassword, request.newPassword));
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof InvalidCredentialsError) return { ok: false, error: "The directory didn't accept your current password." };
+    if (err instanceof ConstraintViolationError || err instanceof UnwillingToPerformError) {
+      return { ok: false, error: reason(`The directory refused the new password: ${(err as Error).message}`) ?? FAILED };
+    }
+    log.warn("password change over LDAP failed", { error: (err as Error).message, code: (err as { code?: unknown }).code });
+    return { ok: false, error: FAILED };
+  } finally {
+    await client.unbind().catch(() => {});
+  }
+}
+
 export function runPasswordChange(request: PasswordRequest): Promise<PasswordResult> {
   const method = setting("passwordChange");
   if (method === "command" && config.passwordCommand) return runPasswordCommand(config.passwordCommand, request);
   if (method === "webhook" && config.passwordWebhook && config.passwordWebhookSecret) {
     return callPasswordWebhook(config.passwordWebhook, config.passwordWebhookSecret, request);
   }
+  if (method === "ldap" && config.passwordLdap) return changeViaLdap(config.passwordLdap, request);
   return Promise.resolve({ ok: false, error: "Password changes aren't available here." });
 }

@@ -9,7 +9,7 @@ server/            Node (TypeScript, Hono)
   instance.ts      live settings in the state store, the record of changes, who is admin
   cli.ts           the `viauna` command
   auth.ts          sign-in, sessions, rate limits, password change
-  password.ts      handing password changes to a link, command or webhook
+  password.ts      handing password changes to a link, command, webhook or LDAP directory
   crypto.ts        session cookies, credential encryption
   storage.ts       opens both stores at startup; upgrades older layouts
   db.ts            the mail index: SQLite schema and helpers (node:sqlite)
@@ -144,7 +144,7 @@ setting. Each change is recorded in `admin_log` with who made it.
 A setting stays environment-only when changing it live would be unsafe or meaningless:
 where Viauna listens and keeps data, the mail server (part of every account's identity),
 and anything that could run code, reach the internal network, or send people's passwords
-somewhere (where password changes go: a page, a command, a webhook). A new setting
+somewhere (where password changes go: a page, a command, a webhook, a directory). A new setting
 should say which kind it is.
 
 ## Security model
@@ -185,9 +185,13 @@ should say which kind it is.
   admin session can't be turned into any of those. The last admin can only be removed
   from the command line, which needs access to the server.
 - **Changing a password** checks the current one with the mail server first, counts
-  attempts per mailbox, and hands the change to the operator's link, command or webhook.
+  attempts per mailbox, and hands the change to the operator's link, command, webhook or
+  LDAP directory.
   The command gets its request on standard input and runs with a stripped environment
   (no `SECRET_KEY` or `DATABASE_URL`), in its own process group so a timeout ends all of
   it; the webhook request is signed (HMAC-SHA256 over timestamp and body) and redirects
-  aren't followed. Afterwards the session is re-encrypted with the new password, every
-  other session is signed out of that mailbox, and its sync restarts.
+  aren't followed. LDAP binds as the person with their current password, then uses
+  Password Modify (RFC 3062); a login is escaped into the DN or search filter, and
+  passwords go only over LDAPS or StartTLS unless the operator turns that off.
+  Afterwards the session is re-encrypted with the new password, every other session is
+  signed out of that mailbox, and its sync restarts.

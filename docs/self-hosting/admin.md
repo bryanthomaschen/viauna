@@ -69,7 +69,8 @@ Some settings are read only from the environment, at startup:
   changing it would make every account a new, empty one;
 - anything that could run code, reach your internal network, or send people's passwords
   somewhere: `ALLOW_PRIVATE_SERVERS`, and where password changes go
-  (`PASSWORD_CHANGE_URL`, `PASSWORD_CHANGE_COMMAND`, `PASSWORD_CHANGE_WEBHOOK`).
+  (`PASSWORD_CHANGE_URL`, `PASSWORD_CHANGE_COMMAND`, `PASSWORD_CHANGE_WEBHOOK`,
+  `PASSWORD_CHANGE_LDAP_*`).
 
 That last group is deliberate. Someone who steals an admin's session can change what the
 page offers, but can't use it to run commands on your server, probe your network or

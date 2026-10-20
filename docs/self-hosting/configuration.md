@@ -52,11 +52,17 @@ take `true` or `false`, `1` or `0`, `yes` or `no`, `on` or `off`.
 | Variable | Default | |
 |---|---|---|
 | `ADMIN_ADDRESSES` | — | **Live.** Comma-separated mailboxes that can open the admin page. They must sign in through `IMAP_HOST`. Set here, the list can't be changed from the page or the command line. See [Admin page and command line](./admin.md). |
-| `PASSWORD_CHANGE` | `off` | **Live.** How people change their password: `off`, `link`, `command` or `webhook`; each needs its variable below. See [Password changes](./passwords.md). |
+| `PASSWORD_CHANGE` | `off` | **Live.** How people change their password: `off`, `link`, `command`, `webhook` or `ldap`; each needs its variables below. See [Password changes](./passwords.md). |
 | `PASSWORD_CHANGE_URL` | — | For `link`: your mail server's password page. `{email}` is replaced with the person's address. Environment only. |
 | `PASSWORD_CHANGE_COMMAND` | — | For `command`: run with the request as JSON on its standard input. Environment only. |
 | `PASSWORD_CHANGE_WEBHOOK` | — | For `webhook`: POSTed the request as JSON. Environment only. |
 | `PASSWORD_CHANGE_WEBHOOK_SECRET` | — | Signs each webhook request. Required with `PASSWORD_CHANGE_WEBHOOK`. Environment only. |
+| `PASSWORD_CHANGE_LDAP_URL` | — | For `ldap`: your directory, as `ldaps://host` or `ldap://host` (then upgraded with StartTLS). Environment only, like the rest of these. |
+| `PASSWORD_CHANGE_LDAP_USER_DN` | — | The person's entry, as a template such as `uid={user},ou=people,dc=example,dc=com`. Or find it with a search: |
+| `PASSWORD_CHANGE_LDAP_SEARCH_BASE`, `PASSWORD_CHANGE_LDAP_SEARCH_FILTER` | —, `(mail={login})` | Where to search for the entry, and the filter that finds it. |
+| `PASSWORD_CHANGE_LDAP_BIND_DN`, `PASSWORD_CHANGE_LDAP_BIND_PASSWORD` | — | A service account for the search, if anonymous searches aren't allowed. |
+| `PASSWORD_CHANGE_LDAP_STARTTLS` | `true` | For `ldap://`: upgrade with StartTLS. `false` sends passwords unencrypted. |
+| `PASSWORD_CHANGE_LDAP_TLS_VERIFY` | `true` | Check the directory's certificate. |
 
 ## Data and logging
 

@@ -1,5 +1,6 @@
-# Throwaway databases for testing the state store on every engine: `npm run dev:databases`,
-# then run the tests with the URLs in test/databases.ts. Ports bound to 127.0.0.1 only.
+# Throwaway servers for the tests: databases for the state store on every engine, and an
+# LDAP directory for password changes. `npm run dev:databases`, then run the tests with
+# the URLs in test/databases.ts. Ports bound to 127.0.0.1 only.
 # Data lives in memory (tests drop and recreate tables constantly, which is slow on
 # disk), and each reports healthy only once it accepts connections over TCP, which the
 # images' first-start setup servers don't.
@@ -24,3 +25,9 @@ services:
     ports: ["127.0.0.1:53307:3306"]
     tmpfs: [/var/lib/mysql]
     healthcheck: { test: ["CMD", "mariadb-admin", "ping", "-h", "127.0.0.1", "-uviauna", "-pviauna", "--silent"], interval: 2s, retries: 90 }
+  ldap:
+    image: osixia/openldap:1.5.0
+    # StartTLS with the image's own self-signed certificate, without asking for a client one.
+    environment: { LDAP_ORGANISATION: Viauna, LDAP_DOMAIN: example.test, LDAP_ADMIN_PASSWORD: admin, LDAP_TLS_VERIFY_CLIENT: never }
+    ports: ["127.0.0.1:53389:389"]
+    healthcheck: { test: ["CMD", "ldapwhoami", "-x", "-H", "ldap://127.0.0.1", "-D", "cn=admin,dc=example,dc=test", "-w", "admin"], interval: 2s, retries: 60 }

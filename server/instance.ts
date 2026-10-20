@@ -6,6 +6,7 @@
 // admin_log, with who made it, for the admin page's list of recent changes.
 import {
   type Endpoint,
+  type LdapTarget,
   type SettingDef,
   type SettingKey,
   type SettingValue,
@@ -219,6 +220,11 @@ export function isAdmin(account: AccountInfo): boolean {
   return setting("admins").includes(account.login);
 }
 
+const describeLdap = (t: LdapTarget | undefined) =>
+  t &&
+  `${t.url}${t.startTls ? " with StartTLS" : t.url.startsWith("ldap:") ? ", unencrypted" : ""}${t.verify ? "" : ", certificate not checked"}: ` +
+    (t.userDn ? `binds as ${t.userDn}` : `finds ${t.search!.filter} under ${t.search!.base}${t.search!.bindDn ? ` as ${t.search!.bindDn}` : ""}`);
+
 const describeEndpoint = (e: Endpoint | null) =>
   e && `${e.host}:${e.port}, ${{ tls: "TLS", starttls: "STARTTLS", none: "unencrypted" }[e.security]}${e.verify ? "" : ", certificate not checked"}`;
 
@@ -240,5 +246,6 @@ export function serverFacts() {
     passwordUrl: config.passwordChangeUrl ?? null,
     passwordCommand: !!config.passwordCommand,
     passwordWebhook: !!config.passwordWebhook,
+    passwordLdap: describeLdap(config.passwordLdap),
   };
 }

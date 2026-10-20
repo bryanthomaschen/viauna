@@ -199,6 +199,7 @@ export interface ServerFacts {
   passwordUrl: string | null;
   passwordCommand: boolean;
   passwordWebhook: boolean;
+  passwordLdap: string | null;
 }
 
 export interface AdminData {
