@@ -73,7 +73,7 @@ docker run -d --name viauna \
   -e PUBLIC_URL=https://mail.example.com \
   -e IMAP_HOST=imap.example.com \
   -e SMTP_HOST=smtp.example.com \
-  ghcr.io/bryanthomaschen/viauna:0.4
+  ghcr.io/bryanthomaschen/viauna:0.5
 ```
 
 Images are published for `linux/amd64` and `linux/arm64`.

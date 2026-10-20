@@ -4,11 +4,6 @@ Viauna is pre-1.0. Work is planned as batches, one release each, in this order; 
 here has a date. What's already out is in the
 [changelog](https://github.com/bryanthomaschen/viauna/blob/main/CHANGELOG.md).
 
-## 0.5: Filters
-
-- **Filters**: Sieve rules, over ManageSieve.
-- **Vacation responder**, also a Sieve rule.
-
 ## 0.6: Calendar
 
 - **Calendars for each mailbox**, as many as you like, kept by Viauna in standard

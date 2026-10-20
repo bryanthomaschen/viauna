@@ -9,51 +9,76 @@ its notes before moving to it. A patch release (0.2.0 to 0.2.1) only fixes thing
 
 ## Unreleased
 
-### Added
+## 0.5.0 - 2026-10-20
 
-- **Filters**, Gmail-style, in Settings > Filters or from a message's menu ("Filter
-  messages like these"): match on from, to, subject, words, attachments or size; skip
-  the inbox, mark as read, star, label, move, delete or forward. They're kept on your
-  mail server as Sieve (over ManageSieve, port 4190), so they sort mail as it arrives,
-  with Viauna closed and in every app. Filters made in another app keep running.
-  Forwarding is off until an admin allows it (`FILTER_FORWARDING`). See
-  [Filters and the vacation responder](https://bryanthomaschen.github.io/viauna/using/filters).
-- **A vacation responder**, at the bottom of Settings > General: from a first day to an
-  optional last day, at most one reply every four days to each sender, sent by your
-  mail server.
-- **A command menu**: ⌘K on a Mac, Ctrl+K elsewhere, or the ⌘ button at the top. Type
-  an action (archive, label as, reply…), a folder, a label or a setting and press
-  Enter; with nothing matching, Enter searches your mail. In the list it acts on the
-  ticked conversations. See
-  [Command menu and shortcuts](https://bryanthomaschen.github.io/viauna/using/shortcuts).
-- **How it works**, a new part of the docs: mail sync, live updates and how settings
-  reach open pages, sessions, what's stored and cached where and what leaves the server,
-  how filters run, how contacts sync merges, and every fixed limit. The user and admin
-  pages stay short and link to it.
+Filters and a vacation responder, kept on your mail server so they work with Viauna
+closed; and a command menu for doing anything by name.
 
-### Changed
+### Filters
 
-- Gmail's single-key shortcuts are off until each person turns them on (Settings >
-  Keyboard shortcuts, or "turn on single-key shortcuts" in the command menu): single
-  keys get in the way of speech input and some screen readers. In a browser where
-  someone had changed a display setting before, they stay on.
+Sort mail as it arrives, the way Gmail does: in **Settings > Filters**, or from a
+message's menu with **Filter messages like these**. Match on who it's from or to, the
+subject, words in it, attachments or size; then skip the Inbox, mark it read, star it,
+label it, move it, delete it or forward it. Filters are kept on your mail server as a
+Sieve script (over ManageSieve), so they run with Viauna closed and apply in every app,
+and rules you made in another app (Roundcube, say) keep running alongside. A filter that
+skips the Inbox makes an Archive folder if your mailbox has none. Forwarding is off
+until an admin allows it. See
+[Filters and the vacation responder](https://bryanthomaschen.github.io/viauna/using/filters).
+
+### Vacation responder
+
+At the bottom of **Settings > General**: an automatic reply from a first day to an
+optional last day, in your own time zone, sent at most once every four days to each
+sender. Your mail server sends it, so it works while you're away from Viauna too.
+
+### The command menu
+
+Press **⌘K** on a Mac or **Ctrl+K** elsewhere, or click the **⌘** button at the top,
+then type: an action on the conversation you're reading or the ones you've ticked
+(archive, label as, move to, reply…), a folder or label to go to, something to make
+(compose, a new label), or a setting (dark theme, compact density). When nothing
+matches, Enter searches your mail. See
+[Command menu and shortcuts](https://bryanthomaschen.github.io/viauna/using/shortcuts).
+
+### Keyboard shortcuts are now opt-in, and all of them work
+
+Gmail's single-key shortcuts are off until each person turns them on (Settings >
+Keyboard shortcuts, or *turn on single-key shortcuts* in the command menu), because
+single keys get in the way of speech input and some screen readers. Every shortcut was
+pressed in a browser to check it, and these were fixed (a test now presses them all on
+every change):
+
+- `n` / `p` moved between messages without showing which; the message now gets a bar,
+  and the "N more" fold opens when they reach it.
+- After clicking into a message, or ticking a conversation's checkbox, no shortcut
+  worked until you clicked elsewhere.
+- `l` and `v` in the list did nothing with no conversation ticked.
+- `Esc` after closing the label or folder picker didn't go back to the list.
+- `z` pressed before the server had finished an action did nothing, or undid the
+  action before it.
+
+### How it works
+
+A new part of the docs for anyone who wants to know what happens behind the scenes:
+[mail sync](https://bryanthomaschen.github.io/viauna/how-it-works/sync), live updates
+and how settings reach open pages, sessions, what's stored and cached where and what
+leaves the server, how filters run, how contacts sync merges, and every fixed limit.
+The user and admin pages stay short and link to it, and a test now fails when the docs
+and the code disagree.
+
+### Also
+
 - The Settings tab is part of the address (`?tab=filters`), so a reload or Back keeps it.
 
-### Fixed
+### Upgrading from 0.4
 
-- Saving a filter that skips the inbox makes the Archive folder if the mailbox has
-  none (some mail servers, Mailu among them, don't make one), so it shows in the
-  sidebar at once, before any mail lands in it.
-- Keyboard shortcuts that didn't work, found by pressing each one in a browser (a test
-  now does so on every change):
-  - `n` / `p` moved between messages without showing which; the message now gets a bar,
-    and the "N more" fold opens when they reach it.
-  - After clicking into a message, or ticking a conversation's checkbox, no shortcut
-    worked until you clicked elsewhere.
-  - `l` and `v` in the list did nothing with no conversation ticked.
-  - `Esc` after closing the label or folder picker didn't go back to the list.
-  - `z` pressed before the server had finished an action did nothing, or undid the
-    action before it.
+Nothing to do for most servers. Filters use ManageSieve on the IMAP host's port 4190
+(Mailu's front already serves it); if yours is elsewhere, set `MANAGESIEVE_HOST` and
+`MANAGESIEVE_PORT`, and if your server has none, set `FILTERS=false` and
+`VACATION=false`. Shortcuts stay on in browsers where someone had changed a display
+setting; everyone else finds them off. See
+[Upgrades](https://bryanthomaschen.github.io/viauna/self-hosting/upgrading).
 
 ## 0.4.2 - 2026-10-20
 
