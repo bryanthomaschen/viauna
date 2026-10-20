@@ -9,18 +9,33 @@ its notes before moving to it. A patch release (0.2.0 to 0.2.1) only fixes thing
 
 ## Unreleased
 
-### Added
+## 0.4.0 - 2026-10-20
 
-- **Contacts**: an address book for each mailbox, in the menu on the left. Create
-  contacts, add a sender from a message's menu, and import or export vCard files, as
-  Gmail, Apple Contacts, Thunderbird and Roundcube write them (vCard 2.1, 3.0 and 4.0).
-  Contacts are kept whole, so photos and other apps' fields survive an edit. Suggestions
-  while writing show your contacts first. On by default; turn it off with `CONTACTS` or
-  from the admin page. See [Contacts](https://bryanthomaschen.github.io/viauna/using/contacts).
-- **Contacts sync** with a CardDAV server you run (Radicale, Mailu's `WEBDAV=radicale`,
-  Nextcloud, Baïkal, SOGo), signed in as each mailbox: set `CARDDAV_URL`. Changes go both
-  ways; one that crossed a change made elsewhere is merged, field by field, so neither
-  is lost. See [Contacts and CardDAV](https://bryanthomaschen.github.io/viauna/self-hosting/contacts).
+An address book for every mailbox, which can stay in step with your phone through your
+own CardDAV server.
+
+### Contacts
+
+Open **Contacts** in the menu on the left to keep an address book for each mailbox:
+names, several addresses and phone numbers, company, job title, birthday and notes. Add
+someone from a message's menu, or import a vCard file (`.vcf`) exported from Gmail,
+Apple Contacts, Thunderbird or Roundcube, and export them all the same way. Viauna keeps
+each contact exactly as imported and changes only what you edit, so photos and other
+apps' fields survive. While you write, your contacts are suggested first. See
+[Contacts](https://bryanthomaschen.github.io/viauna/using/contacts).
+
+### Sync with your CardDAV server
+
+Set `CARDDAV_URL` and each mailbox's contacts sync with your CardDAV server (Radicale,
+Mailu with `WEBDAV=radicale`, Nextcloud, Baïkal, SOGo), signed in with the mailbox's own
+password, so they're the same on phones and in Thunderbird. Changes go both ways; when a
+contact was edited in both places at once, the two are merged field by field, so
+neither change is lost. See [Contacts and CardDAV](https://bryanthomaschen.github.io/viauna/self-hosting/contacts).
+
+### Upgrading from 0.3
+
+Nothing to do: the new tables are created on the first start, and Contacts is on. Turn
+it off with `CONTACTS=false` or from the admin page.
 
 ## 0.3.1 - 2026-10-20
 

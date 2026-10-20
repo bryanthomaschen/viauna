@@ -4,10 +4,6 @@ Viauna is pre-1.0. Work is planned as batches, one release each, in this order; 
 here has a date. What's already out is in the
 [changelog](https://github.com/bryanthomaschen/viauna/blob/main/CHANGELOG.md).
 
-## 0.4: Contacts
-
-- **An address book** with vCard import and export, and optional CardDAV sync.
-
 ## 0.5: Filters
 
 - **Filters**: Sieve rules, over ManageSieve.
