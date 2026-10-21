@@ -7,12 +7,20 @@ here has a date. What's already out is in the
 ## 0.6: Calendar
 
 - **Calendars for each mailbox**, as many as you like, kept by Viauna in standard
-  iCalendar, with nothing else to set up.
+  iCalendar, with nothing else to set up. Import and export `.ics` files; a Birthdays
+  calendar from your contacts; and calendars from elsewhere by their address (public
+  holidays, fixtures, another service's feed).
 - **Events as rich as Google Calendar's**: repeating, with changed or skipped occurrences;
-  all-day and multi-day; time zones; reminders; video-call links.
-- **Invitations**: people on the same Viauna server find them in their calendar and
-  answer yes, no or maybe; anyone else gets a standard email invitation, which any
-  calendar app understands, and their answer updates the event.
+  all-day and multi-day; time zones; video-call links. Day, week, month and agenda
+  views. Make an event from an email, or from an `.ics` file someone sends.
+- **Reminders** on the page, as browser notifications even with Viauna closed, and by
+  email.
+- **Invitations** as standard email invitations, which any calendar app understands,
+  whether the guest uses the same Viauna server or not. One you receive shows in the
+  message with what it clashes with, to answer yes, no or maybe; whether invitations
+  go into your calendar before you answer is your choice.
+- **A secret address for each calendar**, so another app can show it read-only: the
+  whole calendar or only when you're busy, with a button to make a new one.
 
 ## 0.7: Teams and devices
 
