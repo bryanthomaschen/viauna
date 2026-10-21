@@ -20,7 +20,7 @@ type Crit = SearchObject;
 /** Splits on spaces, keeping "quoted phrases" and op:"quoted values" together. */
 export function tokenize(q: string): string[] {
   const out: string[] = [];
-  const re = /(-?[a-z_]+:)?"([^"]*)"|\S+/gi;
+  const re = /(-?[a-z0-9_]+:)?"([^"]*)"|\S+/gi;
   let m: RegExpExecArray | null;
   while ((m = re.exec(q))) {
     if (m[2] !== undefined) out.push(`${m[1] ?? ""}"${m[2]}"`);
@@ -77,7 +77,7 @@ export function parseQuery(q: string): ParsedQuery {
   for (const token of tokenize(q.trim())) {
     const neg = token.startsWith("-") && token.length > 1;
     const t = neg ? token.slice(1) : token;
-    const m = t.match(/^([a-z_]+):(.+)$/i);
+    const m = t.match(/^([a-z][a-z0-9_]*):(.+)$/i);
     let crit: Crit | null = null;
     if (m) {
       const op = m[1].toLowerCase();
@@ -88,6 +88,11 @@ export function parseQuery(q: string): ParsedQuery {
           break;
         case "label":
           crit = { keyword: labelToKeyword(value) };
+          break;
+        case "rfc822msgid":
+          // One message, by the Message-ID it was sent with: how an event made from an
+          // email links back to it, whatever order this browser's accounts are in.
+          crit = { header: { "message-id": value.replace(/^<|>$/g, "") } };
           break;
         case "in":
           scope = value.toLowerCase();

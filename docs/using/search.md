@@ -19,6 +19,7 @@ mail server, so they cover message text, not just what Viauna has downloaded.
 | `larger:5m` `smaller:100k` | Message size, in bytes or with `k`, `m` or `g` |
 | `in:sent` | One folder: `inbox`, `sent`, `drafts`, `spam`, `trash`, `archive`, or any folder's name |
 | `in:anywhere` | Every folder, Trash and Spam included |
+| `rfc822msgid:abc123@mail.example.com` | The message with that Message-ID (what an event made from an email links to) |
 | `-word` `-from:anna` | Excludes matches; works with any of the above |
 
 Combine as many as you like: all of them must match. There's no `OR` yet.

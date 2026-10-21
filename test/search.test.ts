@@ -32,6 +32,11 @@ describe("parseQuery", () => {
     expect(Date.now() - (q.criteria.before as Date).getTime()).toBeGreaterThan(2 * 86_400_000 - 5000);
   });
 
+  it("finds one message by its Message-ID, with or without the angle brackets", () => {
+    expect(parseQuery("rfc822msgid:<abc.123@mail.example.com>").criteria).toEqual({ header: { "message-id": "abc.123@mail.example.com" } });
+    expect(parseQuery("rfc822msgid:abc.123@mail.example.com").criteria).toEqual({ header: { "message-id": "abc.123@mail.example.com" } });
+  });
+
   it("treats unknown operators as text (URLs, 're:')", () => {
     expect(parseQuery("https://example.com").criteria).toEqual({ text: "https://example.com" });
   });
