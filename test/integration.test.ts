@@ -118,9 +118,11 @@ describe.skipIf(!enabled)("against a real IMAP server", { timeout: 30_000 }, () 
 
   it("syncs folders and threads replies from Sent into the conversation", async () => {
     await until(async () => (await call("GET", "/api/u/0/mailboxes")).json.status.ready);
+    // The inbox is synced before Sent, so the reply joins the thread a moment after the
+    // list shows both threads.
     const list = await until(async () => {
       const r = await call("GET", "/api/u/0/threads?view=inbox");
-      return r.json.threads.length === 2 && r.json;
+      return r.json.threads.length === 2 && r.json.threads.some((t: any) => t.subject === "Lunch?" && t.count === 2) && r.json;
     });
     const lunch = list.threads.find((t: any) => t.subject === "Lunch?");
     expect(lunch.count).toBe(2);

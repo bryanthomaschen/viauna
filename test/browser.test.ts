@@ -71,14 +71,30 @@ describe.skipIf(!enabled)("the keyboard, in a browser", { timeout: 30_000 }, () 
     await page.waitForTimeout(300);
     await blur();
   };
-  const command = async (text: string) => {
+  /** Runs a command from the menu, once the one expected is the one Enter would pick. */
+  const command = async (text: string, expected: RegExp) => {
     await press("Control+k");
     await until(menuOpen, "the command menu");
+    await until(() => page.evaluate(() => !!document.activeElement?.hasAttribute("cmdk-input")), "the menu's input to have the focus");
     await page.keyboard.type(text);
-    await page.waitForTimeout(100);
+    const state = () =>
+      page.evaluate(() => ({
+        input: (document.querySelector("[cmdk-input]") as HTMLInputElement | null)?.value ?? "",
+        selected: document.querySelector("[cmdk-item][data-selected=true]")?.textContent ?? "",
+      }));
+    let last = { input: "", selected: "" };
+    await until(async () => expected.test((last = await state()).selected), `"${expected.source}" to be selected`).catch((err: Error) => {
+      throw new Error(`${err.message}: typed "${last.input}", selected "${last.selected}"`);
+    });
     await press("Enter");
     await until(async () => !(await menuOpen()), "the menu to close");
   };
+  /** Single-key shortcuts on, whatever an earlier test did, so one failure doesn't cascade. */
+  const shortcutsOn = () =>
+    page.evaluate(() => {
+      const prefs = JSON.parse(localStorage.getItem("viauna.prefs") ?? "{}");
+      localStorage.setItem("viauna.prefs", JSON.stringify({ ...prefs, shortcuts: true }));
+    });
 
   beforeAll(async () => {
     const port = await freePort();
@@ -104,6 +120,8 @@ describe.skipIf(!enabled)("the keyboard, in a browser", { timeout: 30_000 }, () 
 
     browser = await chromium.launch();
     page = await (await browser.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
+    // KB_SLOW=4 runs the page on a CPU four times slower, as a loaded CI machine might be.
+    if (process.env.KB_SLOW) await (await page.context().newCDPSession(page)).send("Emulation.setCPUThrottlingRate", { rate: Number(process.env.KB_SLOW) });
     await page.goto(`${base}/login`);
     await page.getByLabel("Email address").fill(user);
     await page.getByLabel("Password").fill("pass");
@@ -145,12 +163,12 @@ describe.skipIf(!enabled)("the keyboard, in a browser", { timeout: 30_000 }, () 
 
   describe("the command menu", () => {
     it("goes to a folder by name", async () => {
-      await command("starred");
+      await command("starred", /^Starred/);
       await until(() => /\/starred$/.test(where()), "Starred");
     });
 
     it("searches mail for what's typed when no command matches", async () => {
-      await command("hike");
+      await command("hike", /^Search mail for “hike”/);
       await until(() => /\/search\/hike$/.test(where()), "the search");
     });
 
@@ -168,14 +186,14 @@ describe.skipIf(!enabled)("the keyboard, in a browser", { timeout: 30_000 }, () 
       await inbox();
       const before = (await rows()).length;
       await page.locator(".row").nth(1).locator("input.checkbox").click();
-      await command("archive");
+      await command("archive", /^Archive/);
       await until(async () => (await rows()).length === before - 1, "the archive");
       await press("Escape");
       await blur();
     });
 
     it("turns single-key shortcuts on", async () => {
-      await command("turn on single");
+      await command("turn on single", /^Turn on single-key shortcuts/);
       await inbox();
       const before = await cursor();
       await press("j");
@@ -184,6 +202,7 @@ describe.skipIf(!enabled)("the keyboard, in a browser", { timeout: 30_000 }, () 
   });
 
   describe("in the list", () => {
+    beforeAll(shortcutsOn);
     it("j and k move the cursor", async () => {
       await inbox();
       await press("j");
@@ -280,6 +299,7 @@ describe.skipIf(!enabled)("the keyboard, in a browser", { timeout: 30_000 }, () 
   });
 
   describe("in a conversation", () => {
+    beforeAll(shortcutsOn);
     it("j and k go to the next and previous conversation", async () => {
       await inbox();
       await press("j");
@@ -372,7 +392,7 @@ describe.skipIf(!enabled)("the keyboard, in a browser", { timeout: 30_000 }, () 
       await press("Control+k");
       await until(menuOpen, "the menu from inside the message");
       await page.keyboard.type("label as");
-      await page.waitForTimeout(100);
+      await until(async () => /^Label as/.test((await page.locator("[cmdk-item][data-selected=true]").textContent()) ?? ""), "Label as… to be selected");
       await press("Enter");
       await until(pickerOpen, "the label picker, from the menu");
       await press("Escape");
@@ -380,6 +400,7 @@ describe.skipIf(!enabled)("the keyboard, in a browser", { timeout: 30_000 }, () 
   });
 
   describe("anywhere", () => {
+    beforeAll(shortcutsOn);
     it("c composes, Ctrl+Enter sends", async () => {
       await inbox();
       await press("c");
