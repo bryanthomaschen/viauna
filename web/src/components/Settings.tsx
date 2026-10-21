@@ -186,7 +186,7 @@ function General() {
         </div>
       </div>
       <div className="setting">
-        <div className="name">Keyboard shortcuts<small>Single keys, as in Gmail. {MOD_KEY}K opens the command menu either way.</small></div>
+        <div className="name">Keyboard shortcuts<small>Keys that act on their own, such as c to compose and e to archive. {MOD_KEY}K opens the command menu either way.</small></div>
         <div className="options">
           <label><input type="radio" name="kb" checked={p.shortcuts} onChange={() => setPref("shortcuts", true)} /> Keyboard shortcuts on</label>
           <label><input type="radio" name="kb" checked={!p.shortcuts} onChange={() => setPref("shortcuts", false)} /> Keyboard shortcuts off</label>

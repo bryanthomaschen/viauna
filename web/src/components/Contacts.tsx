@@ -95,7 +95,7 @@ export function ContactsView() {
             <h3>{term ? "No contacts match" : "No contacts yet"}</h3>
             {!term && (
               <p style={{ maxWidth: 480 }}>
-                Create one, add a sender from a message's menu, or import a vCard file (.vcf) exported from Gmail, Apple Contacts, Thunderbird or another webmail.
+                Create one, add a sender from a message's menu, or import a vCard file (.vcf) exported from another app.
               </p>
             )}
           </div>

@@ -100,7 +100,7 @@ function Menu() {
     { label: "Undo last action", icon: Undo2, key: "z", run: undoLast },
     p.shortcuts
       ? { label: "Turn off single-key shortcuts", icon: Keyboard, keywords: ["keyboard"], run: set("shortcuts", false) }
-      : { label: "Turn on single-key shortcuts", icon: Keyboard, keywords: ["keyboard", "gmail"], run: set("shortcuts", true) },
+      : { label: "Turn on single-key shortcuts", icon: Keyboard, keywords: ["keyboard"], run: set("shortcuts", true) },
     { label: "Show keyboard shortcuts", icon: Keyboard, key: "?", keywords: ["help"], run: () => ui.set((s) => ({ ...s, shortcutsOpen: true })) },
     ...(
       [

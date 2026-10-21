@@ -86,7 +86,7 @@ export function Modal({ open, onClose, title, children }: { open: boolean; onClo
 }
 
 
-/** The help panel: the command menu, which always works, then Gmail's single-key shortcuts and their switch. */
+/** The help panel: the command menu, which always works, then the single-key shortcuts and their switch. */
 function ShortcutsHelp() {
   const on = prefs.use((p) => p.shortcuts);
   return (
@@ -95,7 +95,7 @@ function ShortcutsHelp() {
         <kbd>{MOD_KEY}K</kbd> opens the command menu: type what you want to do, or a folder or label, and press Enter.
       </p>
       <div className="shortcut-switch">
-        <span>Single-key shortcuts, as in Gmail, are {on ? "on" : "off"}.</span>
+        <span>Single-key shortcuts are {on ? "on" : "off"}.</span>
         <button type="button" className="btn btn-text" onClick={() => prefs.set((p) => ({ ...p, shortcuts: !on }))}>
           {on ? "Turn off" : "Turn on"}
         </button>

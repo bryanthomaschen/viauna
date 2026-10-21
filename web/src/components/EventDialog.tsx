@@ -505,7 +505,7 @@ export function ImportDialog() {
     <Modal open onClose={close} title="Import events">
       <form className="event-form" onSubmit={(e) => void go(e)}>
         <p className="dialog-text">
-          A calendar file (.ics) from Google Calendar, Outlook, Apple Calendar or any other. Events already here are updated, not added twice.
+          A calendar file (.ics) exported from another calendar app. Events already here are updated, not added twice.
         </p>
         <input ref={input} type="file" accept=".ics,text/calendar" hidden onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
         <div className="import-file">
