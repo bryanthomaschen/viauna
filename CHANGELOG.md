@@ -9,7 +9,7 @@ its notes before moving to it. A patch release (0.2.0 to 0.2.1) only fixes thing
 
 ## Unreleased
 
-## 0.5.0 - 2026-10-20
+## 0.5.0 - 2026-10-21
 
 Filters and a vacation responder, kept on your mail server so they work with Viauna
 closed; and a command menu for doing anything by name.
