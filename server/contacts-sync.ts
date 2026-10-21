@@ -29,6 +29,9 @@ contactEvents.setMaxListeners(1000);
 
 interface Memory {
   running: Promise<void> | null;
+  /** The one sync queued behind the running one, and whether it should look for books again. */
+  again: Promise<void> | null;
+  againRediscover: boolean;
   at: number | null;
   error: string | null;
   discoveredAt: number;
@@ -37,7 +40,7 @@ interface Memory {
 const memory = new Map<number, Memory>();
 const mem = (id: number): Memory => {
   let m = memory.get(id);
-  if (!m) memory.set(id, (m = { running: null, at: null, error: null, discoveredAt: 0, soon: null }));
+  if (!m) memory.set(id, (m = { running: null, again: null, againRediscover: false, at: null, error: null, discoveredAt: 0, soon: null }));
   return m;
 };
 
@@ -264,11 +267,29 @@ export async function syncAccount(account: AccountInfo, creds: Credentials, star
   if (pulled || Number(before?.n ?? 0) > 0) contactEvents.emit("changed", account.id);
 }
 
-/** Syncs now, or joins the sync already running; records how it went. */
+/**
+ * Syncs now; resolves once a sync that started after this call has finished. One already
+ * running may have read the contacts before the change this call is for, so it's
+ * followed by one more, shared by everyone who asks in the meantime.
+ */
 export function syncContacts(account: AccountInfo, creds: Credentials, opts: { rediscover?: boolean } = {}): Promise<void> {
   const m = mem(account.id);
   if (!syncsContacts(account)) return Promise.resolve();
-  if (m.running) return m.running;
+  if (!m.running) return startSync(account, creds, opts);
+  m.againRediscover ||= !!opts.rediscover;
+  m.again ??= m.running.then(() => {
+    const rediscover = m.againRediscover;
+    m.again = null;
+    m.againRediscover = false;
+    return startSync(account, creds, { rediscover });
+  });
+  return m.again;
+}
+
+/** One sync, recording how it went. */
+function startSync(account: AccountInfo, creds: Credentials, opts: { rediscover?: boolean }): Promise<void> {
+  const m = mem(account.id);
+  if (!syncsContacts(account)) return Promise.resolve();
   contactEvents.emit("changed", account.id);
   m.running = syncAccount(account, creds, startUrl(config.carddavUrl!, account.login), opts)
     .then(

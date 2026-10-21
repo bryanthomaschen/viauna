@@ -9,7 +9,8 @@ import path from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { DavClient, DavError } from "../server/carddav.ts";
 import { createContact, deleteContacts, importVCards, listContacts, updateContact } from "../server/contacts.ts";
-import { merge, startUrl, syncAccount } from "../server/contacts-sync.ts";
+import { config } from "../server/config.ts";
+import { merge, startUrl, syncAccount, syncContacts } from "../server/contacts-sync.ts";
 import { sha256 } from "../server/crypto.ts";
 import { Database, setDatabase } from "../server/db.ts";
 import type { AccountInfo } from "../server/imap/runtime.ts";
@@ -135,6 +136,28 @@ describe.skipIf(!SERVER).each(ENGINES)("contacts sync on $name", ({ url }) => {
     expect(rows.every((r) => r.book_id && r.href && r.etag && r.dirty === 0)).toBe(true);
     await sync();
     expect(await names()).toEqual(["Ann Lee", "Bob"]);
+  });
+
+  it("syncs again after a sync already running, rather than joining it", async () => {
+    // The running one may have read the contacts before the change a caller is syncing
+    // for ("Sync now" just after an edit), so a caller gets the next one, shared.
+    const saved = config.carddavUrl;
+    (config as { carddavUrl: string | undefined }).carddavUrl = `${SERVER}/{login}/`;
+    try {
+      const order: string[] = [];
+      const running = syncContacts(account, creds());
+      const first = running.then(() => order.push("first"));
+      const next = syncContacts(account, creds());
+      expect(next).not.toBe(running);
+      expect(syncContacts(account, creds())).toBe(next);
+      await createContact(7, { firstName: "Mo", emails: [{ address: "mo@example.net" }] });
+      await next.then(() => order.push("next"));
+      await first;
+      expect(order).toEqual(["first", "next"]);
+      expect(await onServer()).toContain("Mo");
+    } finally {
+      (config as { carddavUrl: string | undefined }).carddavUrl = saved;
+    }
   });
 
   it("brings in what another app added, changed and deleted", async () => {

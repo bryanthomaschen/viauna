@@ -70,6 +70,9 @@ and the code disagree.
 ### Also
 
 - The Settings tab is part of the address (`?tab=filters`), so a reload or Back keeps it.
+- Contacts: **Sync now** pressed while a sync was already running waited for that one,
+  which could have started before your latest change, so the change went out only on
+  the next sync. It now syncs once more after the running one.
 
 ### Upgrading from 0.4
 
