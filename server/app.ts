@@ -25,7 +25,9 @@ import {
   deleteCalendar,
   deleteEvent,
   eventsBetween,
+  exportCalendar,
   getEvent,
+  importEvents,
   listCalendars,
   searchEvents,
   undoChange,
@@ -695,6 +697,20 @@ export function createApp() {
   calendar.patch("/calendars/:id", async (c) =>
     c.json({ calendar: await updateCalendar(c.get("rt").account.id, int(c.req.param("id")), await body(c)) }),
   );
+
+  calendar.get("/calendars/:id/export", async (c) => {
+    const { name, text } = await exportCalendar(c.get("rt").account.id, int(c.req.param("id")), zoneOf(c));
+    return new Response(text, {
+      headers: { "Content-Type": "text/calendar; charset=utf-8", "Content-Disposition": contentDisposition("attachment", `${name}.ics`) },
+    });
+  });
+
+  // ?calendar=12, or ?calendar=new for a new one named as the file names its calendar.
+  calendar.post("/import", async (c) => {
+    if (int(c.req.header("content-length"), 0) > 20 * 1024 * 1024) return c.json({ error: "That file is too large: import at most 20 MB at a time." }, 413);
+    const to = c.req.query("calendar") === "new" ? "new" : int(c.req.query("calendar"));
+    return c.json(await importEvents(c.get("rt").account.id, to, await c.req.text()));
+  });
 
   calendar.delete("/calendars/:id", async (c) => {
     await deleteCalendar(c.get("rt").account.id, int(c.req.param("id")));

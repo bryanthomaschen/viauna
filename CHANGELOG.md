@@ -25,7 +25,11 @@ kept as it is.
 Time zones done right: times are shown in your zone (Settings > Calendar), with a second
 zone beside them if you like; an event can be in a zone of its own, with its end in
 another for a flight; an event made in another zone keeps it when you move it; and a
-repeating meeting stays at 09:00 in its own zone through clock changes. See
+repeating meeting stays at 09:00 in its own zone through clock changes.
+
+Calendars move in and out as `.ics` files: import Google Calendar's, Outlook's, Apple
+Calendar's or Thunderbird's exports (again, without adding anything twice), and export
+any calendar, with the time zone definitions Outlook needs. See
 [Calendar](https://bryanthomaschen.github.io/viauna/using/calendar).
 
 ### Also

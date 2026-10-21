@@ -28,6 +28,7 @@ const CalendarMain = lazy(() => import("./Calendar").then((m) => ({ default: m.C
 const EventDialog = lazy(() => import("./EventDialog").then((m) => ({ default: m.EventDialog })));
 const CalendarDialog = lazy(() => import("./EventDialog").then((m) => ({ default: m.CalendarDialog })));
 const ScopeDialog = lazy(() => import("./EventDialog").then((m) => ({ default: m.ScopeDialog })));
+const ImportDialog = lazy(() => import("./EventDialog").then((m) => ({ default: m.ImportDialog })));
 
 export function Shell({ route, accounts, appName }: { route: Route; accounts: SessionAccount[]; appName: string }) {
   const client = useQueryClient();
@@ -93,6 +94,7 @@ function ShellInner({ route, appName }: { route: Route; appName: string }) {
   const eventDialog = ui.use((s) => s.eventDialog);
   const calendarDialog = ui.use((s) => s.calendarDialog);
   const scopeDialog = ui.use((s) => s.scopeDialog);
+  const importDialog = ui.use((s) => s.importDialog);
   const loading = <div className="empty"><div className="spinner lg" /></div>;
   useShortcuts(route);
   useCommandMenuKey();
@@ -148,6 +150,11 @@ function ShellInner({ route, appName }: { route: Route; appName: string }) {
       {calendarDialog && (
         <Suspense fallback={null}>
           <CalendarDialog key={calendarDialog.calendar?.id ?? "new"} {...calendarDialog} />
+        </Suspense>
+      )}
+      {importDialog && (
+        <Suspense fallback={null}>
+          <ImportDialog />
         </Suspense>
       )}
       {scopeDialog && (

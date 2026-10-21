@@ -105,6 +105,36 @@ Deleting: **this event** adds it to the dates left out (and removes its own `VEV
 left, deletes the event. A new rule can't be for one occurrence, and one occurrence can't
 move to another calendar: those are for this and following events, or all of them.
 
+## Calendar files
+
+**Importing** a file splits it into events: every `VEVENT` with the same `UID` (the event
+and its occurrences changed on their own) becomes one object, with the `VTIMEZONE`s it
+names and the file's `PRODID`, and is kept as it came, but for the file's `METHOD`, which
+says how the file was sent and has no place in a stored event (RFC 4791). An event with no
+`UID` gets one made from its content, `urn:sha256:…`, so importing it twice still finds
+it. An event already in the calendar with the same `UID` is replaced, if it changed.
+`VTODO`, `VJOURNAL` and events without a start are skipped, and counted.
+
+**Exporting** puts a calendar's events in one file, with `X-WR-CALNAME` (its name),
+`X-WR-TIMEZONE` (your zone) and `METHOD:PUBLISH`, as Google's exports have, and a
+`VTIMEZONE` for every zone the events use, which Outlook needs to read a time:
+
+- For a named zone, it's built from the IANA time-zone database: the zone's changes of
+  offset, found by looking at it every week, from the first year an event is in. Changes
+  that follow a yearly pattern (the last Sunday of March, the second Sunday of March,
+  the first Sunday on or after the 2nd, a date) are one observance with a yearly
+  `RRULE`, left open ended if the zone still uses it; patterns are checked 28 years
+  ahead, so that one is the zone's rule and not a coincidence of the years looked at.
+  Anything irregular (Morocco's changes around Ramadan) is an observance of its own.
+- For another app's own zone name (Outlook's `W. Europe Standard Time`), the definition
+  the event came with is passed on as it was.
+
+Two library faults are worked around here. ical.js converts a UTC time into a
+`VTIMEZONE`'s wall-clock time wrongly in the hours before a change of offset, even with
+Google's own definitions, so Viauna goes the other way (it tries each of the zone's
+offsets and keeps the one that converts back). And temporal-polyfill's search for a
+zone's next change misses changes that come close together, so Viauna finds them itself.
+
 ## Finding what's in a week
 
 Beside each event, its start and end are kept in UTC milliseconds, all-day and floating

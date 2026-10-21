@@ -6,7 +6,7 @@
 // message doesn't load the calendar grid.
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Globe, Trash2 } from "lucide-react";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useRef, useState } from "react";
 import { ui, useAccount } from "../lib/account";
 import { api } from "../lib/api";
 import {
@@ -460,6 +460,69 @@ export function CalendarDialog({ calendar }: { calendar?: CalendarInfo }) {
         <div className="buttons">
           <button type="button" className="btn btn-text" onClick={close}>Cancel</button>
           <button type="submit" className="btn btn-primary" disabled={!name.trim() || busy}>{calendar ? "Save" : "Create"}</button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+/** Adds the events in a calendar file (.ics) to a calendar, or to a new one. */
+export function ImportDialog() {
+  const acct = useAccount();
+  const client = useQueryClient();
+  const calendars = useQuery({ queryKey: ["calendars", acct.index], queryFn: () => api.calendars(acct.index) });
+  const list = calendars.data?.calendars ?? [];
+  const [file, setFile] = useState<File | null>(null);
+  const [target, setTarget] = useState<string>("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const input = useRef<HTMLInputElement>(null);
+  const chosen = target || String(list.find((c) => c.primary)?.id ?? "new");
+  const close = () => ui.set((s) => ({ ...s, importDialog: false }));
+  const go = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!file) return;
+    setBusy(true);
+    setError("");
+    try {
+      const r = await api.importCalendar(acct.index, chosen === "new" ? "new" : Number(chosen), file);
+      const parts = [
+        r.added && `${r.added} added`,
+        r.updated && `${r.updated} updated`,
+        r.unchanged && `${r.unchanged} already here`,
+        r.skipped && `${r.skipped} skipped (not events Viauna can read)`,
+      ].filter(Boolean);
+      toast(`Imported: ${parts.join(", ") || "nothing new"}.`);
+      void client.invalidateQueries({ queryKey: ["calendars", acct.index] });
+      void client.invalidateQueries({ queryKey: ["events", acct.index] });
+      close();
+    } catch (err) {
+      setError((err as Error).message);
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal open onClose={close} title="Import events">
+      <form className="event-form" onSubmit={(e) => void go(e)}>
+        <p className="dialog-text">
+          A calendar file (.ics) from Google Calendar, Outlook, Apple Calendar or any other. Events already here are updated, not added twice.
+        </p>
+        <input ref={input} type="file" accept=".ics,text/calendar" hidden onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+        <div className="import-file">
+          <button type="button" className="btn btn-outline" onClick={() => input.current?.click()}>Choose a file</button>
+          <span className="muted">{file ? file.name : "No file chosen"}</span>
+        </div>
+        <label className="event-field">
+          <span>Into</span>
+          <select className="text-input" aria-label="Into which calendar" value={chosen} onChange={(e) => setTarget(e.target.value)}>
+            {list.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            <option value="new">A new calendar, named as the file names it</option>
+          </select>
+        </label>
+        {error && <div className="form-error" role="alert">{error}</div>}
+        <div className="buttons">
+          <button type="button" className="btn btn-text" onClick={close}>Cancel</button>
+          <button type="submit" className="btn btn-primary" disabled={!file || busy}>{busy ? "Importing…" : "Import"}</button>
         </div>
       </form>
     </Modal>

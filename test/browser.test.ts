@@ -563,6 +563,33 @@ describe.skipIf(!enabled)("in a browser", { timeout: 30_000 }, () => {
       await until(async () => (await series()).length === 1, "only the first Monday left");
     });
 
+    it("imports a calendar file into a new calendar, and exports it again", async () => {
+      await week();
+      await page.getByRole("button", { name: "Add a calendar" }).click();
+      await page.getByRole("menuitem", { name: /Import from a file/ }).click();
+      const dialog = page.getByRole("dialog", { name: "Import events" });
+      await until(() => dialog.count(), "the import dialog");
+      const ics = [
+        "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Test//EN", "X-WR-CALNAME:Imported trip",
+        "BEGIN:VEVENT", "UID:trip-1@test", "DTSTAMP:20291201T000000Z", "DTSTART;TZID=Europe/Paris:20300110T100000",
+        "DTEND;TZID=Europe/Paris:20300110T120000", "SUMMARY:Louvre", "END:VEVENT", "END:VCALENDAR", "",
+      ].join("\r\n");
+      await dialog.locator("input[type=file]").setInputFiles({ name: "trip.ics", mimeType: "text/calendar", buffer: Buffer.from(ics) });
+      await dialog.getByLabel("Into which calendar").selectOption("new");
+      await dialog.getByRole("button", { name: "Import" }).click();
+      await until(async () => !(await dialog.count()), "the import");
+      await until(() => page.locator(".calendar-list").getByText("Imported trip").count(), "the new calendar in the list");
+      await until(() => event("Louvre").count(), "the imported event on the grid");
+
+      await page.locator(".calendar-list li", { hasText: "Imported trip" }).hover();
+      await page.getByRole("button", { name: "Options for Imported trip" }).click();
+      const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("menuitem", { name: /Export to a file/ }).click()]);
+      const text = fs.readFileSync((await download.path())!, "utf8");
+      if (!text.includes("SUMMARY:Louvre") || !text.includes("TZID:Europe/Paris") || download.suggestedFilename() !== "Imported trip.ics") {
+        throw new Error(`exported ${download.suggestedFilename()}: ${text.slice(0, 200)}`);
+      }
+    });
+
     it("an event made from an email links back to it, by its Message-ID", async () => {
       await inbox();
       await page.locator(".row").first().locator(".summary").click();

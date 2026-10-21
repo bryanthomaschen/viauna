@@ -7,6 +7,8 @@ import {
   CalendarError,
   cleanFields,
   createCalendar,
+  exportCalendar,
+  importEvents,
   createEvent,
   deleteCalendar,
   deleteEvent,
@@ -204,6 +206,33 @@ describe.each(ENGINES)("calendars on $name", ({ url }) => {
     // Moved from Singapore's view, its end stays in London's time.
     expect(moved.event).toMatchObject({ start: "2026-11-03T00:30", end: "2026-11-03T15:00", eventEndZone: "Europe/London" });
     expect(await getEvent(7, flight.id, "Europe/London")).toMatchObject({ end: "2026-11-03T07:00", eventZone: SG });
+  });
+
+  it("imports a calendar file into a new calendar, again without repeats, and exports it", async () => {
+    const file = (title: string) =>
+      [
+        "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Google Inc//Google Calendar 70.9054//EN", "METHOD:PUBLISH", "X-WR-CALNAME:Holidays",
+        "BEGIN:VEVENT", "UID:a@google.com", "DTSTAMP:20261021T000000Z", "DTSTART;VALUE=DATE:20261225", "DTEND;VALUE=DATE:20261226", `SUMMARY:${title}`, "END:VEVENT",
+        "BEGIN:VEVENT", "UID:b@google.com", "DTSTAMP:20261021T000000Z", "DTSTART;TZID=Europe/London:20261231T230000", "DTEND;TZID=Europe/London:20270101T003000",
+        "RRULE:FREQ=YEARLY", "SUMMARY:New Year", "END:VEVENT",
+        "BEGIN:VTODO", "UID:c@google.com", "SUMMARY:A task", "END:VTODO",
+        "END:VCALENDAR", "",
+      ].join("\r\n");
+    const first = await importEvents(7, "new", file("Christmas"));
+    expect(first).toMatchObject({ added: 2, updated: 0, unchanged: 0, skipped: 1 });
+    expect((await listCalendars(7, "Me")).find((c) => c.id === first.calendarId)).toMatchObject({ name: "Holidays", primary: false });
+    expect(await importEvents(7, first.calendarId, file("Christmas"))).toMatchObject({ added: 0, unchanged: 2 });
+    expect(await importEvents(7, first.calendarId, file("Christmas Day"))).toMatchObject({ updated: 1, unchanged: 1 });
+    // A year on, the New Year event repeats, at 23:00 in London.
+    expect((await eventsBetween(7, "2027-12-31", "2028-01-01", "Europe/London")).map((e) => [e.title, e.start])).toEqual([["New Year", "2027-12-31T23:00:00.000Z"]]);
+    const out = await exportCalendar(7, first.calendarId, SG);
+    expect(out.name).toBe("Holidays");
+    expect(out.text).toContain("SUMMARY:Christmas Day");
+    expect(out.text).toContain("BEGIN:VTIMEZONE\r\nTZID:Europe/London");
+    expect(out.text.match(/^METHOD:/gm)).toEqual(["METHOD:"]); // the file's own, not each event's
+    await expect(importEvents(7, primary, "BEGIN:VCARD\r\nFN:Ann\r\nEND:VCARD\r\n")).rejects.toThrow(/calendar file/);
+    await expect(importEvents(7, primary, "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n")).rejects.toThrow(/no events/);
+    await expect(importEvents(7, 9999, file("x"))).rejects.toMatchObject({ status: 404 });
   });
 
   it("refuses times it can't use, and calendars that aren't the mailbox's", async () => {

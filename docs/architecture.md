@@ -28,6 +28,8 @@ server/                Node (TypeScript, Hono)
   calendar.ts          calendars and events: storage, ranges in the reader's zone, search, undo
   icalendar.ts         events as iCalendar (ical.js) without losing anything; times and zones (Temporal)
   recurrence.ts        repeating events: occurrences, rules, this / following / all events
+  calendar-file.ts     calendar files (.ics): split into events to import, built to export
+  vtimezone.ts         VTIMEZONE definitions for IANA zones, from the zone's own changes
   filters.ts           filters and the vacation responder: checking, loading, saving
   sieve.ts             them as a Sieve script, and reading back the script Viauna wrote
   managesieve.ts       a ManageSieve client (STARTTLS, PLAIN, scripts)
@@ -174,7 +176,7 @@ not built in.
 | Accounts, sessions, settings | SQLite in `DATA_DIR` | PostgreSQL, MySQL/MariaDB | — | built |
 | Password change | Off | Link to the mail server's own page; LDAP | Webhook, command | built; no vendor drivers yet |
 | Contacts | Viauna's database, vCard import/export | CardDAV sync, any server | — | built |
-| Calendars | Viauna's database, kept as iCalendar | — | — | being built |
+| Calendars | Viauna's database, kept as iCalendar; .ics import and export | — | — | being built |
 | Filters, vacation responder | On, kept on the mail server over ManageSieve | — | — | built |
 
 The database is chosen by `DATABASE_URL`, not the admin page, because the settings

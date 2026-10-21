@@ -6,6 +6,7 @@ import crypto from "node:crypto";
 import { EventEmitter } from "node:events";
 import { sql } from "kysely";
 import { VERSION } from "./config.ts";
+import { buildFile, parseFile } from "./calendar-file.ts";
 import { contains, fold } from "./contacts.ts";
 import { randomToken } from "./crypto.ts";
 import {
@@ -72,6 +73,10 @@ export const LIMITS = {
   rangeDays: 400,
   /** Search results, newest first. */
   results: 200,
+  /** One import: the file, its events, and one event as iCalendar. */
+  importBytes: 20 * 1024 * 1024,
+  importEvents: 10_000,
+  eventBytes: 1024 * 1024,
 };
 
 export interface CalendarInfo {
@@ -603,4 +608,71 @@ export async function deleteEvent(accountId: number, id: number, occurrence?: st
   }
   changed(accountId);
   return remember(accountId, [row]);
+}
+
+// ---------------------------------------------------------------- import and export
+
+export interface ImportResult {
+  calendarId: number;
+  added: number;
+  updated: number;
+  unchanged: number;
+  skipped: number;
+}
+
+/**
+ * Adds the events in a calendar file (.ics) to a calendar, or to a new one named as the
+ * file names its calendar. An event already there (the same UID) is replaced by the
+ * file's, so importing the same file twice changes nothing.
+ */
+export async function importEvents(accountId: number, target: number | "new", text: string): Promise<ImportResult> {
+  if (text.length > LIMITS.importBytes) throw new CalendarError("That file is too large: import at most 20 MB at a time.", 413);
+  let file: ReturnType<typeof parseFile>;
+  try {
+    file = parseFile(text, PRODID);
+  } catch (err) {
+    throw new CalendarError(err instanceof CalendarError ? err.message : `That isn't a calendar file Viauna can read (${(err as Error).message}). Choose an .ics file.`);
+  }
+  if (!file.events.length) throw new CalendarError(file.skipped ? "That file has no events in it, only tasks or other entries." : "That file has no events in it.");
+  if (file.events.length > LIMITS.importEvents) throw new CalendarError(`Import at most ${LIMITS.importEvents.toLocaleString("en")} events at a time.`);
+  const calendarId = target === "new" ? (await createCalendar(accountId, { name: (file.name ?? "Imported").slice(0, LIMITS.name) || "Imported" })).id : (await ownCalendar(accountId, target)).id;
+  const result: ImportResult = { calendarId, added: 0, updated: 0, unchanged: 0, skipped: file.skipped };
+  const now = Date.now();
+  await state().transaction().execute(async (trx) => {
+    for (const { uid, root } of file.events) {
+      // A file's METHOD says how it was sent (an invitation, a published calendar); a
+      // stored event has none (RFC 4791).
+      root.removeAllProperties("method");
+      const ics = serialize(root);
+      let columns: ReturnType<typeof indexed>;
+      try {
+        if (ics.length > LIMITS.eventBytes) throw new Error("too large");
+        columns = indexed(root);
+      } catch {
+        result.skipped++;
+        continue;
+      }
+      const existing = await trx.selectFrom("events").select(["id", "ics"]).where("calendar_id", "=", calendarId).where("uid", "=", uid).executeTakeFirst();
+      if (existing?.ics === ics) {
+        result.unchanged++;
+      } else if (existing) {
+        await trx.updateTable("events").set({ ics, updated_at: now, ...columns }).where("id", "=", existing.id).execute();
+        result.updated++;
+      } else {
+        await trx.insertInto("events").values({ account_id: accountId, calendar_id: calendarId, uid, ics, created_at: now, updated_at: now, ...columns }).execute();
+        result.added++;
+      }
+    }
+  });
+  changed(accountId);
+  return result;
+}
+
+/** A calendar as one file (.ics), for any calendar app, with the zones its events use. */
+export async function exportCalendar(accountId: number, calendarId: number, zone: string): Promise<{ name: string; text: string }> {
+  checkZone(zone);
+  const cal = await ownCalendar(accountId, calendarId);
+  const rows = await state().selectFrom("events").select("ics").where("account_id", "=", accountId).where("calendar_id", "=", calendarId).orderBy("start_at").execute();
+  const roots = rows.map((r) => parsed(r.ics)).filter((r): r is Root => r !== null);
+  return { name: cal.name, text: buildFile(cal.name, roots, PRODID, zone) };
 }

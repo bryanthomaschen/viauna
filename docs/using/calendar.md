@@ -93,6 +93,29 @@ keeps its time in its own zone through clock changes: a weekly 09:00 meeting in 
 at 09:00 London time all year. All-day events are on their dates wherever you are. For
 the details, see [How it works: Calendar](../how-it-works/calendar.md).
 
+## Moving calendars in and out
+
+**Import** (the **+** next to **My calendars**, then **Import from a file**) reads a
+calendar file, `.ics`, the format calendar apps share, into one of your calendars or a
+new one named as the file names it. To bring a calendar over:
+
+| From | Export as a file |
+|---|---|
+| Google Calendar | [calendar.google.com](https://calendar.google.com) → Settings → Import & export → Export (a zip with one `.ics` per calendar) |
+| Outlook | File → Save Calendar (Outlook on the web: Settings → Calendar → Shared calendars → Publish, then the ICS link) |
+| Apple Calendar | Select the calendar, then File → Export → Export… |
+| Thunderbird | Right-click the calendar → Export |
+
+Repeating events, occurrences changed on their own, time zones, guests and reminders come
+in as they were. Importing the same file again doesn't add anything twice: an event
+that's already in that calendar (the same UID) is replaced by the file's version. Tasks
+and other entries that aren't events are skipped, and the import says how many. One file
+can be up to 20 MB and 10,000 events.
+
+**Export** (a calendar's menu, the three dots, then **Export to a file**) saves the
+calendar as one `.ics` file that any calendar app can import, with the time zone
+definitions they need.
+
 ## Searching
 
 In the calendar, the search box at the top searches events: their titles, places and

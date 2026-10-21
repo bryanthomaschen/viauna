@@ -165,6 +165,11 @@ export const api = {
   deleteEvent: (a: number, id: number, occurrence?: string | null, scope?: Scope) =>
     request<{ undo: string }>("DELETE", `${u(a)}/calendar/events/${id}?${new URLSearchParams({ ...(occurrence ? { occurrence } : {}), ...(scope ? { scope } : {}) })}`),
   undoCalendar: (a: number, token: string) => request<{ ok: true }>("POST", `${u(a)}/calendar/undo`, { token }),
+  importCalendar: (a: number, target: number | "new", file: File) =>
+    request<{ calendarId: number; added: number; updated: number; unchanged: number; skipped: number }>(
+      "POST", `${u(a)}/calendar/import?calendar=${target}`, file, { "Content-Type": "text/calendar" },
+    ),
+  exportCalendarUrl: (a: number, id: number, zone: string) => `${u(a)}/calendar/calendars/${id}/export?zone=${encodeURIComponent(zone)}`,
 
   settings: (a: number) => request<{ settings: Settings; email: string; password: PasswordChange | null }>("GET", `${u(a)}/settings`),
   changePassword: (a: number, current: string, next: string) =>

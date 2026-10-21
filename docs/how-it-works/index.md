@@ -25,6 +25,7 @@ don't need any of it to use or run Viauna.
 | A contact changes here or on your phone | [Contacts](./contacts.md) |
 | You type a recipient | [Contacts](./contacts.md#suggestions-while-you-write) |
 | You make or move an event, or travel to another time zone | [Calendar](./calendar.md) |
+| You import or export a calendar file | [Calendar](./calendar.md#calendar-files) |
 | You hit a size or count limit | [Limits](./limits.md) |
 
 For how the code is laid out, see [Architecture](../architecture.md).

@@ -4,7 +4,7 @@
 import { Command } from "cmdk";
 import {
   ArrowRight, BookUser, CalendarDays, CalendarPlus, CircleUserRound, Folder, Inbox, Keyboard, ListFilter, type LucideIcon, Monitor, Moon, Pencil, Plus, Rows3, Search,
-  Settings, Shield, Star, Sun, Tag, Undo2,
+  Settings, Shield, Star, Sun, Tag, Undo2, Upload,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { ui, useAccount } from "../lib/account";
@@ -87,7 +87,12 @@ function Menu() {
     { label: "New label", icon: Plus, run: () => ui.set((s) => ({ ...s, labelDialog: {} })) },
     { label: "New folder", icon: Plus, run: () => ui.set((s) => ({ ...s, folderDialog: {} })) },
     ...(config?.contacts ? [{ label: "New contact", icon: Plus, run: () => ui.set((s) => ({ ...s, contactDialog: {} })) }] : []),
-    ...(config?.calendar ? [{ label: "New event", icon: CalendarPlus, keywords: ["meeting", "appointment"], run: () => ui.set((s) => ({ ...s, eventDialog: { initial: {} } })) }] : []),
+    ...(config?.calendar
+      ? [
+          { label: "New event", icon: CalendarPlus, keywords: ["meeting", "appointment"], run: () => ui.set((s) => ({ ...s, eventDialog: { initial: {} } })) },
+          { label: "Import events from a file", icon: Upload, keywords: ["ics", "calendar"], run: () => ui.set((s) => ({ ...s, importDialog: true })) },
+        ]
+      : []),
   ];
 
   const set = <K extends keyof typeof p>(k: K, v: (typeof p)[K]) => () => prefs.set((x) => ({ ...x, [k]: v }));

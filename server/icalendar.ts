@@ -144,11 +144,22 @@ export function zoneFrame(tzid: string, root: Component | null): Frame {
   const vtz = root?.getAllSubcomponents("vtimezone").find((c) => c.getFirstPropertyValue("tzid") === tzid);
   if (!vtz) return FLOATING_FRAME;
   const tz = new ICAL.Timezone(vtz);
+  const toMs = (wall: string) => ICAL.Time.fromData(fromWall(wall), tz).toUnixTime() * 1000;
+  // ical.js's own way from UTC to a VTIMEZONE (convertToZone) is wrong for the hours
+  // before a change of offset, even with Google's definitions; its way back is right. So
+  // each of the zone's offsets is tried, and the one that comes back to the instant kept.
+  const offsets = [...new Set(vtz.getAllSubcomponents().flatMap((o) => ["tzoffsetfrom", "tzoffsetto"].map((p) => (o.getFirstPropertyValue(p) as { toSeconds(): number } | null)?.toSeconds() ?? 0)))];
   return {
     kind: "zoned",
     tzid,
-    toMs: (wall) => ICAL.Time.fromData(fromWall(wall), tz).toUnixTime() * 1000,
-    toWall: (ms) => timeWall(ICAL.Time.fromJSDate(new Date(ms), true).convertToZone(tz)),
+    toMs,
+    toWall: (ms) => {
+      for (const o of offsets) {
+        const wall = wallSeconds(ms + o * 1000, "UTC");
+        if (toMs(wall) === ms) return wall;
+      }
+      return timeWall(ICAL.Time.fromJSDate(new Date(ms), true).convertToZone(tz));
+    },
   };
 }
 

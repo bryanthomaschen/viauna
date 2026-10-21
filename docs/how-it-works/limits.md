@@ -62,6 +62,8 @@ Limits built into Viauna. The ones you can change are settings: see
 | Repeat so many times | 1 to 9,999 |
 | Occurrences worked out | 50,000 from the first |
 | A rule made in another app | 2,000 characters |
+| One import | 20 MB and 10,000 events |
+| One event | 1 MB as iCalendar |
 | Events asked for at once | 400 days |
 | Search results | The newest 200 |
 | Undo | 10 minutes, and not after a restart |

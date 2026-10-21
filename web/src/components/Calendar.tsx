@@ -29,7 +29,7 @@ import timeGridPlugin from "@fullcalendar/react/timegrid";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Temporal } from "temporal-polyfill";
 import {
-  ArrowLeft, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Copy, EllipsisVertical, Eye, Globe, MapPin, Pencil, Plus, Repeat, Settings, Text, Trash2, Video, X,
+  ArrowLeft, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Copy, Download, EllipsisVertical, Eye, Globe, MapPin, Pencil, Plus, Repeat, Settings, Text, Trash2, Upload, Video, X,
 } from "lucide-react";
 import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { ui, useAccount } from "../lib/account";
@@ -148,9 +148,17 @@ export function CalendarSidebar({ route, collapsed, open }: { route: Route; coll
       )}
       <div className="nav-section">
         <span>My calendars</span>
-        <IconButton label="Create a calendar" size="sm" onClick={() => ui.set((s) => ({ ...s, calendarDialog: {} }))}>
-          <Plus size={18} />
-        </IconButton>
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger asChild>
+            <IconButton label="Add a calendar" size="sm"><Plus size={18} /></IconButton>
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Portal>
+            <DropdownMenu.Content className="menu" align="end" sideOffset={4}>
+              <DropdownMenu.Item className="menu-item" onSelect={() => ui.set((s) => ({ ...s, calendarDialog: {} }))}><Plus size={18} /> New calendar</DropdownMenu.Item>
+              <DropdownMenu.Item className="menu-item" onSelect={() => ui.set((s) => ({ ...s, importDialog: true }))}><Upload size={18} /> Import from a file (.ics)</DropdownMenu.Item>
+            </DropdownMenu.Content>
+          </DropdownMenu.Portal>
+        </DropdownMenu.Root>
       </div>
       <ul className="nav calendar-list">
         {calendars.map((c) => (
@@ -171,6 +179,9 @@ export function CalendarSidebar({ route, collapsed, open }: { route: Route; coll
                   <DropdownMenu.Item className="menu-item" onSelect={() => void only(c)}><Eye size={18} /> Show only this one</DropdownMenu.Item>
                   <DropdownMenu.Item className="menu-item" onSelect={() => ui.set((s) => ({ ...s, calendarDialog: { calendar: c } }))}>
                     <Settings size={18} /> Name and colour
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item className="menu-item" onSelect={() => (location.href = api.exportCalendarUrl(acct.index, c.id, zone))}>
+                    <Download size={18} /> Export to a file (.ics)
                   </DropdownMenu.Item>
                   {!c.primary && (
                     <DropdownMenu.Item className="menu-item" onSelect={() => remove(c)}><Trash2 size={18} /> Delete calendar</DropdownMenu.Item>
