@@ -3,7 +3,7 @@
 Viauna is a Node server between your browser and your mail server. It signs in to the
 mail server with each person's own login, keeps a local index of their folders so lists
 and counts are instant, and keeps what people chose (accounts, sessions, settings,
-contacts) in its state store. Your mail itself stays on the mail server. These pages say
+contacts, calendars) in its state store. Your mail itself stays on the mail server. These pages say
 what happens behind the scenes, with the timings and limits taken from the code. You
 don't need any of it to use or run Viauna.
 
@@ -24,6 +24,7 @@ don't need any of it to use or run Viauna.
 | Mail arrives and a filter or the vacation responder runs | [Filters](./filters.md) |
 | A contact changes here or on your phone | [Contacts](./contacts.md) |
 | You type a recipient | [Contacts](./contacts.md#suggestions-while-you-write) |
+| You make or move an event, or travel to another time zone | [Calendar](./calendar.md) |
 | You hit a size or count limit | [Limits](./limits.md) |
 
 For how the code is laid out, see [Architecture](../architecture.md).

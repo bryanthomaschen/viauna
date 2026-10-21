@@ -2,7 +2,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as Popover from "@radix-ui/react-popover";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Archive, ArchiveRestore, ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, Download, EllipsisVertical, ExternalLink,
+  Archive, ArchiveRestore, ArrowLeft, CalendarPlus, ChevronDown, ChevronLeft, ChevronRight, Download, EllipsisVertical, ExternalLink,
   FileText, FolderInput, Forward, Inbox, ListFilter, Mail, OctagonAlert, Paperclip, Reply, ReplyAll, Star, Tag, Trash2, UserPlus,
 } from "lucide-react";
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
@@ -435,7 +435,7 @@ function MessageCard({
                   }}>
                     <Mail size={18} /> Mark unread from here
                   </DropdownMenu.Item>
-                  {(contactsOn || config?.filters) && from && !isMe && <DropdownMenu.Separator className="menu-sep" />}
+                  {(((contactsOn || config?.filters) && from && !isMe) || config?.calendar) && <DropdownMenu.Separator className="menu-sep" />}
                   {contactsOn && from && !isMe && (
                     <DropdownMenu.Item className="menu-item" onSelect={() => void addToContacts(acct.index, from)}>
                       <UserPlus size={18} /> Add {displayName(from).split(/\s+/)[0] || from.address} to contacts
@@ -444,6 +444,11 @@ function MessageCard({
                   {config?.filters && from && !isMe && (
                     <DropdownMenu.Item className="menu-item" onSelect={() => ui.set((s) => ({ ...s, filterDialog: { criteria: { from: from.address } } }))}>
                       <ListFilter size={18} /> Filter messages like these
+                    </DropdownMenu.Item>
+                  )}
+                  {config?.calendar && (
+                    <DropdownMenu.Item className="menu-item" onSelect={() => ui.set((s) => ({ ...s, eventDialog: { initial: eventFrom(acct.index, msg) } }))}>
+                      <CalendarPlus size={18} /> Create event
                     </DropdownMenu.Item>
                   )}
                   <DropdownMenu.Separator className="menu-sep" />
@@ -558,4 +563,16 @@ function Attachments({ refx, files }: { refx: MessageRef; files: AttachmentInfo[
       })}
     </div>
   );
+}
+
+/**
+ * An event from an email, as Gmail makes one: the subject for its title, the start of the
+ * message and a link back to it. The link finds the message by its Message-ID, which
+ * stays the same when the mail index is rebuilt.
+ */
+function eventFrom(index: number, msg: MessageMeta) {
+  const title = msg.subject.replace(/^\s*((re|fwd?|fw|aw|sv|antw)\s*:\s*)+/i, "").trim();
+  const link = msg.messageId ? `${location.origin}/u/${index}/search/${encodeURIComponent(`rfc822msgid:${msg.messageId.replace(/^<|>$/g, "")}`)}` : "";
+  const description = [msg.snippet.trim(), link && `From an email: ${link}`].filter(Boolean).join("\n\n");
+  return { title, description };
 }

@@ -9,6 +9,29 @@ its notes before moving to it. A patch release (0.2.0 to 0.2.1) only fixes thing
 
 ## Unreleased
 
+### Calendar
+
+Each mailbox has calendars, as many as you like, kept by Viauna in standard iCalendar
+with nothing else to set up. Open them from the new apps button at the top right. Day,
+week, month, schedule and 4-day views; click or drag on the calendar to make an event,
+drag to move it, and Undo; each event's card has **Join video call** for its link;
+search; and **Create event** in a message's menu, with a link back to the email. Times
+are shown in your time zone (Settings > Calendar), and an event made in another zone keeps
+it, so a London meeting stays at London's time when you move it from Singapore. See
+[Calendar](https://bryanthomaschen.github.io/viauna/using/calendar).
+
+### Also
+
+- Search: `rfc822msgid:` finds a message by its Message-ID.
+
+### Upgrading from 0.5
+
+Nothing to do: the calendar's tables are made on the first start, and it's on. Calendars
+are kept in the state store and nowhere else, so back up `state.db` (or your
+`DATABASE_URL` database) as the
+[upgrading page](https://bryanthomaschen.github.io/viauna/self-hosting/upgrading#backing-up)
+says. Turn the calendar off with `CALENDAR=false` or from the admin page.
+
 ## 0.5.0 - 2026-10-21
 
 Filters and a vacation responder, kept on your mail server so they work with Viauna

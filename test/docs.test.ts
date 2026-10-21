@@ -1,6 +1,7 @@
 // The docs say what the code does: these fail when one changes without the other.
 // Every environment variable the server reads is in the configuration page, every
-// shortcut in the help panel is in the shortcuts page (and the other way round), every
+// shortcut in the help panel, mail's and the calendar's, is in the shortcuts page (and
+// the other way round), every
 // server file is in the architecture page's layout, and every page is in the sidebar.
 import fs from "node:fs";
 import path from "node:path";
@@ -65,15 +66,21 @@ describe("the docs", () => {
 
   it("list the same single-key shortcuts as the help panel, in the same order", () => {
     const code = read("web/src/components/shortcuts.ts");
-    const list = code.slice(code.indexOf("export const SHORTCUTS"), code.indexOf("];", code.indexOf("export const SHORTCUTS")));
-    const panel = [...list.matchAll(/\["([^"]+)", "([^"]+)"\]/g)].map((m) => [m[1], m[2]]);
-    const docs = [...read("docs/using/shortcuts.md").matchAll(/^\| (.+?) \| (.+?) \|$/gm)]
-      .map((m) => [m[1].replaceAll("`", ""), m[2]])
-      .filter(([k]) => k !== "Key" && !/^-+$/.test(k));
-    expect(panel.length).toBeGreaterThan(20);
-    expect(docs.map(([k]) => k)).toEqual(panel.map(([k]) => k));
-    // A page may say more than the panel, never something else.
-    for (const [i, [, what]] of panel.entries()) expect(docs[i][1].startsWith(what), `${panel[i][0]}: "${docs[i][1]}"`).toBe(true);
+    const list = (name: string) => {
+      const body = code.slice(code.indexOf(`export const ${name}`), code.indexOf("];", code.indexOf(`export const ${name}`)));
+      return [...body.matchAll(/\["([^"]+)", "([^"]+)"\]/g)].map((m) => [m[1], m[2]]);
+    };
+    // The page's first table is mail's; the one under "In the calendar", the calendar's.
+    const page = read("docs/using/shortcuts.md");
+    const table = (text: string) =>
+      [...text.matchAll(/^\| (.+?) \| (.+?) \|$/gm)].map((m) => [m[1].replaceAll("`", ""), m[2]]).filter(([k]) => k !== "Key" && !/^-+$/.test(k));
+    const split = page.indexOf("## In the calendar");
+    for (const [panel, docs] of [[list("SHORTCUTS"), table(page.slice(0, split))], [list("CALENDAR_SHORTCUTS"), table(page.slice(split))]]) {
+      expect(panel.length).toBeGreaterThan(8);
+      expect(docs.map(([k]) => k)).toEqual(panel.map(([k]) => k));
+      // A page may say more than the panel, never something else.
+      for (const [i, [, what]] of panel.entries()) expect(docs[i][1].startsWith(what), `${panel[i][0]}: "${docs[i][1]}"`).toBe(true);
+    }
   });
 
   it("name every server file in the architecture page's layout", () => {

@@ -1,7 +1,8 @@
 // The keyboard in a real browser: Gmail's single-key shortcuts (off by default, then
 // turned on from the command menu) and the ⌘K / Ctrl+K command menu, each pressed and
 // its effect checked, including after clicking into a message or ticking a checkbox,
-// where keys used to go missing. Needs the dev mail server (`npm run dev:mail`), a
+// where keys used to go missing. Then the calendar, by mouse and keyboard: clicking and
+// dragging on the grid, Undo, its own keys, and an event made from an email. Needs the dev mail server (`npm run dev:mail`), a
 // build (`npm run build`) and Chromium (`npx playwright-core install
 // chromium-headless-shell`). Skipped unless VIAUNA_BROWSER=1.
 //
@@ -28,7 +29,7 @@ const freePort = () =>
     });
   });
 
-describe.skipIf(!enabled)("the keyboard, in a browser", { timeout: 30_000 }, () => {
+describe.skipIf(!enabled)("in a browser", { timeout: 30_000 }, () => {
   let browser: Browser;
   let page: Page;
   let base = "";
@@ -434,6 +435,106 @@ describe.skipIf(!enabled)("the keyboard, in a browser", { timeout: 30_000 }, () 
         await press(k);
         await until(() => re.test(where()), `g then ${k}`);
       }
+    });
+  });
+  describe("the calendar", () => {
+    beforeAll(shortcutsOn);
+    // A week far from today, so the clock doesn't move anything under the test. The page
+    // shows times in the browser's zone, which the API is asked for too.
+    const zone = () => page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
+    const listed = async () =>
+      page.evaluate(async (z) => {
+        const r = await fetch(`/api/u/0/calendar/events?from=2030-01-06&to=2030-01-14&zone=${encodeURIComponent(z)}`);
+        return ((await r.json()).events as { id: number; title: string; start: string; end: string }[]).map((e) => ({ ...e, start: e.start.slice(11, 16), end: e.end.slice(11, 16) }));
+      }, await zone());
+    const planning = async () => (await listed()).find((e) => e.title === "Planning");
+    const week = async () => {
+      await page.goto(`${base}/u/0/calendar/week/2030-01-09`);
+      await page.locator(".calendar-grid [role=columnheader][data-date='2030-01-09']").waitFor();
+    };
+    /** The middle of a slot: a day's column, a time's row (scrolled into view). */
+    const slot = async (date: string, time: string) => {
+      const row = page.locator(`.calendar-grid [data-time='${time}']`).last();
+      await row.scrollIntoViewIfNeeded();
+      const col = (await page.locator(`.calendar-grid [role=columnheader][data-date='${date}']`).boundingBox())!;
+      const box = (await row.boundingBox())!;
+      return { x: col.x + col.width / 2, y: box.y + box.height / 2, h: box.height };
+    };
+    const event = (title: string) => page.locator(".calendar-grid [role=button]", { hasText: title }).first();
+    const undoToast = () => page.locator(".toast button.act", { hasText: "Undo" }).last();
+
+    it("a click makes an event of the usual length, with a title typed in its card", async () => {
+      await week();
+      const at = await slot("2030-01-09", "09:00:00");
+      await page.mouse.click(at.x, at.y);
+      const card = page.locator(".event-card");
+      await until(() => card.count(), "the new event's card");
+      await page.keyboard.type("Planning");
+      await press("Enter");
+      await until(async () => (await planning())?.start, "the event to be saved");
+      const e = (await planning())!;
+      if (e.end !== "10:00" || !e.start.startsWith("09:")) throw new Error(`saved as ${e.start}–${e.end}`);
+      await until(() => event("Planning").count(), "the event on the grid");
+    });
+
+    it("dragging moves it, and Undo puts it back", async () => {
+      // An hour down, from just inside its top edge (in the snap where it starts), in steps
+      // as a hand moves.
+      const nine = await slot("2030-01-09", "09:00:00");
+      const ten = await slot("2030-01-09", "10:00:00");
+      const box = (await event("Planning").boundingBox())!;
+      const [x, y] = [box.x + box.width / 2, box.y + 2];
+      await page.mouse.move(x, y);
+      await page.mouse.down();
+      for (let i = 1; i <= 8; i++) await page.mouse.move(x, y + ((ten.y - nine.y) * i) / 8);
+      await page.mouse.up();
+      await until(async () => (await planning())?.start === "10:00", "the event to move an hour later");
+      await undoToast().click();
+      await until(async () => (await planning())?.start === "09:00", "Undo to put it back");
+    });
+
+    it("its card deletes it, and Undo brings it back", async () => {
+      await week();
+      await event("Planning").click();
+      await until(() => page.locator(".event-card").count(), "the event's card");
+      await page.getByRole("button", { name: "Delete event" }).click();
+      await until(async () => !(await planning()), "the deletion");
+      await undoToast().click();
+      await until(async () => !!(await planning()), "Undo to bring it back");
+    });
+
+    it("d, w, m, a and x switch views, t goes to today, c makes an event", async () => {
+      await week();
+      await blur();
+      for (const [k, view] of [["m", "month"], ["d", "day"], ["a", "schedule"], ["x", "4days"], ["w", "week"]] as const) {
+        await press(k);
+        await until(() => where().startsWith(`/u/0/calendar/${view}/`), `${k} for the ${view} view`);
+      }
+      await press("t");
+      const today = await page.evaluate(() => new Date().toLocaleDateString("en-CA"));
+      await until(() => where().endsWith(`/${today}`), "t for today");
+      await press("c");
+      await until(() => page.getByRole("dialog", { name: "New event" }).count(), "c for a new event");
+      await press("Escape");
+    });
+
+    it("an event made from an email links back to it, by its Message-ID", async () => {
+      await inbox();
+      await page.locator(".row").first().locator(".summary").click();
+      await until(() => page.locator(".msg").count(), "the conversation");
+      await page.locator(".msg-header").last().getByRole("button", { name: "More" }).click();
+      await page.getByRole("menuitem", { name: "Create event" }).click();
+      const dialog = page.getByRole("dialog", { name: "New event" });
+      await until(() => dialog.count(), "the event editor");
+      const title = await dialog.getByLabel("Title").inputValue();
+      const description = await dialog.getByLabel("Description").inputValue();
+      if (!title || !/rfc822msgid/.test(description)) throw new Error(`prefilled "${title}" / "${description}"`);
+      await dialog.getByRole("button", { name: "Save" }).click();
+      await until(async () => !(await dialog.count()), "the event to be saved");
+      // The link in its description finds the message again.
+      const link = description.match(/https?:\/\/\S+/)![0];
+      await page.goto(link);
+      await until(async () => (await rows()).length === 1, "the search for that message");
     });
   });
 });

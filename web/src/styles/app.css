@@ -462,6 +462,126 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
 .contact-form .row-field { display: grid; grid-template-columns: 1fr 130px auto; gap: 8px; align-items: center; }
 .contact-form .add-field { align-self: flex-start; padding-left: 4px; height: 30px; }
 
+/* ------------------------------------------------------------ calendar */
+
+/* FullCalendar's Monarch theme in Viauna's colours: these follow the light and dark themes. */
+:root {
+  --fc-monarch-primary: var(--primary);
+  --fc-monarch-primary-foreground: var(--on-primary);
+  --fc-monarch-primary-over: var(--primary-hover);
+  --fc-monarch-primary-down: var(--primary-hover);
+  --fc-monarch-secondary: var(--nav-active);
+  --fc-monarch-secondary-foreground: var(--text);
+  --fc-monarch-secondary-over: color-mix(in srgb, var(--nav-active) 88%, var(--text));
+  --fc-monarch-secondary-down: color-mix(in srgb, var(--nav-active) 80%, var(--text));
+  --fc-monarch-tertiary: var(--compose-btn);
+  --fc-monarch-tertiary-foreground: var(--text);
+  --fc-monarch-tertiary-over: var(--compose-btn-hover);
+  --fc-monarch-tertiary-down: var(--compose-btn-hover);
+  --fc-monarch-event: var(--primary);
+  --fc-monarch-event-contrast: var(--on-primary);
+  --fc-monarch-highlight: color-mix(in srgb, var(--primary) 14%, transparent);
+  --fc-monarch-now: #ea4335;
+  --fc-monarch-selected: var(--nav-active);
+  --fc-monarch-selected-foreground: var(--text);
+  --fc-monarch-selected-over: color-mix(in srgb, var(--nav-active) 88%, var(--text));
+  --fc-monarch-selected-down: color-mix(in srgb, var(--nav-active) 80%, var(--text));
+  --fc-monarch-outline: var(--primary);
+  --fc-monarch-ring-color: var(--primary);
+  --fc-monarch-popover: var(--surface);
+  --fc-monarch-popover-foreground: var(--text);
+  --fc-monarch-background: var(--surface);
+  --fc-monarch-faint: color-mix(in srgb, var(--text) 4%, transparent);
+  --fc-monarch-muted: color-mix(in srgb, var(--text) 7%, transparent);
+  --fc-monarch-strong: color-mix(in srgb, var(--text) 12%, transparent);
+  --fc-monarch-stronger: color-mix(in srgb, var(--text) 16%, transparent);
+  --fc-monarch-strongest: color-mix(in srgb, var(--text) 20%, transparent);
+  --fc-monarch-foreground: var(--text);
+  --fc-monarch-faint-foreground: var(--text-muted);
+  --fc-monarch-muted-foreground: var(--text-3);
+  --fc-monarch-strong-foreground: var(--text-2);
+  --fc-monarch-border: var(--border);
+  --fc-monarch-strong-border: var(--border-strong);
+}
+
+.calendar-toolbar { gap: 8px; height: 64px; padding-left: 16px; }
+.calendar-toolbar .btn-outline { height: 36px; }
+.calendar-title { margin: 0 8px; font-size: 22px; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.view-btn { padding: 0 10px 0 16px; gap: 6px; }
+.calendar-grid { flex: 1; min-height: 0; border-top: 1px solid var(--border); font-size: 13px; }
+.calendar-grid > * { font-size: 13px; }
+/* Quarter-hour rows (for dragging), drawn as hours with a dotted half hour. A row is as
+   tall as its label, so the hour's label is small, and straddles its line. */
+.calendar-grid [data-time$=":15:00"], .calendar-grid [data-time$=":45:00"] { border-top-color: transparent; }
+.calendar-grid .calendar-slot-label { position: relative; top: -6px; margin: 0 8px; font-size: 11px; line-height: 12px; color: var(--text-3); }
+/* Free time isn't solid, as in Google Calendar. */
+.calendar-grid .event-free { opacity: .75; }
+
+.swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+.swatch.lg { width: 16px; height: 16px; border-radius: 4px; margin-top: 6px; }
+.muted { color: var(--text-3); }
+
+.mini-month { padding: 4px 16px 12px 22px; font-size: 12px; user-select: none; }
+.mini-month-head { display: flex; align-items: center; gap: 2px; height: 32px; padding-left: 6px; font-size: 14px; font-weight: 500; }
+.mini-month-head span { flex: 1; }
+.mini-month-grid { display: grid; grid-template-columns: repeat(7, 1fr); justify-items: center; row-gap: 2px; }
+.mini-dow { width: 28px; height: 24px; display: grid; place-items: center; color: var(--text-3); font-size: 11px; }
+.mini-day { width: 28px; height: 28px; border-radius: 50%; border: 0; background: none; cursor: pointer; padding: 0; font-size: 12px; color: var(--text); }
+.mini-day:hover { background: var(--surface-hover); }
+.mini-day.other { color: var(--text-muted); }
+.mini-day.selected { background: var(--nav-active); font-weight: 700; }
+.mini-day.today { background: var(--primary); color: var(--on-primary); font-weight: 700; }
+.mini-day:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+
+.calendar-list .nav-item { cursor: pointer; gap: 12px; }
+.calendar-check { width: 18px; height: 18px; margin: 0; cursor: pointer; flex-shrink: 0; }
+
+.apps-pop { display: grid; grid-template-columns: repeat(3, 96px); gap: 4px; padding: 12px; border-radius: 24px; background: var(--surface-3); }
+.app-link { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 4px 10px; border-radius: 16px; color: var(--text); text-decoration: none; font-size: 13px; }
+.app-link svg { color: var(--primary); }
+.app-link:hover, .app-link:focus-visible { background: var(--surface-hover); outline: none; }
+.app-link.on { background: var(--nav-active); }
+
+.event-card { width: min(420px, calc(100vw - 32px)); padding: 8px 16px 16px; border-radius: 16px; background: var(--surface-3); }
+.event-card:focus { outline: none; }
+.event-card-tools { display: flex; justify-content: flex-end; gap: 2px; margin-right: -8px; }
+.event-card-title { display: flex; align-items: flex-start; gap: 16px; }
+.event-card-title h3 { margin: 0; font-size: 22px; font-weight: 400; line-height: 28px; word-break: break-word; }
+.event-card-row { display: flex; align-items: flex-start; gap: 16px; padding: 6px 0; font-size: 14px; overflow-wrap: anywhere; }
+.event-card-title + .event-card-row { padding: 2px 0 8px 32px; }
+.event-card-row svg { flex-shrink: 0; margin-top: 1px; color: var(--text-2); }
+.event-card-row select { border: 0; background: transparent; font-size: 14px; padding: 2px 0; max-width: 100%; }
+.event-description > div { white-space: pre-wrap; max-height: 240px; overflow-y: auto; }
+.event-join { margin: 4px 0 8px 32px; height: 40px; text-decoration: none; }
+.quick-create { display: flex; flex-direction: column; gap: 8px; }
+.quick-title { width: 100%; border: 0; border-bottom: 1px solid var(--border-strong); background: transparent; font-size: 22px; padding: 6px 0; outline: none; }
+.quick-title:focus { border-bottom: 2px solid var(--primary); padding-bottom: 5px; }
+.quick-create .buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+
+.event-form { display: flex; flex-direction: column; gap: 10px; }
+.event-form .text-input { height: 40px; font-size: 14px; }
+.event-form textarea.text-input { height: auto; padding: 10px 14px; resize: vertical; font: inherit; font-size: 14px; }
+.event-form .event-title { height: 48px; font-size: 18px; }
+.event-times { display: flex; flex-direction: column; gap: 8px; }
+.event-when { display: grid; grid-template-columns: 56px 1fr 120px; align-items: center; gap: 8px; }
+.event-when > span, .event-field > span { color: var(--text-2); font-size: 14px; }
+.event-check { display: flex; align-items: center; gap: 8px; padding-left: 64px; font-size: 14px; }
+.event-zone { padding-left: 64px; font-size: 12px; color: var(--text-3); }
+.event-field { display: grid; grid-template-columns: 80px 1fr; align-items: center; gap: 8px; }
+.event-field .color-grid { margin-top: 0; grid-template-columns: repeat(13, 24px); }
+.color-select { display: flex; align-items: center; gap: 8px; }
+
+.search-results { list-style: none; margin: 0; padding: 8px 0; }
+.search-results ul { list-style: none; margin: 0; padding: 0; flex: 1; min-width: 0; }
+.search-day { display: flex; align-items: flex-start; gap: 8px; padding: 4px 16px; border-bottom: 1px solid var(--border); }
+.search-date { flex: 0 0 160px; text-align: left; border: 0; background: none; padding: 10px 8px; cursor: pointer; color: var(--text-2); font-weight: 500; border-radius: 8px; }
+.search-date:hover { background: var(--surface-hover); }
+.search-event { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; border: 0; background: none; padding: 10px 8px; cursor: pointer; border-radius: 8px; font-size: 14px; }
+.search-event:hover, .search-event:focus-visible { background: var(--surface-hover); outline: none; }
+.search-when { flex: 0 0 140px; color: var(--text-2); }
+.search-what { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shortcut-heading { margin: 20px 0 8px; font-size: 14px; font-weight: 500; }
+
 /* ------------------------------------------------------------ filters */
 
 .filters-table { max-width: 900px !important; }
@@ -568,6 +688,14 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
   .admin-facts td:first-child { width: auto; white-space: normal; }
   .admin-facts td:last-child { display: none; }
   .toolbar .range { display: none; }
+  .calendar-toolbar { padding-left: 8px; gap: 4px; }
+  .calendar-title { font-size: 18px; margin: 0 4px; }
+  .event-when { grid-template-columns: 48px 1fr 100px; }
+  .event-check, .event-zone { padding-left: 56px; }
+  .event-field .color-grid { grid-template-columns: repeat(7, 24px); }
+  .search-day { flex-direction: column; gap: 0; }
+  .search-date { flex-basis: auto; }
+  .search-when { flex-basis: 96px; }
   .toasts { left: 8px; right: 8px; bottom: 8px; }
   .toast { min-width: 0; }
 }

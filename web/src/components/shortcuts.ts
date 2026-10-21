@@ -6,7 +6,7 @@ import { useEffect, useRef } from "react";
 import { ui, useAccount } from "../lib/account";
 import { undoLast } from "../lib/actions";
 import { openCompose } from "../lib/compose";
-import { type Route, folderPath, navigate } from "../lib/router";
+import { type CalendarView, type Route, folderPath, navigate } from "../lib/router";
 import { prefs } from "../lib/store";
 
 /** The single-key shortcuts as the help panel lists them (and docs/using/shortcuts.md, which a test keeps the same). */
@@ -40,6 +40,20 @@ export const SHORTCUTS: [string, string][] = [
   ["?", "These shortcuts"],
 ];
 
+/** In the calendar, as in Google Calendar (and docs/using/shortcuts.md, which a test keeps the same). */
+export const CALENDAR_SHORTCUTS: [string, string][] = [
+  ["c", "Create an event"],
+  ["t", "Today"],
+  ["j or n / k or p", "Next / previous day, week or month"],
+  ["d", "Day view"],
+  ["w", "Week view"],
+  ["m", "Month view"],
+  ["a", "Schedule view"],
+  ["x", "4-day view"],
+  ["/", "Search events"],
+  ["Esc", "Close an event's card"],
+];
+
 export interface ViewHandlers {
   next?: () => void;
   prev?: () => void;
@@ -60,6 +74,10 @@ export interface ViewHandlers {
   nextMessage?: () => void;
   prevMessage?: () => void;
   escape?: () => void;
+  /** The calendar's: switch view, go to today, make an event. */
+  calendarView?: (view: CalendarView) => void;
+  today?: () => void;
+  create?: () => void;
   /** For the command menu: what the view's commands act on, and the commands that apply now. */
   commands?: () => ViewCommands | null;
 }
@@ -177,6 +195,14 @@ export function useShortcuts(route: Route) {
         keyboardMode(true);
         fn();
       };
+      // The calendar has keys of its own, and c makes an event there.
+      if (h.calendarView) {
+        const views: Record<string, CalendarView> = { d: "day", w: "week", m: "month", a: "schedule", x: "4days" };
+        const v = views[k];
+        if (v) return run(() => h.calendarView!(v));
+        if (k === "t") return run(h.today);
+        if (k === "c") return run(h.create);
+      }
       switch (k) {
         case "g": gPressed.current = Date.now(); return;
         case "c":

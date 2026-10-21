@@ -12,7 +12,7 @@ export function useConfig() {
 
 /** Everything shown from the instance's settings, for every account. */
 export function refreshSettings(client: QueryClient) {
-  for (const key of ["config", "session", "settings", "filters", "contacts", "admin"]) {
+  for (const key of ["config", "session", "settings", "filters", "contacts", "calendars", "events", "admin"]) {
     void client.invalidateQueries({ queryKey: [key] });
   }
 }

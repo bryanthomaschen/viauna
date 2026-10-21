@@ -48,6 +48,9 @@ server you already run.
 - **Contacts**: an address book per mailbox, vCard import and export (from Gmail, Apple
   Contacts, Thunderbird, Roundcube), suggestions from it as you write, and optional
   two-way sync with your CardDAV server.
+- **Calendars**: as many per mailbox as you like, kept by Viauna in standard iCalendar;
+  day, week, month, schedule and 4-day views; drag to make and move events; time zones
+  done right; events made from an email.
 - **An admin page** for whoever runs it: who can sign in, limits, password changes,
   changed without a restart and with a record of who changed what. The same from the
   command line, or all of it from environment variables.
@@ -99,13 +102,13 @@ Everything is on **[the docs site](https://bryanthomaschen.github.io/viauna/)**,
   [upgrades and backups](docs/self-hosting/upgrading.md) ·
   [troubleshooting](docs/self-hosting/troubleshooting.md)
 - **Using Viauna**: [the basics](docs/using/basics.md) · [search](docs/using/search.md) ·
-  [contacts](docs/using/contacts.md) · [filters and vacation](docs/using/filters.md) ·
+  [contacts](docs/using/contacts.md) · [calendar](docs/using/calendar.md) · [filters and vacation](docs/using/filters.md) ·
   [keyboard shortcuts](docs/using/shortcuts.md)
 - **How it works**: [overview](docs/how-it-works/index.md) ·
   [mail sync](docs/how-it-works/sync.md) ·
   [live updates and settings](docs/how-it-works/live-updates.md) ·
   [sessions](docs/how-it-works/sessions.md) · [your data](docs/how-it-works/data.md) ·
-  [filters](docs/how-it-works/filters.md) · [contacts](docs/how-it-works/contacts.md) ·
+  [filters](docs/how-it-works/filters.md) · [contacts](docs/how-it-works/contacts.md) · [calendar](docs/how-it-works/calendar.md) ·
   [limits](docs/how-it-works/limits.md)
 - **The project**: [architecture](docs/architecture.md) · [development](docs/development.md) ·
   [roadmap](docs/roadmap.md) · [changelog](CHANGELOG.md) · [contributing](CONTRIBUTING.md) ·
@@ -116,7 +119,7 @@ Everything is on **[the docs site](https://bryanthomaschen.github.io/viauna/)**,
 ```
 browser ──HTTP/SSE──▶ Viauna (Node) ──IMAP──▶ your mail server
                         │        └──SMTP──▶
-                        ├── state: accounts, sessions, settings, contacts (SQLite, PostgreSQL or MySQL)
+                        ├── state: accounts, sessions, settings, contacts, calendars (SQLite, PostgreSQL or MySQL)
                         └── index and message cache: copies of your mail (SQLite, disk)
 ```
 

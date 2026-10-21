@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createContext, type ReactNode, useContext, useMemo } from "react";
 import { api } from "./api";
 import { createStore } from "./store";
-import type { ContactFields, FilterCriteria, Identity, Label, Mailbox, PasswordChange, SessionAccount, Settings, SpecialUse } from "./types";
+import type { CalendarInfo, ContactFields, EventInput, FilterCriteria, Identity, Label, Mailbox, PasswordChange, SessionAccount, Settings, SpecialUse } from "./types";
 
 export interface AccountContextValue {
   index: number;
@@ -86,6 +86,10 @@ export interface UiState {
   contactDialog: null | { id?: number; initial?: Partial<ContactFields> };
   /** A filter being added from a message (Filter messages like these). */
   filterDialog: null | { criteria: Partial<FilterCriteria> };
+  /** An event being edited (id) or made (initial: from the calendar, or from an email). */
+  eventDialog: null | { id?: number; initial?: Partial<EventInput> & { calendarId?: number } };
+  /** A calendar being renamed or recoloured, or made. */
+  calendarDialog: null | { calendar?: CalendarInfo };
   folderDialog: null | { mailbox?: Mailbox; parentId?: number };
   confirm: null | ConfirmRequest;
   sidebarOpen: boolean;
@@ -93,7 +97,8 @@ export interface UiState {
 }
 
 export const ui = createStore<UiState>({
-  shortcutsOpen: false, commandsOpen: false, labelDialog: null, contactDialog: null, filterDialog: null, folderDialog: null, confirm: null, sidebarOpen: false, searchFocus: 0,
+  shortcutsOpen: false, commandsOpen: false, labelDialog: null, contactDialog: null, filterDialog: null, eventDialog: null, calendarDialog: null,
+  folderDialog: null, confirm: null, sidebarOpen: false, searchFocus: 0,
 });
 
 /** The visible thread list, so j/k inside a conversation can move to its neighbours. */

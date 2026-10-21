@@ -1,6 +1,6 @@
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { useQueryClient } from "@tanstack/react-query";
-import { Pencil } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { Suspense, lazy, useCallback, useEffect } from "react";
 import { AccountProvider, ui, useAccount } from "../lib/account";
 import { composes, openCompose } from "../lib/compose";
@@ -22,6 +22,11 @@ const SettingsView = lazy(() => import("./Settings").then((m) => ({ default: m.S
 const ContactsView = lazy(() => import("./Contacts").then((m) => ({ default: m.ContactsView })));
 const ContactDialog = lazy(() => import("./Contacts").then((m) => ({ default: m.ContactDialog })));
 const MessageFilterDialog = lazy(() => import("./Filters").then((m) => ({ default: m.MessageFilterDialog })));
+// The calendar grid is its own chunk; the event editor another, so mail can open it alone.
+const CalendarSidebar = lazy(() => import("./Calendar").then((m) => ({ default: m.CalendarSidebar })));
+const CalendarMain = lazy(() => import("./Calendar").then((m) => ({ default: m.CalendarMain })));
+const EventDialog = lazy(() => import("./EventDialog").then((m) => ({ default: m.EventDialog })));
+const CalendarDialog = lazy(() => import("./EventDialog").then((m) => ({ default: m.CalendarDialog })));
 
 export function Shell({ route, accounts, appName }: { route: Route; accounts: SessionAccount[]; appName: string }) {
   const client = useQueryClient();
@@ -48,6 +53,7 @@ function useDocumentTitle(route: Route, appName: string) {
     const f = route.folder;
     if (route.name === "settings") name = "Settings";
     else if (route.name === "contacts") name = "Contacts";
+    else if (route.name === "calendar") name = "Calendar";
     else if (f.kind === "label") name = acct.labelByKeyword.get(f.keyword)?.name ?? f.keyword;
     else if (f.kind === "folder") name = acct.mailboxById.get(f.id)?.name ?? "Folder";
     else if (f.kind === "search") name = "Search results";
@@ -57,9 +63,17 @@ function useDocumentTitle(route: Route, appName: string) {
   }, [route, acct, unread, appName]);
 }
 
-/** The floating Compose button on phones, where the sidebar is a drawer. */
-function ComposeFab() {
+/** The floating Compose button on phones, where the sidebar is a drawer; Create in the calendar. */
+function ComposeFab({ route }: { route: Route }) {
   const acct = useAccount();
+  if (route.name === "calendar") {
+    return (
+      <button type="button" className="compose-btn compose-fab" onClick={() => ui.set((s) => ({ ...s, eventDialog: { initial: {} } }))}>
+        <Plus size={22} />
+        <span>Create</span>
+      </button>
+    );
+  }
   return (
     <button type="button" className="compose-btn compose-fab"
       onClick={() => openCompose(acct.index, acct.identities[0], acct.settings?.signature ?? "", {})}>
@@ -75,6 +89,9 @@ function ShellInner({ route, appName }: { route: Route; appName: string }) {
   const composing = composes.use((l) => l.some((c) => c.placement === "dock" && !c.hidden));
   const contactDialog = ui.use((s) => s.contactDialog);
   const filterDialog = ui.use((s) => s.filterDialog);
+  const eventDialog = ui.use((s) => s.eventDialog);
+  const calendarDialog = ui.use((s) => s.calendarDialog);
+  const loading = <div className="empty"><div className="spinner lg" /></div>;
   useShortcuts(route);
   useCommandMenuKey();
   useDocumentTitle(route, appName);
@@ -82,12 +99,18 @@ function ShellInner({ route, appName }: { route: Route; appName: string }) {
     <div className="app">
       <Header route={route} appName={appName} />
       <div className="app-body">
-        <Sidebar route={route} collapsed={collapsed} open={sidebarOpen} />
+        {route.name === "calendar" ? (
+          <Suspense fallback={<nav className={`sidebar ${collapsed ? "collapsed" : ""}`} />}>
+            <CalendarSidebar route={route} collapsed={collapsed} open={sidebarOpen} />
+          </Suspense>
+        ) : (
+          <Sidebar route={route} collapsed={collapsed} open={sidebarOpen} />
+        )}
         {sidebarOpen && <div className="sidebar-scrim" onClick={() => ui.set((s) => ({ ...s, sidebarOpen: false }))} />}
         <main className="main">
-          {route.name === "settings" || route.name === "contacts" ? (
-            <Suspense fallback={<div className="empty"><div className="spinner lg" /></div>}>
-              {route.name === "settings" ? <SettingsView /> : <ContactsView />}
+          {route.name === "settings" || route.name === "contacts" || route.name === "calendar" ? (
+            <Suspense fallback={loading}>
+              {route.name === "settings" ? <SettingsView /> : route.name === "contacts" ? <ContactsView /> : <CalendarMain route={route} />}
             </Suspense>
           ) : route.thread !== null ? (
             <ConversationView key={`${route.account}:${route.thread}`} route={route} />
@@ -96,7 +119,7 @@ function ShellInner({ route, appName }: { route: Route; appName: string }) {
           )}
         </main>
       </div>
-      <ComposeFab />
+      <ComposeFab route={route} />
       {composing && (
         <Suspense fallback={null}>
           <ComposeDock />
@@ -113,6 +136,16 @@ function ShellInner({ route, appName }: { route: Route; appName: string }) {
       {filterDialog && (
         <Suspense fallback={null}>
           <MessageFilterDialog criteria={filterDialog.criteria} />
+        </Suspense>
+      )}
+      {eventDialog && (
+        <Suspense fallback={null}>
+          <EventDialog key={eventDialog.id ?? "new"} {...eventDialog} />
+        </Suspense>
+      )}
+      {calendarDialog && (
+        <Suspense fallback={null}>
+          <CalendarDialog key={calendarDialog.calendar?.id ?? "new"} {...calendarDialog} />
         </Suspense>
       )}
     </div>

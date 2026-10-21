@@ -3,7 +3,7 @@
 // doesn't need single-key shortcuts turned on, and it says which shortcut does the same.
 import { Command } from "cmdk";
 import {
-  ArrowRight, BookUser, CircleUserRound, Folder, Inbox, Keyboard, ListFilter, type LucideIcon, Monitor, Moon, Pencil, Plus, Rows3, Search,
+  ArrowRight, BookUser, CalendarDays, CalendarPlus, CircleUserRound, Folder, Inbox, Keyboard, ListFilter, type LucideIcon, Monitor, Moon, Pencil, Plus, Rows3, Search,
   Settings, Shield, Star, Sun, Tag, Undo2,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -11,7 +11,7 @@ import { ui, useAccount } from "../lib/account";
 import { undoLast } from "../lib/actions";
 import { openCompose } from "../lib/compose";
 import { useConfig } from "../lib/config";
-import { type Folder as FolderRoute, folderPath, navigate } from "../lib/router";
+import { type Folder as FolderRoute, calendarPath, folderPath, navigate } from "../lib/router";
 import { prefs } from "../lib/store";
 import { type ViewCommand, viewHandlers } from "./shortcuts";
 
@@ -71,6 +71,7 @@ function Menu() {
       .sort((x, y) => x.path.localeCompare(y.path))
       .map((m) => ({ label: m.path, icon: Folder, keywords: ["folder"], run: go(folderPath(a, { kind: "folder", id: m.id })) })),
     ...acct.labels.map((l) => ({ label: l.name, icon: Tag, keywords: ["label"], run: go(folderPath(a, { kind: "label", keyword: l.keyword })) })),
+    ...(config?.calendar ? [{ label: "Calendar", icon: CalendarDays, keywords: ["events"], run: go(calendarPath(a)) }] : []),
     ...(config?.contacts ? [{ label: "Contacts", icon: BookUser, run: go(`/u/${a}/contacts`) }] : []),
     { label: "Settings", icon: Settings, run: go(`/u/${a}/settings`) },
     ...(config?.filters ? [{ label: "Filters", icon: ListFilter, keywords: ["vacation", "rules"], run: go(`/u/${a}/settings?tab=filters`) }] : []),
@@ -86,6 +87,7 @@ function Menu() {
     { label: "New label", icon: Plus, run: () => ui.set((s) => ({ ...s, labelDialog: {} })) },
     { label: "New folder", icon: Plus, run: () => ui.set((s) => ({ ...s, folderDialog: {} })) },
     ...(config?.contacts ? [{ label: "New contact", icon: Plus, run: () => ui.set((s) => ({ ...s, contactDialog: {} })) }] : []),
+    ...(config?.calendar ? [{ label: "New event", icon: CalendarPlus, keywords: ["meeting", "appointment"], run: () => ui.set((s) => ({ ...s, eventDialog: { initial: {} } })) }] : []),
   ];
 
   const set = <K extends keyof typeof p>(k: K, v: (typeof p)[K]) => () => prefs.set((x) => ({ ...x, [k]: v }));
@@ -144,7 +146,7 @@ function Menu() {
       </div>
       <Command.List>
         {view && view.items.length > 0 && (
-          <Command.Group heading={view.target}>{view.items.map((item, i) => row("Conversation", item, i))}</Command.Group>
+          <Command.Group heading={view.target}>{view.items.map((item, i) => row(view.target, item, i))}</Command.Group>
         )}
         <Command.Group heading="Go to">{goTo.map((item, i) => row("Go to", item, i))}</Command.Group>
         <Command.Group heading="Create">{create.map((item, i) => row("Create", item, i))}</Command.Group>

@@ -1,5 +1,9 @@
 import type {
   ActionName,
+  CalendarInfo,
+  EventDetail,
+  EventInput,
+  EventSummary,
   AdminChange,
   AdminData,
   AdminSetting,
@@ -137,6 +141,23 @@ export const api = {
   importContacts: (a: number, file: File) =>
     request<{ added: number; updated: number; unchanged: number; skipped: number }>("POST", `${u(a)}/contacts/import`, file, { "Content-Type": "text/vcard" }),
   exportContactsUrl: (a: number) => `${u(a)}/contacts/export`,
+  calendars: (a: number) => request<{ calendars: CalendarInfo[] }>("GET", `${u(a)}/calendar/calendars`),
+  createCalendar: (a: number, body: { name: string; color?: string }) => request<{ calendar: CalendarInfo }>("POST", `${u(a)}/calendar/calendars`, body),
+  updateCalendar: (a: number, id: number, patch: Partial<Pick<CalendarInfo, "name" | "color" | "visible">>) =>
+    request<{ calendar: CalendarInfo }>("PATCH", `${u(a)}/calendar/calendars/${id}`, patch),
+  deleteCalendar: (a: number, id: number) => request<{ ok: true }>("DELETE", `${u(a)}/calendar/calendars/${id}`),
+  events: (a: number, from: string, to: string, zone: string) =>
+    request<{ events: EventSummary[] }>("GET", `${u(a)}/calendar/events?${new URLSearchParams({ from, to, zone })}`),
+  searchEvents: (a: number, q: string, zone: string) =>
+    request<{ events: EventSummary[] }>("GET", `${u(a)}/calendar/events/search?${new URLSearchParams({ q, zone })}`),
+  event: (a: number, id: number, zone: string) => request<{ event: EventDetail }>("GET", `${u(a)}/calendar/events/${id}?zone=${encodeURIComponent(zone)}`),
+  createEvent: (a: number, calendarId: number, input: EventInput, zone: string) =>
+    request<{ event: EventDetail }>("POST", `${u(a)}/calendar/events?zone=${encodeURIComponent(zone)}`, { ...input, calendarId }),
+  updateEvent: (a: number, id: number, patch: Partial<EventInput> & { calendarId?: number }, zone: string) =>
+    request<{ event: EventDetail; undo: string }>("PATCH", `${u(a)}/calendar/events/${id}?zone=${encodeURIComponent(zone)}`, patch),
+  deleteEvent: (a: number, id: number) => request<{ undo: string }>("DELETE", `${u(a)}/calendar/events/${id}`),
+  undoCalendar: (a: number, token: string) => request<{ ok: true }>("POST", `${u(a)}/calendar/undo`, { token }),
+
   settings: (a: number) => request<{ settings: Settings; email: string; password: PasswordChange | null }>("GET", `${u(a)}/settings`),
   changePassword: (a: number, current: string, next: string) =>
     request<{ ok: true; signedOut: number }>("POST", `${u(a)}/password`, { current, next }),

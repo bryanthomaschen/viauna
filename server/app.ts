@@ -17,6 +17,21 @@ import {
   signOutAccount,
   signOutAll,
 } from "./auth.ts";
+import {
+  CalendarError,
+  calendarEvents,
+  createCalendar,
+  createEvent,
+  deleteCalendar,
+  deleteEvent,
+  eventsBetween,
+  getEvent,
+  listCalendars,
+  searchEvents,
+  undoChange,
+  updateCalendar,
+  updateEvent,
+} from "./calendar.ts";
 import { VERSION, config, parseSetting, setting, settingDef } from "./config.ts";
 import {
   ContactError,
@@ -159,6 +174,7 @@ export function createApp() {
     if (err instanceof LabelError) return c.json({ error: err.message }, 400);
     if (err instanceof ContactError) return c.json({ error: err.message }, err.status as 400);
     if (err instanceof FilterError) return c.json({ error: err.message }, err.status as 400);
+    if (err instanceof CalendarError) return c.json({ error: err.message }, err.status as 400);
     log.error("request failed", { path: c.req.path, error: (err as Error).message, stack: (err as Error).stack });
     const message = /ECONNREFUSED|ETIMEDOUT|ENOTFOUND|Connection not available|closed/i.test((err as Error).message)
       ? "The mail server isn't responding. Try again in a moment."
@@ -198,6 +214,7 @@ export function createApp() {
       customServers: config.allowCustomServers,
       configured: !!config.imap,
       contacts: setting("contacts"),
+      calendar: setting("calendar"),
       filters: setting("filters") && !!config.managesieve,
       vacation: setting("vacation") && !!config.managesieve,
     }),
@@ -649,6 +666,67 @@ export function createApp() {
 
   acct.route("/contacts", contacts);
 
+  // ---------------------------------------------------------------- calendars
+
+  // Times go both ways in the reader's time zone (?zone=Europe/London), which the page
+  // sends with every request: the mailbox's setting, or the browser's.
+  const calendar = new Hono<Env>();
+
+  calendar.use("*", async (c, next) => {
+    if (!setting("calendar")) return c.json({ error: "The calendar is turned off on this server." }, 404);
+    await next();
+  });
+
+  const zoneOf = (c: Context<Env>) => c.req.query("zone") ?? "";
+  const body = async (c: Context<Env>) => {
+    const b = await c.req.json().catch(() => null);
+    if (!b || typeof b !== "object" || Array.isArray(b)) throw new CalendarError("Send the event.");
+    return b as Record<string, unknown>;
+  };
+
+  calendar.get("/calendars", async (c) => {
+    const { account } = c.get("rt");
+    const owner = (await getSettings(account.id)).name || account.email;
+    return c.json({ calendars: await listCalendars(account.id, owner) });
+  });
+
+  calendar.post("/calendars", async (c) => c.json({ calendar: await createCalendar(c.get("rt").account.id, await body(c)) }));
+
+  calendar.patch("/calendars/:id", async (c) =>
+    c.json({ calendar: await updateCalendar(c.get("rt").account.id, int(c.req.param("id")), await body(c)) }),
+  );
+
+  calendar.delete("/calendars/:id", async (c) => {
+    await deleteCalendar(c.get("rt").account.id, int(c.req.param("id")));
+    return c.json({ ok: true });
+  });
+
+  calendar.get("/events", async (c) =>
+    c.json({ events: await eventsBetween(c.get("rt").account.id, c.req.query("from") ?? "", c.req.query("to") ?? "", zoneOf(c)) }),
+  );
+
+  // Before /events/:id, so "search" isn't taken for an id.
+  calendar.get("/events/search", async (c) => c.json({ events: await searchEvents(c.get("rt").account.id, c.req.query("q") ?? "", zoneOf(c)) }));
+
+  calendar.get("/events/:id", async (c) => c.json({ event: await getEvent(c.get("rt").account.id, int(c.req.param("id")), zoneOf(c)) }));
+
+  calendar.post("/events", async (c) => {
+    const b = await body(c);
+    return c.json({ event: await createEvent(c.get("rt").account.id, int(String(b.calendarId)), b, zoneOf(c)) });
+  });
+
+  calendar.patch("/events/:id", async (c) => c.json(await updateEvent(c.get("rt").account.id, int(c.req.param("id")), await body(c), zoneOf(c))));
+
+  calendar.delete("/events/:id", async (c) => c.json({ undo: await deleteEvent(c.get("rt").account.id, int(c.req.param("id"))) }));
+
+  calendar.post("/undo", async (c) => {
+    const b = await c.req.json().catch(() => ({}));
+    const ok = await undoChange(c.get("rt").account.id, String(b.token ?? ""));
+    return ok ? c.json({ ok }) : c.json({ error: "That can no longer be undone." }, 410);
+  });
+
+  acct.route("/calendar", calendar);
+
   acct.get("/settings", async (c) => {
     const rt = c.get("rt");
     return c.json({ settings: await getSettings(rt.account.id), email: rt.account.email, password: passwordChangeFor(rt.account) });
@@ -771,6 +849,12 @@ export function createApp() {
         if (index !== undefined && !stream.aborted) void stream.writeSSE({ event: "contacts", data: JSON.stringify({ index }) });
       };
       contactEvents.on("changed", onContacts);
+      // Calendars or events changed in another tab or browser: the page refetches them.
+      const onCalendar = (accountId: number) => {
+        const index = indexOf.get(accountId);
+        if (index !== undefined && !stream.aborted) void stream.writeSSE({ event: "calendar", data: JSON.stringify({ index }) });
+      };
+      calendarEvents.on("changed", onCalendar);
       // A setting changed (the admin page, the command line, another instance), or this
       // session's mailbox settings in another tab: the page refreshes what depends on it.
       const onSettings = () => {
@@ -784,6 +868,7 @@ export function createApp() {
       accountSettingsEvents.on("changed", onAccountSettings);
       const closeAll = () => {
         contactEvents.off("changed", onContacts);
+        calendarEvents.off("changed", onCalendar);
         settingsEvents.off("changed", onSettings);
         accountSettingsEvents.off("changed", onAccountSettings);
         [...subs.keys()].forEach(unsubscribe);

@@ -132,6 +132,11 @@ export interface Settings {
   aliases: Identity[];
   images: "ask" | "always";
   pageSize: 25 | 50 | 100;
+  /** The calendar's time zone; empty: the browser's. */
+  timeZone: string;
+  weekStart: "auto" | "sunday" | "monday" | "saturday";
+  /** How long a new event lasts, in minutes. */
+  eventMinutes: 15 | 30 | 45 | 60 | 90 | 120;
 }
 
 /** How this mailbox's password is changed here: the mail server's own page, or a form. */
@@ -144,6 +149,7 @@ export interface AppConfig {
   configured: boolean;
   /** The address book is on. */
   contacts: boolean;
+  calendar: boolean;
   /** Filters and the vacation responder can be used (the mail server's ManageSieve). */
   filters: boolean;
   vacation: boolean;
@@ -296,4 +302,52 @@ export interface AdminData {
   settings: AdminSetting[];
   changes: AdminChange[];
   server: ServerFacts;
+}
+
+// ---------------------------------------------------------------- calendar
+
+export interface CalendarInfo {
+  id: number;
+  name: string;
+  color: string;
+  visible: boolean;
+  /** The mailbox's own calendar, which can't be deleted. */
+  primary: boolean;
+}
+
+/** An event as the grid shows it. Timed: ISO instants. All-day: dates, the end exclusive. */
+export interface EventSummary {
+  id: number;
+  calendarId: number;
+  title: string;
+  allDay: boolean;
+  start: string;
+  end: string;
+  color: string | null;
+  busy: boolean;
+  location: string;
+  video: boolean;
+}
+
+/** What the event editor sends: times as wall-clock in `zone` ("2026-10-21T09:00"), or dates. */
+export interface EventInput {
+  title: string;
+  allDay: boolean;
+  start: string;
+  end: string;
+  zone: string | null;
+  location: string;
+  description: string;
+  busy: boolean;
+  color: string | null;
+  video: string | null;
+}
+
+export interface EventDetail extends EventInput {
+  id: number;
+  calendarId: number;
+  /** The zone the event was made in, when it isn't the reader's. */
+  eventZone: string | null;
+  created: number;
+  updated: number;
 }

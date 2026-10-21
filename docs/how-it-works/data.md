@@ -9,14 +9,17 @@ For backups, see [Upgrades and backups](../self-hosting/upgrading.md).
 The **state store** (`state.db`, or your `DATABASE_URL` database) holds:
 
 - accounts: each login and its mail servers, and the mailbox's settings (name,
-  signature, send-as addresses, images, page size);
+  signature, send-as addresses, images, page size, and the calendar's time zone, first
+  day of the week and event length);
 - sessions, each with its mailboxes' encrypted passwords, when it started and was last
   used, the client address it signed in from and the browser's user agent (see
   [Sessions](./sessions.md));
 - label names and colours, and senders whose images are always shown;
 - settings changed on the admin page or with the `viauna` command, and the record of
   changes;
-- contacts, each as its vCard, with their address books and what's still to sync.
+- contacts, each as its vCard, with their address books and what's still to sync;
+- calendars, and their events, each as its iCalendar object (see
+  [Calendar](./calendar.md)).
 
 The **data directory** (`DATA_DIR`, `/data` in the image) holds:
 
@@ -34,7 +37,8 @@ encrypted, and `index.db` holds every subject and preview. Protect the data dire
 you would your mail server's storage.
 
 Each browser keeps its own preferences (theme, density, keyboard shortcuts, desktop
-notifications) in its local storage.
+notifications, the calendar's last view, weekends and week numbers) in its local
+storage.
 
 ## Caches
 
@@ -55,8 +59,8 @@ with `CACHE_MB=0`, messages are still written and then removed at the next check
 most 200 MB of a single message is downloaded.
 
 If `index.db` is lost or deleted, Viauna builds it again: each folder is synced from
-scratch, newest mail first. Settings, label colours and contacts are in the state store
-and unaffected.
+scratch, newest mail first. Settings, label colours, contacts and calendars are in the
+state store and unaffected.
 
 ## What leaves the server
 

@@ -7,8 +7,8 @@ Type what you want and press **Enter**:
 
 - something to do with the conversation you're reading, or the ones you've ticked:
   *archive*, *delete*, *star*, *label as*, *move to*, *reply*, *mark as unread*…
-- a folder or label to go to: *starred*, *receipts*, *contacts*, *filters*;
-- something to make: *compose*, *new label*, *new folder*, *new contact*;
+- a folder or label to go to: *starred*, *receipts*, *contacts*, *calendar*, *filters*;
+- something to make: *compose*, *new label*, *new folder*, *new contact*, *new event*;
 - a setting: *dark theme*, *compact density*, *turn on single-key shortcuts*.
 
 A few letters are enough (*arch* finds Archive). When nothing matches, **Enter** searches
@@ -67,3 +67,21 @@ A few details:
 - `z` undoes your last action for up to 10 minutes, even when pressed before the server
   has finished it.
 - `Ctrl` + `Enter` sends whether or not shortcuts are on.
+
+## In the calendar
+
+The calendar has its own keys, as in Google Calendar. The command menu offers the same,
+under **Calendar**, whether or not shortcuts are on.
+
+| Key | Action |
+|---|---|
+| `c` | Create an event |
+| `t` | Today |
+| `j` or `n` / `k` or `p` | Next / previous day, week or month |
+| `d` | Day view |
+| `w` | Week view |
+| `m` | Month view |
+| `a` | Schedule view |
+| `x` | 4-day view |
+| `/` | Search events |
+| `Esc` | Close an event's card |

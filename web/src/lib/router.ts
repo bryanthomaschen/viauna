@@ -5,6 +5,8 @@
 //   /u/0/label/work            a label          /u/0/folder/12   a folder
 //   /u/0/search/from%3Aann     search results   /u/0/settings    settings
 //   /u/0/contacts              the address book
+//   /u/0/calendar/week/2026-10-21   the calendar, a view of the time around a date
+//   /u/0/calendar/search/lunch      events found
 //   /admin                     the admin page, for the whole server rather than one mailbox
 import { useSyncExternalStore } from "react";
 
@@ -38,12 +40,26 @@ export type Folder =
   | { kind: "folder"; id: number }
   | { kind: "search"; query: string };
 
+export type CalendarView = "day" | "week" | "month" | "schedule" | "4days";
+
+export const CALENDAR_VIEWS: CalendarView[] = ["day", "week", "month", "schedule", "4days"];
+
+export interface CalendarRoute {
+  /** Null: the view last used in this browser. */
+  view: CalendarView | null;
+  /** "2026-10-21"; null: today. */
+  date: string | null;
+  /** Searching events, for this. */
+  search: string | null;
+}
+
 export interface Route {
-  name: "login" | "mail" | "settings" | "contacts" | "admin" | "none";
+  name: "login" | "mail" | "settings" | "contacts" | "calendar" | "admin" | "none";
   account: number;
   folder: Folder;
   thread: number | null;
   page: number;
+  calendar: CalendarRoute | null;
 }
 
 const SIMPLE = new Set(["inbox", "starred", "sent", "drafts", "all", "spam", "trash", "archive"]);
@@ -52,7 +68,7 @@ export function parseRoute(path: string): Route {
   const [pathname, search] = path.split("?");
   const page = Math.max(0, Number(new URLSearchParams(search ?? "").get("p") ?? 1) - 1) || 0;
   const parts = pathname.split("/").filter(Boolean);
-  const none: Route = { name: "none", account: 0, folder: { kind: "inbox" }, thread: null, page: 0 };
+  const none: Route = { name: "none", account: 0, folder: { kind: "inbox" }, thread: null, page: 0, calendar: null };
   if (parts[0] === "login") return { ...none, name: "login" };
   if (parts[0] === "admin" && parts.length === 1) return { ...none, name: "admin" };
   if (parts[0] !== "u" || parts.length < 2) return none;
@@ -61,6 +77,15 @@ export function parseRoute(path: string): Route {
   const rest = parts.slice(2);
   if (rest[0] === "settings") return { ...none, name: "settings", account };
   if (rest[0] === "contacts") return { ...none, name: "contacts", account };
+  if (rest[0] === "calendar") {
+    const calendar: CalendarRoute = { view: null, date: null, search: null };
+    if (rest[1] === "search" && rest[2] !== undefined) calendar.search = decodeURIComponent(rest[2]);
+    else if (CALENDAR_VIEWS.includes(rest[1] as CalendarView)) {
+      calendar.view = rest[1] as CalendarView;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(rest[2] ?? "")) calendar.date = rest[2];
+    }
+    return { ...none, name: "calendar", account, calendar };
+  }
   let folder: Folder = { kind: "inbox" };
   let threadPart: string | undefined;
   if (!rest.length) folder = { kind: "inbox" };
@@ -78,7 +103,7 @@ export function parseRoute(path: string): Route {
     threadPart = rest[2];
   }
   const thread = threadPart && /^\d+$/.test(threadPart) ? Number(threadPart) : null;
-  return { name: "mail", account, folder, thread, page };
+  return { name: "mail", account, folder, thread, page, calendar: null };
 }
 
 export function folderPath(account: number, folder: Folder): string {
@@ -115,4 +140,12 @@ export function viewParam(folder: Folder): string {
 
 export function sameFolder(a: Folder, b: Folder): boolean {
   return folderPath(0, a) === folderPath(0, b);
+}
+
+export function calendarPath(account: number, view?: CalendarView, date?: string): string {
+  return view ? `/u/${account}/calendar/${view}${date ? `/${date}` : ""}` : `/u/${account}/calendar`;
+}
+
+export function calendarSearchPath(account: number, query: string): string {
+  return `/u/${account}/calendar/search/${encodeURIComponent(query)}`;
 }

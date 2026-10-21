@@ -15,6 +15,7 @@ HTTP/1.1 a browser allows six connections per site, and each tab's stream holds 
 | `settings` | A setting for everyone changed | Refetches everything shown from settings |
 | `account-settings` | One mailbox's own settings changed (name, signature, page size…) | Refetches that mailbox's settings and lists |
 | `contacts` | A contacts sync started or ended | Refetches the contact list |
+| `calendar` | A mailbox's calendars or events changed (in another tab, browser or device) | Refetches its calendars and events |
 | `reauth` | A mailbox's saved password stopped working | Asks you to sign in again |
 | `ready` | The stream is set up | After a reconnect, refetches everything shown from settings |
 | `ping` | Every 25 s, to keep the connection open | Nothing |
@@ -79,6 +80,7 @@ Most changes apply to the next request. Some only to what happens next:
 | `MAX_UPLOAD_MB` | At the next upload. |
 | `CACHE_MB` | At the next trim of the message cache, after 50 more messages are downloaded. |
 | `CONTACTS`, `CONTACTS_SYNC` | At once. A sync already running finishes. |
+| `CALENDAR` | At once. |
 | `FILTERS`, `VACATION` | Hidden in Viauna at once. Rules already on the mail server keep running until they're changed. |
 | `FILTER_FORWARDING` | On: at once. Off: filters that forward keep forwarding until the mailbox's filters are next saved. |
 | `APP_NAME` | Pages at once. The mail server sees the new name (in the IMAP `ID` Viauna sends) on new connections. |

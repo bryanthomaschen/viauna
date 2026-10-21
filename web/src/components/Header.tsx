@@ -1,10 +1,11 @@
 import * as Popover from "@radix-ui/react-popover";
 import { useQueryClient } from "@tanstack/react-query";
-import { CircleHelp, Command, LogOut, Menu, Search, Settings, ShieldCheck, SlidersHorizontal, UserPlus, X } from "lucide-react";
+import { BookUser, CalendarDays, CircleHelp, Command, LayoutGrid, LogOut, Mail, Menu, Search, Settings, ShieldCheck, SlidersHorizontal, UserPlus, X } from "lucide-react";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { ui, useAccount } from "../lib/account";
 import { api } from "../lib/api";
-import { type Route, folderPath, navigate } from "../lib/router";
+import { useConfig } from "../lib/config";
+import { type Route, calendarPath, calendarSearchPath, folderPath, navigate } from "../lib/router";
 import { prefs } from "../lib/store";
 import { MOD_KEY } from "./CommandMenu";
 import { Avatar, IconButton } from "./common";
@@ -20,7 +21,8 @@ export function Header({ route, appName }: { route: Route; appName: string }) {
       <IconButton label="Main menu" onClick={toggleSidebar}>
         <Menu size={22} />
       </IconButton>
-      <button type="button" className="brand" onClick={() => navigate(`/u/${acct.index}/inbox`)} aria-label={`${appName} inbox`}>
+      <button type="button" className="brand" aria-label={route.name === "calendar" ? `${appName} calendar` : `${appName} inbox`}
+        onClick={() => navigate(route.name === "calendar" ? calendarPath(acct.index) : `/u/${acct.index}/inbox`)}>
         <img src="/favicon.svg" alt="" />
         <span>{appName}</span>
       </button>
@@ -33,18 +35,59 @@ export function Header({ route, appName }: { route: Route; appName: string }) {
         <IconButton label="Keyboard shortcuts" className="hide-narrow" onClick={() => ui.set((s) => ({ ...s, shortcutsOpen: true }))}>
           <CircleHelp size={22} />
         </IconButton>
-        <IconButton label="Settings" className="hide-narrow" onClick={() => navigate(`/u/${acct.index}/settings`)}>
+        <IconButton label="Settings" className="hide-narrow" onClick={() => navigate(`/u/${acct.index}/settings${route.name === "calendar" ? "?tab=calendar" : ""}`)}>
           <Settings size={22} />
         </IconButton>
+        <Apps route={route} />
         <AccountMenu />
       </div>
     </header>
   );
 }
 
+/** Mail, Calendar and Contacts: the apps of the suite, one click apart. */
+function Apps({ route }: { route: Route }) {
+  const acct = useAccount();
+  const config = useConfig().data;
+  const [open, setOpen] = useState(false);
+  const apps = [
+    { name: "Mail", icon: Mail, to: `/u/${acct.index}/inbox`, on: route.name === "mail" },
+    ...(config?.calendar ? [{ name: "Calendar", icon: CalendarDays, to: calendarPath(acct.index), on: route.name === "calendar" }] : []),
+    ...(config?.contacts ? [{ name: "Contacts", icon: BookUser, to: `/u/${acct.index}/contacts`, on: route.name === "contacts" }] : []),
+  ];
+  if (apps.length < 2) return null;
+  return (
+    <Popover.Root open={open} onOpenChange={setOpen}>
+      <Popover.Trigger asChild>
+        <IconButton label="Apps">
+          <LayoutGrid size={22} />
+        </IconButton>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content className="popover apps-pop" align="end" sideOffset={8} aria-label="Apps">
+          {apps.map((a) => (
+            <a key={a.name} href={a.to} className={`app-link ${a.on ? "on" : ""}`} aria-current={a.on ? "page" : undefined}
+              onClick={(e) => {
+                if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+                e.preventDefault();
+                setOpen(false);
+                navigate(a.to);
+              }}>
+              <a.icon size={28} aria-hidden />
+              <span>{a.name}</span>
+            </a>
+          ))}
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
+  );
+}
+
 function SearchBox({ route }: { route: Route }) {
   const acct = useAccount();
-  const current = route.folder.kind === "search" ? route.folder.query : "";
+  // In the calendar, the box searches events.
+  const events = route.name === "calendar";
+  const current = events ? (route.calendar?.search ?? "") : route.folder.kind === "search" ? route.folder.query : "";
   const [q, setQ] = useState(current);
   const [advanced, setAdvanced] = useState(false);
   const input = useRef<HTMLInputElement>(null);
@@ -59,8 +102,9 @@ function SearchBox({ route }: { route: Route }) {
     e?.preventDefault();
     const trimmed = query.trim();
     setAdvanced(false);
-    if (!trimmed) return navigate(folderPath(acct.index, { kind: "inbox" }));
-    navigate(folderPath(acct.index, { kind: "search", query: trimmed }));
+    if (events) navigate(trimmed ? calendarSearchPath(acct.index, trimmed) : calendarPath(acct.index));
+    else if (!trimmed) navigate(folderPath(acct.index, { kind: "inbox" }));
+    else navigate(folderPath(acct.index, { kind: "search", query: trimmed }));
     input.current?.blur();
   };
 
@@ -74,8 +118,8 @@ function SearchBox({ route }: { route: Route }) {
           ref={input}
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search mail"
-          aria-label="Search mail"
+          placeholder={events ? "Search calendar" : "Search mail"}
+          aria-label={events ? "Search calendar" : "Search mail"}
           onKeyDown={(e) => {
             if (e.key === "Escape") {
               setQ(current);
@@ -84,13 +128,15 @@ function SearchBox({ route }: { route: Route }) {
           }}
         />
         {q && (
-          <IconButton label="Clear search" onClick={() => { setQ(""); if (current) navigate(folderPath(acct.index, { kind: "inbox" })); }}>
+          <IconButton label="Clear search" onClick={() => { setQ(""); if (current) navigate(events ? calendarPath(acct.index) : folderPath(acct.index, { kind: "inbox" })); }}>
             <X size={20} />
           </IconButton>
         )}
-        <IconButton label="Show search options" onClick={() => setAdvanced((a) => !a)}>
-          <SlidersHorizontal size={20} />
-        </IconButton>
+        {!events && (
+          <IconButton label="Show search options" onClick={() => setAdvanced((a) => !a)}>
+            <SlidersHorizontal size={20} />
+          </IconButton>
+        )}
       </form>
       {advanced && <AdvancedSearch onSearch={(query) => { setQ(query); submit(undefined, query); }} onClose={() => setAdvanced(false)} />}
     </div>

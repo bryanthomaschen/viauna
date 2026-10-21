@@ -48,6 +48,20 @@ Limits built into Viauna. The ones you can change are settings: see
 | Listed at a time | 200, then 200 more with **Show more** |
 | Suggestions while you write | 8 |
 
+## Calendar
+
+| Limit | Value |
+|---|---|
+| Calendars per mailbox | 50 |
+| A calendar's name | 1 to 100 characters, on one line |
+| An event's title | 500 characters |
+| Location | 1,000 characters |
+| Description | 20,000 characters |
+| Video call link | 2,000 characters, starting `https://` or `http://` |
+| Events asked for at once | 400 days |
+| Search results | The newest 200 |
+| Undo | 10 minutes, and not after a restart |
+
 ## Accounts and settings
 
 | Limit | Value |

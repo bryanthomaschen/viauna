@@ -10,7 +10,7 @@ import { folderPath, navigate } from "../lib/router";
 import { dismissToast, prefs, toast, toasts } from "../lib/store";
 import type { Address, Label, Mailbox } from "../lib/types";
 import { MOD_KEY } from "./CommandMenu";
-import { SHORTCUTS } from "./shortcuts";
+import { CALENDAR_SHORTCUTS, SHORTCUTS } from "./shortcuts";
 
 export function Avatar({ person, size = 40 }: { person: Address | undefined; size?: number }) {
   const seed = person?.address ?? "?";
@@ -102,6 +102,15 @@ function ShortcutsHelp() {
       </div>
       <div className={`shortcut-grid ${on ? "" : "off"}`}>
         {SHORTCUTS.map(([k, v]) => (
+          <div key={k}>
+            <span>{v}</span>
+            <kbd>{k}</kbd>
+          </div>
+        ))}
+      </div>
+      <h3 className="shortcut-heading">In the calendar</h3>
+      <div className={`shortcut-grid ${on ? "" : "off"}`}>
+        {CALENDAR_SHORTCUTS.map(([k, v]) => (
           <div key={k}>
             <span>{v}</span>
             <kbd>{k}</kbd>

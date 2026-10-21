@@ -1,7 +1,7 @@
 // The state store: what must survive, unlike the mail index (../db.ts), which is a
 // cache of the IMAP server. Accounts, sessions, settings, label names and colours,
 // trusted senders, the instance's own settings with a record of their changes, and each
-// mailbox's address book. SQLite in DATA_DIR by default; PostgreSQL or MySQL/MariaDB
+// mailbox's address book and calendars. SQLite in DATA_DIR by default; PostgreSQL or MySQL/MariaDB
 // when DATABASE_URL says so. One schema and one set of queries (Kysely) for all three.
 import fs from "node:fs";
 import path from "node:path";
@@ -113,6 +113,36 @@ export interface ContactEmailTable {
   address: string;
 }
 
+export interface CalendarTable {
+  id: Generated<number>;
+  account_id: number;
+  name: string;
+  color: string;
+  position: number;
+  visible: Generated<number>;
+  /** The account id, on the mailbox's own calendar; null on the others. */
+  primary_of: number | null;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface EventTable {
+  id: Generated<number>;
+  account_id: number;
+  calendar_id: number;
+  uid: string;
+  title: string;
+  search: string;
+  /** The whole iCalendar object for this UID: the event, any changed occurrences, its time zones. */
+  ics: string;
+  /** UTC milliseconds; an all-day or floating event's are its local times read as UTC. */
+  start_at: number;
+  end_at: number;
+  all_day: number;
+  created_at: number;
+  updated_at: number;
+}
+
 export interface StateSchema {
   accounts: AccountTable;
   sessions: SessionTable;
@@ -125,12 +155,14 @@ export interface StateSchema {
   contact_emails: ContactEmailTable;
   contact_books: ContactBookTable;
   contact_deletions: ContactDeletionTable;
+  calendars: CalendarTable;
+  events: EventTable;
 }
 
 /** In dependency order, for copying from one store to another. */
 export const STATE_TABLES = [
   "accounts", "sessions", "session_accounts", "labels", "trusted_senders", "instance_settings", "admin_log",
-  "contact_books", "contacts", "contact_emails", "contact_deletions",
+  "contact_books", "contacts", "contact_emails", "contact_deletions", "calendars", "events",
 ] as const;
 
 export type Dialect = "sqlite" | "postgres" | "mysql";

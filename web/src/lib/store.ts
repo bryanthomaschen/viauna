@@ -1,5 +1,6 @@
 // Minimal external stores (no state library needed for this little shared state).
 import { useCallback, useRef, useSyncExternalStore } from "react";
+import type { CalendarView } from "./router";
 
 function shallowEqual(a: unknown, b: unknown): boolean {
   if (Object.is(a, b)) return true;
@@ -74,6 +75,10 @@ export interface Prefs {
   shortcuts: boolean;
   notifications: boolean;
   sidebarCollapsed: boolean;
+  /** The calendar's view when its address doesn't say; null until one is picked. */
+  calendarView: CalendarView | null;
+  calendarWeekends: boolean;
+  calendarWeekNumbers: boolean;
 }
 
 export const prefs = createStore<Prefs>({
@@ -84,6 +89,9 @@ export const prefs = createStore<Prefs>({
   shortcuts: false,
   notifications: false,
   sidebarCollapsed: false,
+  calendarView: null,
+  calendarWeekends: true,
+  calendarWeekNumbers: false,
   ...readLocal<Partial<Prefs>>("viauna.prefs", {}),
 });
 prefs.subscribe(() => writeLocal("viauna.prefs", prefs.get()));

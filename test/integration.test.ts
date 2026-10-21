@@ -310,6 +310,51 @@ describe.skipIf(!enabled)("against a real IMAP server", { timeout: 30_000 }, () 
     expect((await call("DELETE", `/api/u/0/contacts/${created.json.contact.id}`)).json).toEqual({ ok: true });
   });
 
+  it("keeps calendars: events in the reader's zone, moved and undone, other pages told, and turned off", async () => {
+    expect((await call("GET", "/api/config")).json.calendar).toBe(true);
+    const own = (await call("GET", "/api/u/0/calendar/calendars")).json.calendars;
+    expect(own).toEqual([expect.objectContaining({ name: "Ivy Tester", primary: true })]);
+    const work = (await call("POST", "/api/u/0/calendar/calendars", { name: "Work" })).json.calendar;
+
+    // Another page, listening for changes.
+    const res = await app.request("/api/events", { headers: { Cookie: cookie } });
+    const reader = res.body!.getReader();
+    let text = "";
+    const pump = (async () => {
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) return;
+        text += new TextDecoder().decode(value);
+      }
+    })();
+    await until(async () => text.includes("event: ready"));
+
+    const sg = "zone=Asia%2FSingapore";
+    const made = await call("POST", `/api/u/0/calendar/events?${sg}`, { calendarId: work.id, title: "Review", allDay: false, start: "2026-11-02T09:00", end: "2026-11-02T10:00", zone: "Asia/Singapore" });
+    expect(made.json.event).toMatchObject({ title: "Review", start: "2026-11-02T09:00", calendarId: work.id });
+    await until(async () => text.includes("event: calendar"));
+    // Read from London, the same event is at 01:00 there.
+    const london = (await call("GET", "/api/u/0/calendar/events?from=2026-11-02&to=2026-11-03&zone=Europe%2FLondon")).json.events;
+    expect(london).toEqual([expect.objectContaining({ title: "Review", start: "2026-11-02T01:00:00.000Z" })]);
+
+    const moved = await call("PATCH", `/api/u/0/calendar/events/${made.json.event.id}?${sg}`, { start: "2026-11-02T11:00", end: "2026-11-02T12:00" });
+    expect(moved.json.event).toMatchObject({ start: "2026-11-02T11:00", title: "Review" });
+    expect((await call("POST", "/api/u/0/calendar/undo", { token: moved.json.undo })).json).toEqual({ ok: true });
+    expect((await call("GET", `/api/u/0/calendar/events/${made.json.event.id}?${sg}`)).json.event).toMatchObject({ start: "2026-11-02T09:00" });
+    expect((await call("GET", `/api/u/0/calendar/events/search?q=review&${sg}`)).json.events).toHaveLength(1);
+    expect((await call("GET", "/api/u/0/calendar/events?from=2026-11-02&to=2026-11-03&zone=Mars%2FBase")).status).toBe(400);
+    await reader.cancel();
+    await pump.catch(() => {});
+
+    const { COMMAND_LINE, changeSettings } = await import("../server/instance.ts");
+    await changeSettings({ calendar: false }, COMMAND_LINE);
+    expect((await call("GET", "/api/config")).json.calendar).toBe(false);
+    expect((await call("GET", "/api/u/0/calendar/calendars")).status).toBe(404);
+    await changeSettings({ calendar: null }, COMMAND_LINE);
+    expect((await call("DELETE", `/api/u/0/calendar/calendars/${work.id}`)).json).toEqual({ ok: true });
+    expect((await call("GET", `/api/u/0/calendar/events/search?q=review&${sg}`)).json.events).toEqual([]);
+  });
+
   it.skipIf(!process.env.VIAUNA_TEST_CARDDAV)("syncs contacts with the CardDAV server as the mailbox", async () => {
     const created = await call("POST", "/api/u/0/contacts", { firstName: "Mo", emails: [{ address: "mo@example.net" }] });
     expect(created.status).toBe(200);

@@ -3,6 +3,7 @@ import { ArrowLeft, ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
 import { ui, useAccount } from "../lib/account";
 import { api } from "../lib/api";
+import { browserZone, zoneOffset } from "../lib/calendar";
 import { useConfig } from "../lib/config";
 import { navigate, usePath } from "../lib/router";
 import { type Density, type Theme, prefs, toast } from "../lib/store";
@@ -12,12 +13,16 @@ import { EditorArea, FormatBar, useMailEditor } from "./Editor";
 import { MOD_KEY } from "./CommandMenu";
 import { FiltersTab, VacationSetting } from "./Filters";
 
-type Tab = "general" | "accounts" | "labels" | "folders" | "filters";
+type Tab = "general" | "accounts" | "labels" | "folders" | "filters" | "calendar";
 
 export function SettingsView() {
   const acct = useAccount();
   const config = useConfig().data;
-  const tabs: Tab[] = ["general", "accounts", "labels", "folders", ...(config?.filters ? (["filters"] as Tab[]) : [])];
+  const tabs: Tab[] = [
+    "general", "accounts", "labels", "folders",
+    ...(config?.filters ? (["filters"] as Tab[]) : []),
+    ...(config?.calendar ? (["calendar"] as Tab[]) : []),
+  ];
   // The tab is in the address (?tab=filters), so a reload, Back or the command menu lands on it.
   const asked = new URLSearchParams(usePath().split("?")[1] ?? "").get("tab") as Tab | null;
   const tab: Tab = asked && tabs.includes(asked) ? asked : "general";
@@ -31,7 +36,7 @@ export function SettingsView() {
       <div className="settings-tabs" role="tablist">
         {tabs.map((t) => (
           <button key={t} type="button" role="tab" aria-selected={tab === t} className={tab === t ? "on" : ""} onClick={() => setTab(t)}>
-            {{ general: "General", accounts: "Accounts", labels: "Labels", folders: "Folders", filters: "Filters" }[t]}
+            {{ general: "General", accounts: "Accounts", labels: "Labels", folders: "Folders", filters: "Filters", calendar: "Calendar" }[t]}
           </button>
         ))}
       </div>
@@ -41,6 +46,7 @@ export function SettingsView() {
         {tab === "labels" && <Labels />}
         {tab === "folders" && <Folders />}
         {tab === "filters" && <FiltersTab />}
+        {tab === "calendar" && <CalendarSettings />}
       </div>
     </>
   );
@@ -63,6 +69,64 @@ function useSave() {
       toast((err as Error).message, { error: true });
     }
   };
+}
+
+/** The zones the browser knows, for the time-zone list. */
+const ZONES: string[] = (() => {
+  try {
+    return (Intl as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf?.("timeZone") ?? [];
+  } catch {
+    return [];
+  }
+})();
+
+function CalendarSettings() {
+  const acct = useAccount();
+  const save = useSave();
+  const p = prefs.use();
+  const s = acct.settings;
+  if (!s) return <div className="empty"><div className="spinner lg" /></div>;
+  const device = browserZone();
+  const zones = s.timeZone && !ZONES.includes(s.timeZone) ? [s.timeZone, ...ZONES] : ZONES;
+  return (
+    <>
+      <div className="setting">
+        <div className="name">Time zone<small>The calendar shows times in it, wherever you open it.</small></div>
+        <div className="options">
+          <select value={s.timeZone} aria-label="Time zone" onChange={(e) => void save({ timeZone: e.target.value })}>
+            <option value="">This device's ({device.replace(/_/g, " ")}, {zoneOffset(device)})</option>
+            {zones.map((z) => <option key={z} value={z}>{z.replace(/_/g, " ")} ({zoneOffset(z)})</option>)}
+          </select>
+        </div>
+      </div>
+      <div className="setting">
+        <div className="name">Start of the week</div>
+        <div className="options">
+          <select value={s.weekStart} aria-label="Start of the week" onChange={(e) => void save({ weekStart: e.target.value as Settings["weekStart"] })}>
+            <option value="auto">As usual for your language</option>
+            <option value="sunday">Sunday</option>
+            <option value="monday">Monday</option>
+            <option value="saturday">Saturday</option>
+          </select>
+        </div>
+      </div>
+      <div className="setting">
+        <div className="name">Default event length<small>For a new event, and a click on the calendar.</small></div>
+        <div className="options">
+          <select value={s.eventMinutes} aria-label="Default event length" onChange={(e) => void save({ eventMinutes: Number(e.target.value) as Settings["eventMinutes"] })}>
+            {[15, 30, 45, 60, 90, 120].map((m) => <option key={m} value={m}>{m < 60 ? `${m} minutes` : m === 60 ? "1 hour" : `${m / 60} hours`}</option>)}
+          </select>
+        </div>
+      </div>
+      <div className="setting">
+        <div className="name">View<small>In this browser.</small></div>
+        <div className="options">
+          <label><input type="checkbox" checked={p.calendarWeekends} onChange={(e) => prefs.set((x) => ({ ...x, calendarWeekends: e.target.checked }))} /> Show weekends</label>
+          <label><input type="checkbox" checked={p.calendarWeekNumbers} onChange={(e) => prefs.set((x) => ({ ...x, calendarWeekNumbers: e.target.checked }))} /> Show week numbers</label>
+        </div>
+      </div>
+    </>
+  );
 }
 
 function General() {

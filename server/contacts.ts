@@ -41,12 +41,12 @@ const ADDRESS = /^[^\s@]+@[^\s@]+$/;
 const MAX_IMPORT = 10_000;
 
 /** A LIKE pattern for `text` anywhere, with "!" as the escape (the same on every engine). */
-function contains(text: string): string {
+export function contains(text: string): string {
   return `%${text.replace(/[!%_]/g, (c) => `!${c}`)}%`;
 }
 
 /** Lower-cased, and with accents gone, so "Élodie" sorts with "elodie". */
-function fold(text: string): string {
+export function fold(text: string): string {
   return text.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase();
 }
 

@@ -161,6 +161,52 @@ export function migrations(dialect: Dialect): MigrationProvider {
           .execute();
       },
     },
+
+    // 0.6: calendars. Each event is kept whole, as the iCalendar object for its UID (the
+    // event and any changed occurrences), with its title and a lower-cased text to search,
+    // and when it starts and ends in UTC milliseconds to find the ones in a range. An
+    // all-day or floating event's times are taken as UTC there; queries allow a day either
+    // side, and the exact times are worked out in the reader's time zone.
+    "0005_calendars": {
+      async up(db: Kysely<any>) {
+        await table(db, "calendars")
+          .addColumn("id", serial, serialKey)
+          .addColumn("account_id", "integer", (c) => c.notNull())
+          .addColumn("name", "varchar(255)", (c) => c.notNull())
+          .addColumn("color", "varchar(32)", (c) => c.notNull())
+          .addColumn("position", "integer", (c) => c.notNull())
+          .addColumn("visible", "integer", (c) => c.notNull().defaultTo(1))
+          // The mailbox's own calendar, made on its first visit, has its account id here and
+          // can't be deleted. Unique, so two pages opening at once can't make two; every
+          // engine lets other calendars share NULL.
+          .addColumn("primary_of", "integer")
+          .addColumn("created_at", "bigint", (c) => c.notNull())
+          .addColumn("updated_at", "bigint", (c) => c.notNull())
+          .addUniqueConstraint("calendars_primary", ["primary_of"])
+          .addForeignKeyConstraint("calendars_account", ["account_id"], "accounts", ["id"], (fk) => fk.onDelete("cascade"))
+          .execute();
+        await db.schema.createIndex("calendars_account").on("calendars").columns(["account_id", "position"]).execute();
+
+        await table(db, "events")
+          .addColumn("id", serial, serialKey)
+          .addColumn("account_id", "integer", (c) => c.notNull())
+          .addColumn("calendar_id", "integer", (c) => c.notNull())
+          .addColumn("uid", "varchar(255)", (c) => c.notNull())
+          .addColumn("title", "varchar(500)", (c) => c.notNull())
+          .addColumn("search", "text", (c) => c.notNull())
+          .addColumn("ics", dialect === "mysql" ? sql`mediumtext` : "text", (c) => c.notNull())
+          .addColumn("start_at", "bigint", (c) => c.notNull())
+          .addColumn("end_at", "bigint", (c) => c.notNull())
+          .addColumn("all_day", "integer", (c) => c.notNull())
+          .addColumn("created_at", "bigint", (c) => c.notNull())
+          .addColumn("updated_at", "bigint", (c) => c.notNull())
+          .addUniqueConstraint("events_uid", ["calendar_id", "uid"])
+          .addForeignKeyConstraint("events_calendar", ["calendar_id"], "calendars", ["id"], (fk) => fk.onDelete("cascade"))
+          .addForeignKeyConstraint("events_account", ["account_id"], "accounts", ["id"], (fk) => fk.onDelete("cascade"))
+          .execute();
+        await db.schema.createIndex("events_range").on("events").columns(["account_id", "start_at"]).execute();
+      },
+    },
   };
   return { getMigrations: async () => all };
 }

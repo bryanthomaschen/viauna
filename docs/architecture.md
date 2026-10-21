@@ -25,6 +25,8 @@ server/                Node (TypeScript, Hono)
   contacts-sync.ts     keeping contacts in step with a CardDAV server
   carddav.ts           a small CardDAV client: discovery, sync-collection, multiget, If-Match
   vcard.ts             reading and writing vCard (2.1, 3.0, 4.0) without losing anything
+  calendar.ts          calendars and events: storage, ranges in the reader's zone, search, undo
+  icalendar.ts         events as iCalendar (ical.js) without losing anything; times and zones (Temporal)
   filters.ts           filters and the vacation responder: checking, loading, saving
   sieve.ts             them as a Sieve script, and reading back the script Viauna wrote
   managesieve.ts       a ManageSieve client (STARTTLS, PLAIN, scripts)
@@ -64,7 +66,9 @@ Two stores, split by whether the data can be fetched again:
   change, and contacts. A contact is kept whole, as its vCard, and Viauna rewrites only
   the fields it edits, so whatever another app stored in it (a photo, a postal address,
   its own fields) survives; its name, a search text and its addresses sit beside it,
-  lower-cased by Viauna, since the engines compare and sort text differently. SQLite in `DATA_DIR/state.db` by default, or PostgreSQL or
+  lower-cased by Viauna, since the engines compare and sort text differently. Calendars
+  are kept the same way: each event whole, as its iCalendar object, with its title, a
+  search text and its start and end in UTC beside it. SQLite in `DATA_DIR/state.db` by default, or PostgreSQL or
   MySQL/MariaDB through `DATABASE_URL`, with one schema and one set of queries
   ([Kysely](https://kysely.dev)). Engines differ only in auto-increment ids, the binary
   type, and MySQL's table options (utf8mb4 with binary collation, so comparisons are
@@ -169,6 +173,7 @@ not built in.
 | Accounts, sessions, settings | SQLite in `DATA_DIR` | PostgreSQL, MySQL/MariaDB | — | built |
 | Password change | Off | Link to the mail server's own page; LDAP | Webhook, command | built; no vendor drivers yet |
 | Contacts | Viauna's database, vCard import/export | CardDAV sync, any server | — | built |
+| Calendars | Viauna's database, kept as iCalendar | — | — | being built |
 | Filters, vacation responder | On, kept on the mail server over ManageSieve | — | — | built |
 
 The database is chosen by `DATABASE_URL`, not the admin page, because the settings

@@ -169,7 +169,7 @@ interface Common<K extends string, V extends SettingValue> {
 }
 
 export type SettingDef =
-  | (Common<"allowCustomServers" | "contacts" | "contactsSync" | "filters" | "vacation" | "filterForwarding", boolean> & { type: "boolean" })
+  | (Common<"allowCustomServers" | "contacts" | "contactsSync" | "calendar" | "filters" | "vacation" | "filterForwarding", boolean> & { type: "boolean" })
   | (Common<"sessionDays" | "maxAccounts" | "maxUploadMb" | "cacheMb", number> & { type: "integer"; min: number; max: number; unit: string })
   | (Common<"appName", string> & { type: "text"; max: number; required?: boolean })
   | (Common<"admins" | "allowedDomains", string[]> & { type: "list"; item: "address" | "domain" })
@@ -183,6 +183,7 @@ export interface SettingValues {
   allowCustomServers: boolean;
   contacts: boolean;
   contactsSync: boolean;
+  calendar: boolean;
   filters: boolean;
   vacation: boolean;
   filterForwarding: boolean;
@@ -220,6 +221,11 @@ export const SETTINGS: readonly SettingDef[] = [
     key: "contactsSync", env: "CONTACTS_SYNC", type: "boolean", default: true,
     section: "Features", label: "Contacts sync",
     help: "Keep each mailbox's contacts in step with your CardDAV server (CARDDAV_URL, set in the environment), signed in as the mailbox.",
+  },
+  {
+    key: "calendar", env: "CALENDAR", type: "boolean", default: true,
+    section: "Features", label: "Calendar",
+    help: "Each mailbox's calendars, kept by Viauna in standard iCalendar.",
   },
   {
     key: "filters", env: "FILTERS", type: "boolean", default: true,
