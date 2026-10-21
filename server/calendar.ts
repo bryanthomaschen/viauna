@@ -13,20 +13,36 @@ import {
   DATE,
   type EventFields,
   WALL,
-  applyFields,
   eventTimes,
   eventUid,
+  fieldsOf,
   instantIn,
   isZone,
   masterEvent,
-  msOf,
   newEvent,
-  ownZone,
+  ownZones,
   parseCalendar,
-  readFields,
   serialize,
   wallToMs,
 } from "./icalendar.ts";
+import {
+  LIMITS as RULE_LIMITS,
+  type Occurrence,
+  type RepeatRule,
+  type Scope,
+  WEEKDAYS,
+  type Weekday,
+  deleteFrom,
+  editEvent,
+  isRecurring,
+  occurrenceAt,
+  occurrences,
+  readRule,
+  representative,
+  sameRule,
+  seriesSpan,
+  writeRule,
+} from "./recurrence.ts";
 import { type EventTable, isUniqueViolation, orIgnore, state } from "./state/db.ts";
 
 export class CalendarError extends Error {
@@ -66,10 +82,13 @@ export interface CalendarInfo {
   primary: boolean;
 }
 
-/** What the calendar grid shows of an event. Timed: ISO instants. All-day: dates, end exclusive. */
+/** What the calendar grid shows of an event, or one occurrence of it. Timed: ISO instants. All-day: dates, end exclusive. */
 export interface EventSummary {
   id: number;
   calendarId: number;
+  /** For an event that repeats: which occurrence (its RECURRENCE-ID as written). */
+  occurrence: string | null;
+  recurring: boolean;
   title: string;
   allDay: boolean;
   start: string;
@@ -83,8 +102,14 @@ export interface EventSummary {
 export interface EventDetail extends EventFields {
   id: number;
   calendarId: number;
-  /** The zone the event was written in, when it isn't the reader's. */
+  occurrence: string | null;
+  recurring: boolean;
+  /** How the series repeats; null if it doesn't. */
+  repeat: RepeatRule | null;
+  /** The zone the event was made in, when it isn't the reader's. */
   eventZone: string | null;
+  /** The zone its end was made in, when that's another. */
+  eventEndZone: string | null;
   created: number;
   updated: number;
 }
@@ -196,6 +221,43 @@ function str(v: unknown, max: number, what: string): string {
   return s;
 }
 
+/** Checks a repeat rule the page sent, and puts it in shape. */
+export function cleanRule(input: unknown, startDate: string): RepeatRule | null {
+  if (input === null || input === undefined || input === false) return null;
+  const o = input as Record<string, unknown>;
+  if (typeof o.custom === "string") {
+    if (o.custom.length > RULE_LIMITS.ruleText) throw new CalendarError("That repeat rule is too long.");
+    return { freq: "daily", interval: 1, custom: o.custom };
+  }
+  const freq = o.freq;
+  if (freq !== "daily" && freq !== "weekly" && freq !== "monthly" && freq !== "yearly") throw new CalendarError("Say how often the event repeats.");
+  const interval = o.interval === undefined ? 1 : Number(o.interval);
+  if (!Number.isInteger(interval) || interval < 1 || interval > RULE_LIMITS.interval) throw new CalendarError(`Repeat every 1 to ${RULE_LIMITS.interval}.`);
+  const rule: RepeatRule = { freq, interval };
+  if (freq === "weekly" && Array.isArray(o.days) && o.days.length) {
+    if (o.days.some((d) => !WEEKDAYS.includes(d as Weekday))) throw new CalendarError("Pick the days of the week it repeats on.");
+    rule.days = WEEKDAYS.filter((d) => (o.days as string[]).includes(d));
+  }
+  if (freq === "monthly" && o.nth) {
+    const n = o.nth as Record<string, unknown>;
+    const week = Number(n.week);
+    if (!(week === -1 || (Number.isInteger(week) && week >= 1 && week <= 4)) || !WEEKDAYS.includes(n.day as Weekday)) {
+      throw new CalendarError("Pick which weekday of the month it repeats on.");
+    }
+    rule.nth = { week, day: n.day as Weekday };
+  }
+  if (o.count !== undefined && o.count !== null) {
+    const count = Number(o.count);
+    if (!Number.isInteger(count) || count < 1 || count > RULE_LIMITS.count) throw new CalendarError(`Repeat 1 to ${RULE_LIMITS.count.toLocaleString("en")} times.`);
+    rule.count = count;
+  } else if (o.until !== undefined && o.until !== null) {
+    if (typeof o.until !== "string" || !DATE.test(o.until) || !validDate(o.until)) throw new CalendarError("Give the date the event stops repeating.");
+    if (o.until < startDate) throw new CalendarError("An event can't stop repeating before it starts.");
+    rule.until = o.until;
+  }
+  return rule;
+}
+
 /** Checks what the page sent, and puts it in shape. */
 export function cleanFields(input: unknown): EventFields {
   const o = (input ?? {}) as Record<string, unknown>;
@@ -203,13 +265,14 @@ export function cleanFields(input: unknown): EventFields {
   const start = typeof o.start === "string" ? o.start : "";
   const end = typeof o.end === "string" ? o.end : "";
   const zone = allDay ? null : o.zone;
+  const endZone = allDay || o.endZone === null || o.endZone === undefined || o.endZone === o.zone ? null : o.endZone;
   if (allDay) {
     if (!DATE.test(start) || !DATE.test(end) || !validDate(start) || !validDate(end)) throw new CalendarError("Give the event a start and an end date.");
     if (end <= start) throw new CalendarError("An event can't end before it starts.");
   } else {
-    if (!isZone(zone)) throw new CalendarError("Unknown time zone.");
+    if (!isZone(zone) || (endZone !== null && !isZone(endZone))) throw new CalendarError("Unknown time zone.");
     if (!WALL.test(start) || !WALL.test(end) || !validWall(start) || !validWall(end)) throw new CalendarError("Give the event a start and an end time.");
-    if (wallToMs(end, zone) < wallToMs(start, zone)) throw new CalendarError("An event can't end before it starts.");
+    if (wallToMs(end, (endZone as string | null) ?? zone) < wallToMs(start, zone)) throw new CalendarError("An event can't end before it starts.");
   }
   const video = str(o.video, LIMITS.video, "A video call link").trim();
   if (video && !/^https?:\/\/[^\s]+$/i.test(video)) throw new CalendarError("A video call link must start with https://.");
@@ -220,6 +283,7 @@ export function cleanFields(input: unknown): EventFields {
     start,
     end,
     zone: allDay ? null : (zone as string),
+    endZone: endZone as string | null,
     location: str(o.location, LIMITS.location, "The location").trim(),
     description: str(o.description, LIMITS.description, "The description").trim(),
     busy: o.busy !== false,
@@ -239,7 +303,7 @@ function validWall(wall: string): boolean {
 
 type Root = ReturnType<typeof parseCalendar>;
 
-/** The columns kept beside the iCalendar object. */
+/** The columns kept beside the iCalendar object. A series that never ends ends at NEVER. */
 function indexed(root: Root) {
   const event = masterEvent(root);
   const times = event && eventTimes(event, root);
@@ -247,40 +311,33 @@ function indexed(root: Root) {
   const title = String(event.getFirstPropertyValue("summary") ?? "").slice(0, LIMITS.title);
   const location = String(event.getFirstPropertyValue("location") ?? "");
   const description = String(event.getFirstPropertyValue("description") ?? "");
+  const span = seriesSpan(root);
   return {
     title,
     search: fold([title, location, description].join(" ")),
-    start_at: msOf(times.start),
-    end_at: msOf(times.end),
+    start_at: span.start,
+    end_at: span.end,
     all_day: times.start.kind === "date" ? 1 : 0,
   };
 }
 
-function summary(row: { id: number; calendar_id: number; ics: string }, zone: string, from?: number, to?: number): EventSummary | null {
-  let root: Root;
+function parsed(ics: string): Root | null {
   try {
-    root = parseCalendar(row.ics);
+    return parseCalendar(ics);
   } catch {
     return null;
   }
-  const event = masterEvent(root);
-  const times = event && eventTimes(event, root);
-  const f = readFields(root, zone);
-  if (!event || !times || !f) return null;
-  let start: string;
-  let end: string;
-  if (f.allDay) {
-    start = f.start;
-    end = f.end;
-    if (from !== undefined && to !== undefined && !(msOf(times.start) < to && msOf(times.end) > from)) return null;
-  } else {
-    const s = instantIn(times.start, zone);
-    const e = instantIn(times.end, zone);
-    if (from !== undefined && to !== undefined && !(s < to && (e > from || (e === s && s >= from)))) return null;
-    start = new Date(s).toISOString();
-    end = new Date(e).toISOString();
-  }
-  return { id: row.id, calendarId: row.calendar_id, title: f.title, allDay: f.allDay, start, end, color: f.color, busy: f.busy, location: f.location, video: !!f.video };
+}
+
+/** One occurrence as the grid shows it, in `zone`. */
+function summaryOf(row: { id: number; calendar_id: number }, root: Root, occ: Occurrence, zone: string): EventSummary {
+  const f = fieldsOf(occ.event, occ, zone);
+  const start = occ.start.kind === "date" ? occ.start.date : new Date(instantIn(occ.start, zone)).toISOString();
+  const end = occ.end.kind === "date" ? occ.end.date : new Date(instantIn(occ.end, zone)).toISOString();
+  return {
+    id: row.id, calendarId: row.calendar_id, occurrence: occ.key, recurring: isRecurring(masterEvent(root)!),
+    title: f.title, allDay: f.allDay, start, end, color: f.color, busy: f.busy, location: f.location, video: !!f.video,
+  };
 }
 
 function checkZone(zone: unknown): string {
@@ -290,7 +347,8 @@ function checkZone(zone: unknown): string {
 
 /**
  * The events from one date up to (not including) another, as the calendar shows them
- * in `zone`. An all-day event is on its dates wherever you are.
+ * in `zone`: each occurrence of those that repeat. An all-day event is on its dates
+ * wherever you are.
  */
 export async function eventsBetween(accountId: number, from: string, to: string, zone: string): Promise<EventSummary[]> {
   checkZone(zone);
@@ -300,20 +358,22 @@ export async function eventsBetween(accountId: number, from: string, to: string,
   if (toMs - fromMs > LIMITS.rangeDays * DAY) throw new CalendarError(`Ask for at most ${LIMITS.rangeDays} days at a time.`);
   const rows = await state()
     .selectFrom("events")
-    .select(["id", "calendar_id", "ics", "all_day"])
+    .select(["id", "calendar_id", "ics"])
     .where("account_id", "=", accountId)
     .where("start_at", "<", toMs + DAY)
     .where("end_at", ">", fromMs - DAY)
     .execute();
-  const utcFrom = Date.parse(`${from}T00:00:00Z`);
-  const utcTo = Date.parse(`${to}T00:00:00Z`);
-  return rows
-    .map((r) => (r.all_day ? summary(r, zone, utcFrom, utcTo) : summary(r, zone, fromMs, toMs)))
-    .filter((e): e is EventSummary => e !== null)
-    .sort((a, b) => a.start.localeCompare(b.start));
+  const window = { fromMs, toMs, fromDate: from, toDate: to };
+  const out: EventSummary[] = [];
+  for (const row of rows) {
+    const root = parsed(row.ics);
+    if (!root) continue;
+    for (const occ of occurrences(root, zone, window)) out.push(summaryOf(row, root, occ, zone));
+  }
+  return out.sort((a, b) => a.start.localeCompare(b.start));
 }
 
-/** Events whose title, place or description has `q` in it, newest first. */
+/** Events whose title, place or description has `q` in it, newest first; one that repeats, at its next occurrence. */
 export async function searchEvents(accountId: number, q: string, zone: string): Promise<EventSummary[]> {
   checkZone(zone);
   const term = fold(q.trim()).slice(0, 200);
@@ -326,7 +386,14 @@ export async function searchEvents(accountId: number, q: string, zone: string): 
     .orderBy("start_at", "desc")
     .limit(LIMITS.results)
     .execute();
-  return rows.map((r) => summary(r, zone)).filter((e): e is EventSummary => e !== null);
+  const now = Date.now();
+  const out: EventSummary[] = [];
+  for (const row of rows) {
+    const root = parsed(row.ics);
+    const occ = root && representative(root, now, zone);
+    if (root && occ) out.push(summaryOf(row, root, occ, zone));
+  }
+  return out.sort((a, b) => b.start.localeCompare(a.start));
 }
 
 async function loadEvent(accountId: number, id: number): Promise<EventRow> {
@@ -335,22 +402,52 @@ async function loadEvent(accountId: number, id: number): Promise<EventRow> {
   return row;
 }
 
-function detail(row: EventRow, zone: string): EventDetail {
-  const root = parseCalendar(row.ics);
-  const f = readFields(root, zone);
-  if (!f) throw new CalendarError("That isn't an event Viauna can read.");
-  const own = ownZone(root);
-  return { ...f, id: row.id, calendarId: row.calendar_id, eventZone: own && own !== zone ? own : null, created: row.created_at, updated: row.updated_at };
+function cleanKey(input: unknown): string | null {
+  if (input === undefined || input === null || input === "") return null;
+  if (typeof input !== "string" || !/^\d{8}(T\d{6}Z?)?$/.test(input)) throw new CalendarError("Unknown occurrence.");
+  return input;
 }
 
-export async function getEvent(accountId: number, id: number, zone: string): Promise<EventDetail> {
-  return detail(await loadEvent(accountId, id), checkZone(zone));
+function cleanScope(input: unknown): Scope {
+  if (input === undefined) return "all";
+  if (input === "this" || input === "following" || input === "all") return input;
+  throw new CalendarError("Say whether to change this event, this and following events, or all events.");
+}
+
+/** An event, or one occurrence of it, as the editor shows it, with its times in `zone`. */
+function detail(row: EventRow, zone: string, key: string | null = null): EventDetail {
+  const root = parseCalendar(row.ics);
+  const master = masterEvent(root);
+  const occ = occurrenceAt(root, key, zone);
+  if (!master || !occ) throw new CalendarError(key ? "That occurrence isn't part of this event." : "That isn't an event Viauna can read.", 404);
+  const f = fieldsOf(occ.event, occ, zone);
+  const own = ownZones(occ.event, root);
+  const recurring = isRecurring(master);
+  return {
+    ...f,
+    id: row.id,
+    calendarId: row.calendar_id,
+    occurrence: recurring ? occ.key : null,
+    recurring,
+    repeat: readRule(master, root, zone),
+    eventZone: own.start && own.start !== zone ? own.start : null,
+    eventEndZone: own.end && own.end !== (own.start ?? zone) ? own.end : null,
+    created: row.created_at,
+    updated: row.updated_at,
+  };
+}
+
+export async function getEvent(accountId: number, id: number, zone: string, occurrence?: string): Promise<EventDetail> {
+  return detail(await loadEvent(accountId, id), checkZone(zone), cleanKey(occurrence));
 }
 
 export async function createEvent(accountId: number, calendarId: number, input: unknown, zone: string): Promise<EventDetail> {
   checkZone(zone);
   await ownCalendar(accountId, calendarId);
-  const root = newEvent(cleanFields(input), crypto.randomUUID(), PRODID);
+  const fields = cleanFields(input);
+  const repeat = cleanRule((input as Record<string, unknown> | null)?.repeat, fields.start.slice(0, 10));
+  const root = newEvent(fields, crypto.randomUUID(), PRODID);
+  if (repeat) writeRule(masterEvent(root)!, root, repeat);
   const now = Date.now();
   const uid = eventUid(root)!;
   await state()
@@ -366,17 +463,18 @@ export async function createEvent(accountId: number, calendarId: number, input: 
 
 interface UndoEntry {
   accountId: number;
-  /** The event as it was before; for a deletion, the whole row to put back. */
-  row: EventRow;
-  deleted: boolean;
+  /** Rows to put back as they were (changed or deleted). */
+  restore: EventRow[];
+  /** Rows a change added (the second half of a split series), to remove. */
+  remove: number[];
   expires: number;
 }
 
 const undoLog = new Map<string, UndoEntry>();
 
-function remember(row: EventRow, deleted: boolean): string {
+function remember(accountId: number, restore: EventRow[], remove: number[] = []): string {
   const token = randomToken(16);
-  undoLog.set(token, { accountId: row.account_id, row, deleted, expires: Date.now() + 10 * 60_000 });
+  undoLog.set(token, { accountId, restore, remove, expires: Date.now() + 10 * 60_000 });
   return token;
 }
 
@@ -385,20 +483,20 @@ setInterval(() => {
   for (const [k, v] of undoLog) if (v.expires < now) undoLog.delete(k);
 }, 60_000).unref();
 
-/** Puts an event back as it was before a change or a deletion. */
+/** Puts events back as they were before a change or a deletion. */
 export async function undoChange(accountId: number, token: string): Promise<boolean> {
   const entry = undoLog.get(token);
   if (!entry || entry.accountId !== accountId || entry.expires < Date.now()) return false;
   undoLog.delete(token);
-  const { row } = entry;
   try {
-    if (entry.deleted) {
-      await state().insertInto("events").values(row).execute();
-    } else {
-      const { id, account_id, ...rest } = row;
-      const done = await state().updateTable("events").set(rest).where("account_id", "=", account_id).where("id", "=", id).executeTakeFirst();
-      if (!Number(done.numUpdatedRows)) return false;
-    }
+    await state().transaction().execute(async (trx) => {
+      if (entry.remove.length) await trx.deleteFrom("events").where("account_id", "=", accountId).where("id", "in", entry.remove).execute();
+      for (const row of entry.restore) {
+        const { id, account_id, ...rest } = row;
+        const done = await trx.updateTable("events").set(rest).where("account_id", "=", account_id).where("id", "=", id).executeTakeFirst();
+        if (!Number(done.numUpdatedRows)) await trx.insertInto("events").values(row).execute();
+      }
+    });
   } catch (err) {
     // Its calendar was deleted since, or the same event was added there again.
     if (isUniqueViolation(err) || /foreign key/i.test((err as Error).message)) return false;
@@ -412,38 +510,97 @@ export async function undoChange(accountId: number, token: string): Promise<bool
 
 /**
  * Changes an event: the fields given (the rest stay), and its calendar if `calendarId`
- * is. Times come in `zone`; a timed event keeps the zone it was written in.
+ * is. For one that repeats, `occurrence` names the occurrence it was changed from and
+ * `scope` what changes: this event, this and following events, or all events. Times
+ * come in `zone`, and a timed event keeps the zones it was written in, unless `setZones`
+ * says the fields name the zones to put it in (the editor's choice).
  */
 export async function updateEvent(accountId: number, id: number, input: Record<string, unknown>, zone: string): Promise<{ event: EventDetail; undo: string }> {
   checkZone(zone);
   const row = await loadEvent(accountId, id);
   const root = parseCalendar(row.ics);
-  const current = readFields(root, zone);
-  if (!current) throw new CalendarError("That isn't an event Viauna can read.");
-  // Times come and go in the reader's zone (applyFields keeps the event's own).
-  const merged = { ...current, ...input };
-  merged.zone = merged.allDay ? null : zone;
+  const key = cleanKey(input.occurrence);
+  const scope = cleanScope(input.scope);
+  const current = detail(row, zone, key);
+  const setZones = input.setZones === true;
+  const merged: Record<string, unknown> = { ...current, ...input };
+  if (!setZones) {
+    merged.zone = merged.allDay ? null : zone;
+    merged.endZone = null;
+  }
   const fields = cleanFields(merged);
+  const repeat = "repeat" in input ? cleanRule(input.repeat, fields.start.slice(0, 10)) : current.repeat;
+  if (current.recurring && scope === "this" && !sameRule(repeat, current.repeat)) {
+    throw new CalendarError("How an event repeats changes for this and following events, or all of them.");
+  }
+  if (repeat?.custom && repeat.custom !== current.repeat?.custom) throw new CalendarError("A repeat set in another app can be kept or replaced here, not edited.");
   let calendarId = row.calendar_id;
   if (input.calendarId !== undefined && input.calendarId !== row.calendar_id) {
+    if (current.recurring && scope === "this") throw new CalendarError("One occurrence can't move to another calendar. Move this and following events, or all of them.");
     calendarId = (await ownCalendar(accountId, Number(input.calendarId))).id;
   }
-  applyFields(root, fields);
-  const values = { calendar_id: calendarId, ics: serialize(root), updated_at: Date.now(), ...indexed(root) };
+  let edited: ReturnType<typeof editEvent>;
   try {
-    await state().updateTable("events").set(values).where("account_id", "=", accountId).where("id", "=", id).execute();
+    edited = editEvent(root, key, scope, fields, repeat, zone, { setZones });
+  } catch (err) {
+    if (err instanceof CalendarError) throw err;
+    throw new CalendarError((err as Error).message);
+  }
+  const now = Date.now();
+  // A split leaves the event before the occurrence where it was; what follows is new,
+  // and goes to the calendar asked for.
+  const values = { calendar_id: edited.split ? row.calendar_id : calendarId, ics: serialize(edited.root), updated_at: now, ...indexed(edited.root) };
+  let splitId: number | null = null;
+  try {
+    await state().transaction().execute(async (trx) => {
+      await trx.updateTable("events").set(values).where("account_id", "=", accountId).where("id", "=", id).execute();
+      if (edited.split) {
+        const uid = eventUid(edited.split)!;
+        await trx
+          .insertInto("events")
+          .values({ account_id: accountId, calendar_id: calendarId, uid, ics: serialize(edited.split), created_at: now, updated_at: now, ...indexed(edited.split) })
+          .execute();
+        splitId = (await trx.selectFrom("events").select("id").where("calendar_id", "=", calendarId).where("uid", "=", uid).executeTakeFirstOrThrow()).id;
+      }
+    });
   } catch (err) {
     if (isUniqueViolation(err)) throw new CalendarError("That calendar already has this event.");
     throw err;
   }
-  const undo = remember(row, false);
+  const undo = remember(accountId, [row], splitId === null ? [] : [splitId]);
   changed(accountId);
-  return { event: detail({ ...row, ...values }, zone), undo };
+  // The changed occurrence: in the new series after a split, else where it now is.
+  const shown = splitId !== null
+    ? detail(await loadEvent(accountId, splitId), zone)
+    : detail({ ...row, ...values }, zone, scope === "this" ? key : null);
+  return { event: shown, undo };
 }
 
-export async function deleteEvent(accountId: number, id: number): Promise<string> {
+/**
+ * Deletes an event; for one that repeats, the occurrence `occurrence` alone, it and the
+ * ones after, or all of them, as `scope` says.
+ */
+export async function deleteEvent(accountId: number, id: number, occurrence?: string, scope?: string): Promise<string> {
   const row = await loadEvent(accountId, id);
-  await state().deleteFrom("events").where("account_id", "=", accountId).where("id", "=", id).execute();
+  const key = cleanKey(occurrence);
+  let left: Root | null = null;
+  if (key !== null) {
+    try {
+      left = deleteFrom(parseCalendar(row.ics), key, cleanScope(scope), "UTC");
+    } catch (err) {
+      throw new CalendarError((err as Error).message, 404);
+    }
+  }
+  if (left) {
+    await state()
+      .updateTable("events")
+      .set({ ics: serialize(left), updated_at: Date.now(), ...indexed(left) })
+      .where("account_id", "=", accountId)
+      .where("id", "=", id)
+      .execute();
+  } else {
+    await state().deleteFrom("events").where("account_id", "=", accountId).where("id", "=", id).execute();
+  }
   changed(accountId);
-  return remember(row, true);
+  return remember(accountId, [row]);
 }

@@ -708,7 +708,10 @@ export function createApp() {
   // Before /events/:id, so "search" isn't taken for an id.
   calendar.get("/events/search", async (c) => c.json({ events: await searchEvents(c.get("rt").account.id, c.req.query("q") ?? "", zoneOf(c)) }));
 
-  calendar.get("/events/:id", async (c) => c.json({ event: await getEvent(c.get("rt").account.id, int(c.req.param("id")), zoneOf(c)) }));
+  // ?occurrence=20261021T090000 for one occurrence of an event that repeats.
+  calendar.get("/events/:id", async (c) =>
+    c.json({ event: await getEvent(c.get("rt").account.id, int(c.req.param("id")), zoneOf(c), c.req.query("occurrence")) }),
+  );
 
   calendar.post("/events", async (c) => {
     const b = await body(c);
@@ -717,7 +720,10 @@ export function createApp() {
 
   calendar.patch("/events/:id", async (c) => c.json(await updateEvent(c.get("rt").account.id, int(c.req.param("id")), await body(c), zoneOf(c))));
 
-  calendar.delete("/events/:id", async (c) => c.json({ undo: await deleteEvent(c.get("rt").account.id, int(c.req.param("id"))) }));
+  // ?occurrence=…&scope=this|following|all for an event that repeats.
+  calendar.delete("/events/:id", async (c) =>
+    c.json({ undo: await deleteEvent(c.get("rt").account.id, int(c.req.param("id")), c.req.query("occurrence"), c.req.query("scope")) }),
+  );
 
   calendar.post("/undo", async (c) => {
     const b = await c.req.json().catch(() => ({}));

@@ -58,6 +58,10 @@ Limits built into Viauna. The ones you can change are settings: see
 | Location | 1,000 characters |
 | Description | 20,000 characters |
 | Video call link | 2,000 characters, starting `https://` or `http://` |
+| Repeat every | 1 to 999 days, weeks, months or years |
+| Repeat so many times | 1 to 9,999 |
+| Occurrences worked out | 50,000 from the first |
+| A rule made in another app | 2,000 characters |
 | Events asked for at once | 400 days |
 | Search results | The newest 200 |
 | Undo | 10 minutes, and not after a restart |

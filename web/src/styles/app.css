@@ -514,6 +514,10 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
    tall as its label, so the hour's label is small, and straddles its line. */
 .calendar-grid [data-time$=":15:00"], .calendar-grid [data-time$=":45:00"] { border-top-color: transparent; }
 .calendar-grid .calendar-slot-label { position: relative; top: -6px; margin: 0 8px; font-size: 11px; line-height: 12px; color: var(--text-3); }
+/* A second time zone's hours, beside the calendar's own. */
+.slot-two { display: inline-flex; gap: 8px; white-space: nowrap; }
+.slot-second { color: var(--text-muted); }
+.zone-labels { font-size: 10px; }
 /* Free time isn't solid, as in Google Calendar. */
 .calendar-grid .event-free { opacity: .75; }
 
@@ -565,8 +569,26 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
 .event-times { display: flex; flex-direction: column; gap: 8px; }
 .event-when { display: grid; grid-template-columns: 56px 1fr 120px; align-items: center; gap: 8px; }
 .event-when > span, .event-field > span { color: var(--text-2); font-size: 14px; }
-.event-check { display: flex; align-items: center; gap: 8px; padding-left: 64px; font-size: 14px; }
-.event-zone { padding-left: 64px; font-size: 12px; color: var(--text-3); }
+.event-check { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; padding-left: 64px; font-size: 14px; }
+.event-check label { display: flex; align-items: center; gap: 8px; }
+.event-zone-btn { height: 28px; padding: 0 8px; font-size: 13px; font-weight: 400; gap: 6px; }
+.event-zones { display: flex; flex-direction: column; gap: 8px; padding-left: 64px; }
+.event-zones .event-field { grid-template-columns: 48px 1fr; }
+.event-check-inline { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-2); }
+.custom-repeat { display: flex; flex-direction: column; gap: 10px; margin-left: 88px; padding: 12px; border-radius: 12px; background: var(--surface-2); }
+.custom-row { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.custom-row .text-input { width: auto; height: 36px; }
+.custom-row input[type="number"] { width: 72px; }
+.weekday-row { gap: 6px; }
+.weekday { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border-strong); background: var(--surface); cursor: pointer; font-size: 12px; font-weight: 500; color: var(--text-2); }
+.weekday.on { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.custom-repeat > select.text-input { width: auto; height: 36px; align-self: flex-start; }
+.custom-ends { display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.custom-ends label { display: flex; align-items: center; gap: 8px; }
+.custom-ends .text-input { width: auto; height: 32px; font-size: 13px; }
+.custom-ends input[type="number"] { width: 72px; }
+.scope-options { display: flex; flex-direction: column; gap: 10px; font-size: 15px; }
+.scope-options label { display: flex; align-items: center; gap: 10px; cursor: pointer; }
 .event-field { display: grid; grid-template-columns: 80px 1fr; align-items: center; gap: 8px; }
 .event-field .color-grid { margin-top: 0; grid-template-columns: repeat(13, 24px); }
 .color-select { display: flex; align-items: center; gap: 8px; }
@@ -691,7 +713,8 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
   .calendar-toolbar { padding-left: 8px; gap: 4px; }
   .calendar-title { font-size: 18px; margin: 0 4px; }
   .event-when { grid-template-columns: 48px 1fr 100px; }
-  .event-check, .event-zone { padding-left: 56px; }
+  .event-check, .event-zones { padding-left: 56px; }
+  .custom-repeat { margin-left: 0; }
   .event-field .color-grid { grid-template-columns: repeat(7, 24px); }
   .search-day { flex-direction: column; gap: 0; }
   .search-date { flex-basis: auto; }

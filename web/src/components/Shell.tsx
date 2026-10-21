@@ -27,6 +27,7 @@ const CalendarSidebar = lazy(() => import("./Calendar").then((m) => ({ default: 
 const CalendarMain = lazy(() => import("./Calendar").then((m) => ({ default: m.CalendarMain })));
 const EventDialog = lazy(() => import("./EventDialog").then((m) => ({ default: m.EventDialog })));
 const CalendarDialog = lazy(() => import("./EventDialog").then((m) => ({ default: m.CalendarDialog })));
+const ScopeDialog = lazy(() => import("./EventDialog").then((m) => ({ default: m.ScopeDialog })));
 
 export function Shell({ route, accounts, appName }: { route: Route; accounts: SessionAccount[]; appName: string }) {
   const client = useQueryClient();
@@ -91,6 +92,7 @@ function ShellInner({ route, appName }: { route: Route; appName: string }) {
   const filterDialog = ui.use((s) => s.filterDialog);
   const eventDialog = ui.use((s) => s.eventDialog);
   const calendarDialog = ui.use((s) => s.calendarDialog);
+  const scopeDialog = ui.use((s) => s.scopeDialog);
   const loading = <div className="empty"><div className="spinner lg" /></div>;
   useShortcuts(route);
   useCommandMenuKey();
@@ -140,12 +142,17 @@ function ShellInner({ route, appName }: { route: Route; appName: string }) {
       )}
       {eventDialog && (
         <Suspense fallback={null}>
-          <EventDialog key={eventDialog.id ?? "new"} {...eventDialog} />
+          <EventDialog key={eventDialog.id === undefined ? "new" : `${eventDialog.id}:${eventDialog.occurrence ?? ""}`} {...eventDialog} />
         </Suspense>
       )}
       {calendarDialog && (
         <Suspense fallback={null}>
           <CalendarDialog key={calendarDialog.calendar?.id ?? "new"} {...calendarDialog} />
+        </Suspense>
+      )}
+      {scopeDialog && (
+        <Suspense fallback={null}>
+          <ScopeDialog key={`${scopeDialog.action}:${scopeDialog.ruleChanged}`} />
         </Suspense>
       )}
     </div>

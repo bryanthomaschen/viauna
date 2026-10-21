@@ -41,9 +41,30 @@ name from Settings, or your address). Add more with the **+** next to **My calen
   **Create event**. The title is the subject, and the description has the start of the
   message and a link back to it.
 
-The editor has the title; when it starts and ends, or **All day**; which calendar; where;
-a video call link (Zoom, Google Meet, Teams, Jitsi or any other); a description; **Show
-as** busy or free; and a colour, which is the calendar's unless you pick another.
+The editor has the title; when it starts and ends, or **All day**; its time zone; how it
+repeats; which calendar; where; a video call link (Zoom, Google Meet, Teams, Jitsi or any
+other); a description; **Show as** busy or free; and a colour, which is the calendar's
+unless you pick another.
+
+## Repeating events
+
+**Repeats** offers what Google Calendar does for the event's start date: daily; weekly on
+its weekday; monthly on, say, the third Wednesday (and on the last one, when it's also
+the last in its month); annually on its date; every weekday. **Custom…** sets the rest:
+every so many days, weeks, months or years; which days of the week; for a monthly event,
+its date or its weekday; and whether it ends, on a date or after so many times.
+
+Changing, moving or deleting one occurrence asks which ones you mean:
+
+- **This event**: only this one. It keeps its own changes from then on.
+- **This and following events**: this one and every one after. The series before it is
+  left as it was.
+- **All events**: the whole series. Moving one occurrence an hour or a day moves them
+  all the same way, and a new title reaches every occurrence that had the old one.
+
+A new way of repeating can't be for one occurrence alone, so then **This event** isn't
+offered. An event that repeats by a rule another app set, which Viauna doesn't edit,
+says so; you can keep it or replace it with one of the choices here.
 
 ## Changing events
 
@@ -58,12 +79,19 @@ Drag an event to move it, or drag its bottom edge to change when it ends. Moves 
 
 Times are shown in the time zone chosen in **Settings > Calendar**, or your device's if
 you haven't chosen one. Pick one there to see your calendar in your home time while you
-travel.
+travel. **Second time zone**, there too, shows another zone's hours beside yours in the
+day and week views.
+
+An event can be in a zone of its own: in the editor, click the zone under its times
+and pick one, and the times you type are in that zone. Tick **A different time zone for
+the end** for a flight, which leaves in one zone and lands in another. An event's card
+shows its own times when they're in another zone.
 
 An event made in another time zone (by another app, or by you before you moved) keeps
-it: you see it in your time, and moving it keeps it right in its own. The editor says
-when an event was made in another zone. All-day events are on their dates wherever you
-are. For the details, see [How it works: Calendar](../how-it-works/calendar.md).
+it: you see it in your time, and moving it keeps it right in its own. A repeating event
+keeps its time in its own zone through clock changes: a weekly 09:00 meeting in London is
+at 09:00 London time all year. All-day events are on their dates wherever you are. For
+the details, see [How it works: Calendar](../how-it-works/calendar.md).
 
 ## Searching
 
@@ -73,8 +101,8 @@ click one to open it, or its date to go to that day.
 
 ## Settings
 
-**Settings > Calendar** has the time zone, the first day of the week (or what's usual for
-your language), and how long a new event lasts. These are kept with your mailbox, so
+**Settings > Calendar** has the time zone, a second time zone, the first day of the week
+(or what's usual for your language), and how long a new event lasts. These are kept with your mailbox, so
 every browser you use has them. Weekends and week numbers are kept in each browser.
 
 ## Keyboard

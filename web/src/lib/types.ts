@@ -134,6 +134,8 @@ export interface Settings {
   pageSize: 25 | 50 | 100;
   /** The calendar's time zone; empty: the browser's. */
   timeZone: string;
+  /** A second time zone beside the calendar's times; empty: none. */
+  secondTimeZone: string;
   weekStart: "auto" | "sunday" | "monday" | "saturday";
   /** How long a new event lasts, in minutes. */
   eventMinutes: 15 | 30 | 45 | 60 | 90 | 120;
@@ -315,10 +317,13 @@ export interface CalendarInfo {
   primary: boolean;
 }
 
-/** An event as the grid shows it. Timed: ISO instants. All-day: dates, the end exclusive. */
+/** An event, or one occurrence of it, as the grid shows it. Timed: ISO instants. All-day: dates, the end exclusive. */
 export interface EventSummary {
   id: number;
   calendarId: number;
+  /** For an event that repeats: which occurrence ("20261021T090000"). */
+  occurrence: string | null;
+  recurring: boolean;
   title: string;
   allDay: boolean;
   start: string;
@@ -329,6 +334,21 @@ export interface EventSummary {
   video: boolean;
 }
 
+export type Weekday = "MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU";
+
+/** How an event repeats. A rule another app wrote with parts Viauna doesn't edit comes as `custom`. */
+export interface RepeatRule {
+  freq: "daily" | "weekly" | "monthly" | "yearly";
+  interval: number;
+  days?: Weekday[];
+  nth?: { week: number; day: Weekday };
+  until?: string;
+  count?: number;
+  custom?: string;
+}
+
+export type Scope = "this" | "following" | "all";
+
 /** What the event editor sends: times as wall-clock in `zone` ("2026-10-21T09:00"), or dates. */
 export interface EventInput {
   title: string;
@@ -336,6 +356,9 @@ export interface EventInput {
   start: string;
   end: string;
   zone: string | null;
+  /** The zone `end` is in, when that's another (a flight). */
+  endZone: string | null;
+  repeat: RepeatRule | null;
   location: string;
   description: string;
   busy: boolean;
@@ -346,8 +369,12 @@ export interface EventInput {
 export interface EventDetail extends EventInput {
   id: number;
   calendarId: number;
+  occurrence: string | null;
+  recurring: boolean;
   /** The zone the event was made in, when it isn't the reader's. */
   eventZone: string | null;
+  /** The zone its end was made in, when that's another. */
+  eventEndZone: string | null;
   created: number;
   updated: number;
 }

@@ -15,9 +15,17 @@ Each mailbox has calendars, as many as you like, kept by Viauna in standard iCal
 with nothing else to set up. Open them from the new apps button at the top right. Day,
 week, month, schedule and 4-day views; click or drag on the calendar to make an event,
 drag to move it, and Undo; each event's card has **Join video call** for its link;
-search; and **Create event** in a message's menu, with a link back to the email. Times
-are shown in your time zone (Settings > Calendar), and an event made in another zone keeps
-it, so a London meeting stays at London's time when you move it from Singapore. See
+search; and **Create event** in a message's menu, with a link back to the email.
+
+Repeating events, as Google Calendar offers them (daily, weekly on chosen days, monthly
+on a date or a weekday, yearly, until a date or so many times), and changed or deleted
+as this event, this and following events, or all events. A rule another app wrote is
+kept as it is.
+
+Time zones done right: times are shown in your zone (Settings > Calendar), with a second
+zone beside them if you like; an event can be in a zone of its own, with its end in
+another for a flight; an event made in another zone keeps it when you move it; and a
+repeating meeting stays at 09:00 in its own zone through clock changes. See
 [Calendar](https://bryanthomaschen.github.io/viauna/using/calendar).
 
 ### Also

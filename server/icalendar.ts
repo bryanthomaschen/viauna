@@ -1,9 +1,9 @@
 // Events as iCalendar (RFC 5545), read and written through ical.js without losing
 // anything. An event is the iCalendar object for its UID, kept as it came; Viauna edits
 // only the fields it shows (title, times, place, description, busy or free, colour, video
-// link) and leaves the rest (another app's own properties, guests, alarms) as they were.
-// Times stay the iCalendar way, a wall-clock time and the time zone it's in, and Temporal
-// works out the instant.
+// link, how it repeats) and leaves the rest (another app's own properties, guests,
+// alarms) as they were. Times stay the iCalendar way, a wall-clock time and the time zone
+// it's in, and Temporal works out the instant. How an event repeats is recurrence.ts.
 //
 // A time zone is written as its IANA name (TZID=Europe/London) with no VTIMEZONE, as
 // Google's and Apple's servers accept; one Outlook sent with its own VTIMEZONE is read
@@ -11,9 +11,9 @@
 import ICAL from "ical.js";
 import { Temporal } from "temporal-polyfill";
 
-type Component = InstanceType<typeof ICAL.Component>;
-type Property = InstanceType<typeof ICAL.Property>;
-type Time = InstanceType<typeof ICAL.Time>;
+export type Component = InstanceType<typeof ICAL.Component>;
+export type Property = InstanceType<typeof ICAL.Property>;
+export type Time = InstanceType<typeof ICAL.Time>;
 
 /** Colours for calendars and events: CSS names, as RFC 7986's COLOR property takes them. */
 export const COLORS = [
@@ -21,16 +21,18 @@ export const COLORS = [
   "dodgerblue", "royalblue", "slateblue", "darkorchid", "sienna", "dimgray",
 ] as const;
 
-/** The fields Viauna shows and edits. */
+/** The fields Viauna shows and edits, but for how it repeats (recurrence.ts). */
 export interface EventFields {
   title: string;
   allDay: boolean;
   /** A wall-clock time, "2026-10-21T09:00", in `zone`; or for an all-day event, a date. */
   start: string;
-  /** Exclusive: an all-day event's is the day after its last. */
+  /** In `endZone`, or `zone` if that's null. Exclusive: an all-day event's is the day after its last. */
   end: string;
-  /** The time zone a timed event's times are given in. */
+  /** The time zone a timed event's start is given in. */
   zone: string | null;
+  /** The zone its end is given in, when that's another (a flight). */
+  endZone: string | null;
   location: string;
   description: string;
   busy: boolean;
@@ -64,7 +66,7 @@ export function isZone(name: unknown): name is string {
   }
 }
 
-const isUtc = (zone: string) => /^(Etc\/)?(UTC|GMT|Zulu|UCT)$/i.test(zone);
+export const isUtc = (zone: string) => /^(Etc\/)?(UTC|GMT|Zulu|UCT)$/i.test(zone);
 
 /** A wall-clock time in a zone, as an instant (a time skipped by a clock change moves forward). */
 export function wallToMs(wall: string, zone: string): number {
@@ -81,8 +83,8 @@ const dateAsUtc = (date: string) => Temporal.PlainDate.from(date, { overflow: "r
 const wallAsUtc = (wall: string) => wallToMs(wall, "UTC");
 
 const pad = (n: number, w = 2) => String(n).padStart(w, "0");
-const timeWall = (t: Time) => `${pad(t.year, 4)}-${pad(t.month)}-${pad(t.day)}T${pad(t.hour)}:${pad(t.minute)}:${pad(t.second)}`;
-const timeDate = (t: Time) => `${pad(t.year, 4)}-${pad(t.month)}-${pad(t.day)}`;
+export const timeWall = (t: Time) => `${pad(t.year, 4)}-${pad(t.month)}-${pad(t.day)}T${pad(t.hour)}:${pad(t.minute)}:${pad(t.second)}`;
+export const timeDate = (t: Time) => `${pad(t.year, 4)}-${pad(t.month)}-${pad(t.day)}`;
 
 /** Parses one iCalendar object; throws on something that isn't one. */
 export function parseCalendar(text: string): Component {
@@ -97,27 +99,88 @@ export function masterEvent(root: Component): Component | null {
   return events.find((e) => !e.hasProperty("recurrence-id")) ?? events[0] ?? null;
 }
 
-/** Reads DTSTART or DTEND as a Moment: in its TZID's zone, UTC, a date, or floating. */
-function momentOf(prop: Property, root: Component): Moment | null {
+// ---------------------------------------------------------------- frames
+
+/**
+ * How one time property's wall-clock times become instants, and back: a date; UTC; a
+ * named zone (IANA, or one the object defines with a VTIMEZONE); or floating, which is
+ * that time wherever the reader is.
+ */
+export interface Frame {
+  kind: "date" | "utc" | "zoned" | "floating";
+  /** For zoned: the TZID as written. */
+  tzid?: string;
+  /** For zoned with an IANA name. */
+  zone?: string;
+  toMs(wall: string, readerZone: string): number;
+  /** "2026-10-21T09:00:00" */
+  toWall(ms: number, readerZone: string): string;
+}
+
+const wallSeconds = (ms: number, zone: string) =>
+  Temporal.Instant.fromEpochMilliseconds(ms).toZonedDateTimeISO(zone).toPlainDateTime().toString({ smallestUnit: "second" });
+
+const fromWall = (wall: string) => {
+  const t = Temporal.PlainDateTime.from(wall);
+  return { year: t.year, month: t.month, day: t.day, hour: t.hour, minute: t.minute, second: t.second, isDate: false };
+};
+
+const DATE_FRAME: Frame = {
+  kind: "date",
+  toMs: (wall) => dateAsUtc(wall.slice(0, 10)),
+  toWall: (ms) => `${wallSeconds(ms, "UTC").slice(0, 10)}T00:00:00`,
+};
+const UTC_FRAME: Frame = { kind: "utc", toMs: (wall) => wallAsUtc(wall), toWall: (ms) => wallSeconds(ms, "UTC") };
+const FLOATING_FRAME: Frame = { kind: "floating", toMs: (wall, reader) => wallToMs(wall, reader), toWall: (ms, reader) => wallSeconds(ms, reader) };
+
+/** The frame of a named zone: IANA through Temporal, or the object's own VTIMEZONE. */
+export function zoneFrame(tzid: string, root: Component | null): Frame {
+  if (isZone(tzid)) {
+    if (isUtc(tzid)) return UTC_FRAME;
+    return { kind: "zoned", tzid, zone: tzid, toMs: (wall) => wallToMs(wall, tzid), toWall: (ms) => wallSeconds(ms, tzid) };
+  }
+  // Not a name Temporal knows (Outlook's "W. Europe Standard Time"): the object's own
+  // definition of it, and failing that, floating.
+  const vtz = root?.getAllSubcomponents("vtimezone").find((c) => c.getFirstPropertyValue("tzid") === tzid);
+  if (!vtz) return FLOATING_FRAME;
+  const tz = new ICAL.Timezone(vtz);
+  return {
+    kind: "zoned",
+    tzid,
+    toMs: (wall) => ICAL.Time.fromData(fromWall(wall), tz).toUnixTime() * 1000,
+    toWall: (ms) => timeWall(ICAL.Time.fromJSDate(new Date(ms), true).convertToZone(tz)),
+  };
+}
+
+/** The frame a time property is written in. */
+export function frameOf(prop: Property, root: Component | null): Frame {
+  const t = prop.getFirstValue() as Time | null;
+  if (t && typeof t === "object" && "isDate" in t) {
+    if (t.isDate) return DATE_FRAME;
+    if (t.zone === ICAL.Timezone.utcTimezone) return UTC_FRAME;
+  }
+  const tzid = prop.getParameter("tzid");
+  return typeof tzid === "string" && tzid ? zoneFrame(tzid, root) : FLOATING_FRAME;
+}
+
+/** A time property's value as a Moment. */
+export function momentOf(prop: Property, root: Component | null): Moment | null {
   const t = prop.getFirstValue() as Time | null;
   if (!t || typeof t !== "object" || !("isDate" in t)) return null;
-  if (t.isDate) return { kind: "date", date: timeDate(t) };
+  return momentIn(t, frameOf(prop, root));
+}
+
+/** A time, read in a frame. */
+export function momentIn(t: Time, frame: Frame): Moment {
+  if (t.isDate || frame.kind === "date") return { kind: "date", date: timeDate(t) };
   const wall = timeWall(t);
-  if (t.zone === ICAL.Timezone.utcTimezone) return { kind: "instant", ms: wallAsUtc(wall), zone: null };
-  const tzid = prop.getParameter("tzid");
-  const zone = typeof tzid === "string" ? tzid : null;
-  if (!zone) return { kind: "floating", wall };
-  if (isZone(zone)) return { kind: "instant", ms: wallToMs(wall, zone), zone: isUtc(zone) ? null : zone };
-  // Not a name Temporal knows (Outlook's "W. Europe Standard Time"): use the object's own
-  // VTIMEZONE for it, and failing that, read the time as floating.
-  const vtz = root.getAllSubcomponents("vtimezone").find((c) => c.getFirstPropertyValue("tzid") === zone);
-  if (!vtz) return { kind: "floating", wall };
-  const local = ICAL.Time.fromData({ year: t.year, month: t.month, day: t.day, hour: t.hour, minute: t.minute, second: t.second, isDate: false }, new ICAL.Timezone(vtz));
-  return { kind: "instant", ms: local.toUnixTime() * 1000, zone: null };
+  if (frame.kind === "floating") return { kind: "floating", wall };
+  if (frame.kind === "utc") return { kind: "instant", ms: wallAsUtc(wall), zone: null };
+  return { kind: "instant", ms: frame.toMs(wall, "UTC"), zone: frame.zone ?? null };
 }
 
 /** The moment `ms` after another, in the same terms. */
-function after(m: Moment, ms: number): Moment {
+export function after(m: Moment, ms: number): Moment {
   if (m.kind === "instant") return { ...m, ms: m.ms + ms };
   if (m.kind === "date") return { kind: "date", date: Temporal.PlainDate.from(m.date).add({ days: Math.max(1, Math.round(ms / DAY)) }).toString() };
   return { kind: "floating", wall: Temporal.PlainDateTime.from(m.wall).add({ milliseconds: ms }).toString({ smallestUnit: "second" }) };
@@ -163,6 +226,8 @@ export function wallIn(m: Moment, zone: string): string {
   return msToWall(m.ms, zone);
 }
 
+// ---------------------------------------------------------------- reading fields
+
 const text = (event: Component, name: string): string => {
   const v = event.getFirstPropertyValue(name);
   return typeof v === "string" ? v : "";
@@ -179,11 +244,8 @@ function videoProperty(event: Component): Property | null {
   return null;
 }
 
-/** What Viauna shows of an event, with times in `zone`. */
-export function readFields(root: Component, zone: string): EventFields | null {
-  const event = masterEvent(root);
-  const times = event && eventTimes(event, root);
-  if (!event || !times) return null;
+/** What Viauna shows of one event (the series, or one occurrence of it) at the given times, in `zone`. */
+export function fieldsOf(event: Component, times: EventTimes, zone: string): EventFields {
   const allDay = times.start.kind === "date";
   const color = text(event, "color").toLowerCase();
   return {
@@ -192,6 +254,7 @@ export function readFields(root: Component, zone: string): EventFields | null {
     start: wallIn(times.start, zone),
     end: wallIn(times.end, zone),
     zone: allDay ? null : zone,
+    endZone: null,
     location: text(event, "location"),
     description: text(event, "description"),
     busy: text(event, "transp").toUpperCase() !== "TRANSPARENT",
@@ -200,12 +263,28 @@ export function readFields(root: Component, zone: string): EventFields | null {
   };
 }
 
-/** The zone a timed event was written in, if it names one; null for all-day, UTC or floating. */
-export function ownZone(root: Component): string | null {
+/** What Viauna shows of an event, with times in `zone`. */
+export function readFields(root: Component, zone: string): EventFields | null {
   const event = masterEvent(root);
   const times = event && eventTimes(event, root);
-  return times?.start.kind === "instant" ? times.start.zone : null;
+  return event && times ? fieldsOf(event, times, zone) : null;
 }
+
+/** The zones an event's start and end were written in, if they name ones; null for all-day, UTC or floating. */
+export function ownZones(event: Component, root: Component): { start: string | null; end: string | null } {
+  const times = eventTimes(event, root);
+  const start = times?.start.kind === "instant" ? times.start.zone : null;
+  const end = times?.end.kind === "instant" ? times.end.zone : null;
+  return { start, end: end ?? start };
+}
+
+/** The zone a timed event was written in, if it names one. */
+export function ownZone(root: Component): string | null {
+  const event = masterEvent(root);
+  return event ? ownZones(event, root).start : null;
+}
+
+// ---------------------------------------------------------------- writing fields
 
 const utcNow = () => ICAL.Time.fromJSDate(new Date(), true);
 
@@ -214,46 +293,61 @@ function setText(event: Component, name: string, value: string) {
   else event.removeAllProperties(name);
 }
 
-function setTime(event: Component, name: "dtstart" | "dtend", value: string, allDay: boolean, zone: string) {
-  if (allDay) {
-    const p = event.updatePropertyWithValue(name, ICAL.Time.fromDateString(value));
-    p.removeParameter("tzid");
-    return;
-  }
-  const t = Temporal.PlainDateTime.from(value);
-  const data = { year: t.year, month: t.month, day: t.day, hour: t.hour, minute: t.minute, second: t.second, isDate: false };
-  if (isUtc(zone)) {
-    const p = event.updatePropertyWithValue(name, ICAL.Time.fromData(data, ICAL.Timezone.utcTimezone));
-    p.removeParameter("tzid");
+/**
+ * Writes a time into a property: a date, a UTC time, or a wall-clock time in a zone or
+ * floating. Replaces the property's value, keeps its other parameters.
+ */
+export function writeTime(prop: Property, value: string, frame: Pick<Frame, "kind" | "tzid">) {
+  prop.removeParameter("tzid");
+  if (frame.kind === "date") {
+    prop.setValue(ICAL.Time.fromDateString(value.slice(0, 10)));
+  } else if (frame.kind === "utc") {
+    prop.setValue(ICAL.Time.fromData(fromWall(value), ICAL.Timezone.utcTimezone));
   } else {
-    const p = event.updatePropertyWithValue(name, ICAL.Time.fromData(data));
-    p.setParameter("tzid", zone);
+    prop.setValue(ICAL.Time.fromData(fromWall(value)));
+    if (frame.kind === "zoned" && frame.tzid) prop.setParameter("tzid", frame.tzid);
   }
 }
 
+/** The frame for a time Viauna writes in a zone: UTC as UTC, any other as its TZID. */
+export const frameForZone = (zone: string): Pick<Frame, "kind" | "tzid"> => (isUtc(zone) ? { kind: "utc" } : { kind: "zoned", tzid: zone });
+
+function setTime(event: Component, name: "dtstart" | "dtend", value: string, frame: Pick<Frame, "kind" | "tzid">) {
+  const prop = event.getFirstProperty(name) ?? event.addPropertyWithValue(name, ICAL.Time.fromDateString("1970-01-01"));
+  writeTime(prop, value, frame);
+}
+
+export interface ApplyOptions {
+  /** The fields name the zones to write the times in (the editor's zone choice). Otherwise a timed event keeps the zones it has. */
+  setZones?: boolean;
+}
+
 /**
- * Puts the times an event was given into it. A timed event keeps the zone it was written
- * in, if it has one: the page sends times in the reader's zone, and an event made for a
- * meeting in London should stay in London's time when someone in Singapore moves it.
- * Returns whether they changed.
+ * Puts the times an event was given into it. Unless told to set its zones, a timed event
+ * keeps the zones it was written in: the page sends times in the reader's zone, and an
+ * event made for a meeting in London should stay in London's time when someone in
+ * Singapore moves it. Returns whether they changed.
  */
-function applyTimes(event: Component, root: Component, fields: Pick<EventFields, "allDay" | "start" | "end" | "zone">): boolean {
+function applyTimes(event: Component, root: Component, fields: EventFields, opts: ApplyOptions): boolean {
   const before = eventTimes(event, root);
-  const own = before?.start.kind === "instant" ? before.start.zone : null;
-  let { start, end } = fields;
-  let zone = fields.zone ?? "UTC";
-  if (!fields.allDay && own && own !== zone) {
-    start = msToWall(wallToMs(start, zone), own);
-    end = msToWall(wallToMs(end, zone), own);
-    zone = own;
+  if (fields.allDay) {
+    if (before?.start.kind === "date" && before.start.date === fields.start && before.end.kind === "date" && before.end.date === fields.end) return false;
+    setTime(event, "dtstart", fields.start, { kind: "date" });
+    setTime(event, "dtend", fields.end, { kind: "date" });
+    event.removeAllProperties("duration");
+    return true;
   }
-  if (before) {
-    const same = (m: Moment, value: string) =>
-      fields.allDay ? m.kind === "date" && m.date === value : m.kind !== "date" && instantIn(m, zone) === wallToMs(value, zone);
-    if (same(before.start, start) && same(before.end, end)) return false;
+  const given = { start: fields.zone ?? "UTC", end: fields.endZone ?? fields.zone ?? "UTC" };
+  const startMs = wallToMs(fields.start, given.start);
+  const endMs = wallToMs(fields.end, given.end);
+  const own = ownZones(event, root);
+  const target = opts.setZones ? given : { start: own.start ?? given.start, end: own.end ?? own.start ?? given.end };
+  if (before && before.start.kind !== "date" && instantIn(before.start, given.start) === startMs && instantIn(before.end, given.end) === endMs) {
+    const sameZones = !opts.setZones || (own.start === (isUtc(given.start) ? null : given.start) && own.end === (isUtc(given.end) ? null : given.end));
+    if (sameZones) return false;
   }
-  setTime(event, "dtstart", start, fields.allDay, zone);
-  setTime(event, "dtend", end, fields.allDay, zone);
+  setTime(event, "dtstart", msToWall(startMs, target.start), frameForZone(target.start));
+  setTime(event, "dtend", msToWall(endMs, target.end), frameForZone(target.end));
   event.removeAllProperties("duration");
   return true;
 }
@@ -271,25 +365,52 @@ function applyVideo(event: Component, url: string | null) {
   event.addProperty(p);
 }
 
-/** Puts what the page sent into the event, leaving everything else as it was. */
-export function applyFields(root: Component, fields: EventFields): Component {
-  const event = masterEvent(root);
-  if (!event) throw new Error("No event in this object.");
-  const moved = applyTimes(event, root, fields);
-  setText(event, "summary", fields.title);
-  setText(event, "location", fields.location);
-  setText(event, "description", fields.description);
-  event.updatePropertyWithValue("transp", fields.busy ? "OPAQUE" : "TRANSPARENT");
-  setText(event, "color", fields.color ?? "");
-  applyVideo(event, fields.video);
-  // A changed time is a new version of the event for anyone it was sent to (RFC 5546).
+/** The fields other than times, as they are in an event. */
+export function plainFields(event: Component) {
+  return {
+    title: text(event, "summary"),
+    location: text(event, "location"),
+    description: text(event, "description"),
+    busy: text(event, "transp").toUpperCase() !== "TRANSPARENT",
+    color: text(event, "color").toLowerCase() || null,
+    video: (videoProperty(event)?.getFirstValue() as string | undefined) ?? null,
+  };
+}
+
+/** Puts the fields other than times into an event. */
+export function applyPlain(event: Component, fields: Partial<ReturnType<typeof plainFields>>) {
+  if (fields.title !== undefined) setText(event, "summary", fields.title);
+  if (fields.location !== undefined) setText(event, "location", fields.location);
+  if (fields.description !== undefined) setText(event, "description", fields.description);
+  if (fields.busy !== undefined) event.updatePropertyWithValue("transp", fields.busy ? "OPAQUE" : "TRANSPARENT");
+  if (fields.color !== undefined) setText(event, "color", fields.color ?? "");
+  if (fields.video !== undefined) applyVideo(event, fields.video);
+}
+
+/** Marks an event as changed now, and as a new version if its time changed (RFC 5546). */
+export function touch(event: Component, moved: boolean) {
   if (moved && event.hasProperty("sequence")) event.updatePropertyWithValue("sequence", Number(event.getFirstPropertyValue("sequence") ?? 0) + 1);
   event.updatePropertyWithValue("dtstamp", utcNow());
   event.updatePropertyWithValue("last-modified", utcNow());
+}
+
+/** Puts what the page sent into one event (the series, or one occurrence), leaving everything else as it was. */
+export function applyFieldsTo(event: Component, root: Component, fields: EventFields, opts: ApplyOptions = {}): Component {
+  const moved = applyTimes(event, root, fields, opts);
+  applyPlain(event, fields);
+  touch(event, moved);
+  return event;
+}
+
+/** Puts what the page sent into the event, leaving everything else as it was. */
+export function applyFields(root: Component, fields: EventFields, opts: ApplyOptions = {}): Component {
+  const event = masterEvent(root);
+  if (!event) throw new Error("No event in this object.");
+  applyFieldsTo(event, root, fields, opts);
   return root;
 }
 
-/** A new event, as a whole iCalendar object. */
+/** A new event, as a whole iCalendar object, with its times in the zones the fields name. */
 export function newEvent(fields: EventFields, uid: string, prodid: string): Component {
   const root = new ICAL.Component(["vcalendar", [], []]);
   root.updatePropertyWithValue("version", "2.0");
@@ -299,7 +420,7 @@ export function newEvent(fields: EventFields, uid: string, prodid: string): Comp
   event.updatePropertyWithValue("uid", uid);
   event.updatePropertyWithValue("dtstamp", utcNow());
   event.updatePropertyWithValue("created", utcNow());
-  applyFields(root, fields);
+  applyFieldsTo(event, root, fields, { setZones: true });
   // After its first times, which aren't a change.
   event.updatePropertyWithValue("sequence", 0);
   return root;

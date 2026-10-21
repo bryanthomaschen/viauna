@@ -518,6 +518,51 @@ describe.skipIf(!enabled)("in a browser", { timeout: 30_000 }, () => {
       await press("Escape");
     });
 
+    it("a weekly event from the editor's choices; one occurrence moved, then this and following deleted", async () => {
+      const series = async () =>
+        page.evaluate(async (z) => {
+          const r = await fetch(`/api/u/0/calendar/events?from=2030-01-06&to=2030-01-27&zone=${encodeURIComponent(z)}`);
+          return ((await r.json()).events as { title: string; start: string; occurrence: string }[]).filter((e) => e.title === "Weekly review").map((e) => e.start.slice(0, 16));
+        }, await zone());
+      await week();
+      await page.locator(".compose-btn").first().click();
+      const dialog = page.getByRole("dialog", { name: "New event" });
+      await until(() => dialog.count(), "the editor");
+      await dialog.getByLabel("Title").fill("Weekly review");
+      await dialog.getByLabel("Start date").fill("2030-01-07");
+      await dialog.getByLabel("Start time").fill("14:00");
+      await dialog.locator("[aria-label=Repeats]").selectOption({ label: "Weekly on Monday" });
+      await dialog.getByRole("button", { name: "Save" }).click();
+      await until(async () => (await series()).length === 3, "three Mondays");
+      const [, second] = await series();
+
+      // Drag the second Monday an hour later, for this event only.
+      await page.goto(`${base}/u/0/calendar/week/2030-01-14`);
+      await page.locator(".calendar-grid [role=columnheader][data-date='2030-01-14']").waitFor();
+      const two = await slot("2030-01-14", "14:00:00");
+      const three = await slot("2030-01-14", "15:00:00");
+      const box = (await event("Weekly review").boundingBox())!;
+      await page.mouse.move(box.x + box.width / 2, box.y + 2);
+      await page.mouse.down();
+      for (let i = 1; i <= 8; i++) await page.mouse.move(box.x + box.width / 2, box.y + 2 + ((three.y - two.y) * i) / 8);
+      await page.mouse.up();
+      const ask = page.getByRole("dialog", { name: "Change repeating event" });
+      await until(() => ask.count(), "the question of which events");
+      await ask.getByRole("button", { name: "OK" }).click();
+      await until(async () => (await series())[1] !== second, "the second Monday to move");
+      const after = await series();
+      if (after[0].slice(11) !== after[2].slice(11) || after[1].slice(11) === after[0].slice(11)) throw new Error(`moved: ${after.join(", ")}`);
+
+      // Delete it and the ones after: only the first is left.
+      await event("Weekly review").click();
+      await page.getByRole("button", { name: "Delete event" }).click();
+      const del = page.getByRole("dialog", { name: "Delete repeating event" });
+      await until(() => del.count(), "the question, for deleting");
+      await del.getByLabel("This and following events").check();
+      await del.getByRole("button", { name: "OK" }).click();
+      await until(async () => (await series()).length === 1, "only the first Monday left");
+    });
+
     it("an event made from an email links back to it, by its Message-ID", async () => {
       await inbox();
       await page.locator(".row").first().locator(".summary").click();

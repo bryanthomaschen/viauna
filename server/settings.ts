@@ -25,6 +25,8 @@ export interface AccountSettings {
   pageSize: 25 | 50 | 100;
   /** The calendar's time zone (IANA); empty: whichever the browser is in. */
   timeZone: string;
+  /** A second time zone shown beside the calendar's times; empty: none. */
+  secondTimeZone: string;
   /** The calendar's first day of the week; "auto" follows the browser's language. */
   weekStart: "auto" | "sunday" | "monday" | "saturday";
   /** How long a new event lasts, in minutes. */
@@ -38,6 +40,7 @@ export const DEFAULT_SETTINGS: AccountSettings = {
   images: "ask",
   pageSize: 50,
   timeZone: "",
+  secondTimeZone: "",
   weekStart: "auto",
   eventMinutes: 60,
 };
@@ -83,6 +86,11 @@ export async function updateSettings(accountId: number, patch: Record<string, un
     const zone = String(patch.timeZone ?? "");
     if (zone && !isZone(zone)) return { error: `"${zone}" isn't a time zone Viauna knows.` };
     next.timeZone = zone;
+  }
+  if ("secondTimeZone" in patch) {
+    const zone = String(patch.secondTimeZone ?? "");
+    if (zone && !isZone(zone)) return { error: `"${zone}" isn't a time zone Viauna knows.` };
+    next.secondTimeZone = zone;
   }
   if ("weekStart" in patch) {
     const day = String(patch.weekStart);

@@ -27,6 +27,7 @@ const fields = (over: Partial<EventFields> = {}): EventFields => ({
   busy: true,
   color: null,
   video: null,
+  endZone: null,
   ...over,
 });
 

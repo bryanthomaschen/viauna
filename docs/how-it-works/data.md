@@ -9,8 +9,8 @@ For backups, see [Upgrades and backups](../self-hosting/upgrading.md).
 The **state store** (`state.db`, or your `DATABASE_URL` database) holds:
 
 - accounts: each login and its mail servers, and the mailbox's settings (name,
-  signature, send-as addresses, images, page size, and the calendar's time zone, first
-  day of the week and event length);
+  signature, send-as addresses, images, page size, and the calendar's time zone, second
+  time zone, first day of the week and event length);
 - sessions, each with its mailboxes' encrypted passwords, when it started and was last
   used, the client address it signed in from and the browser's user agent (see
   [Sessions](./sessions.md));

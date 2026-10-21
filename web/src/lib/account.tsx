@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createContext, type ReactNode, useContext, useMemo } from "react";
 import { api } from "./api";
 import { createStore } from "./store";
-import type { CalendarInfo, ContactFields, EventInput, FilterCriteria, Identity, Label, Mailbox, PasswordChange, SessionAccount, Settings, SpecialUse } from "./types";
+import type { CalendarInfo, ContactFields, EventInput, FilterCriteria, Scope, Identity, Label, Mailbox, PasswordChange, SessionAccount, Settings, SpecialUse } from "./types";
 
 export interface AccountContextValue {
   index: number;
@@ -86,8 +86,10 @@ export interface UiState {
   contactDialog: null | { id?: number; initial?: Partial<ContactFields> };
   /** A filter being added from a message (Filter messages like these). */
   filterDialog: null | { criteria: Partial<FilterCriteria> };
-  /** An event being edited (id) or made (initial: from the calendar, or from an email). */
-  eventDialog: null | { id?: number; initial?: Partial<EventInput> & { calendarId?: number } };
+  /** An event being edited (id, and which occurrence of one that repeats) or made (initial: from the calendar, or from an email). */
+  eventDialog: null | { id?: number; occurrence?: string | null; initial?: Partial<EventInput> & { calendarId?: number } };
+  /** Which occurrences of a repeating event a change or deletion is for, being asked. */
+  scopeDialog: null | { action: "change" | "delete"; ruleChanged: boolean; resolve: (scope: Scope | null) => void };
   /** A calendar being renamed or recoloured, or made. */
   calendarDialog: null | { calendar?: CalendarInfo };
   folderDialog: null | { mailbox?: Mailbox; parentId?: number };
@@ -97,7 +99,7 @@ export interface UiState {
 }
 
 export const ui = createStore<UiState>({
-  shortcutsOpen: false, commandsOpen: false, labelDialog: null, contactDialog: null, filterDialog: null, eventDialog: null, calendarDialog: null,
+  shortcutsOpen: false, commandsOpen: false, labelDialog: null, contactDialog: null, filterDialog: null, eventDialog: null, calendarDialog: null, scopeDialog: null,
   folderDialog: null, confirm: null, sidebarOpen: false, searchFocus: 0,
 });
 

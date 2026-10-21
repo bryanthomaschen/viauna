@@ -3,9 +3,9 @@
 // in the calendar's zone ("2026-10-21T09:00") or as ISO instants; Temporal (the polyfill
 // FullCalendar brings) converts between them.
 import { Temporal } from "temporal-polyfill";
-import { useAccount } from "./account";
+import { ui, useAccount } from "./account";
 import type { CalendarView } from "./router";
-import type { Settings } from "./types";
+import type { RepeatRule, Scope, Settings, Weekday } from "./types";
 
 export const browserZone = (): string => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 
@@ -120,3 +120,78 @@ export const VIEW_LABELS: Record<CalendarView, string> = { day: "Day", week: "We
 
 /** The single key that switches to each view, as in Google Calendar. */
 export const VIEW_KEYS: Record<CalendarView, string> = { day: "d", week: "w", month: "m", schedule: "a", "4days": "x" };
+
+// ---------------------------------------------------------------- repeating
+
+export const WEEKDAYS: Weekday[] = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"];
+
+/** The weekday a date falls on. */
+export const weekdayOf = (date: string): Weekday => WEEKDAYS[Temporal.PlainDate.from(date.slice(0, 10)).dayOfWeek - 1];
+
+/** "Monday", from a Monday in 2024 (1 January). */
+export const dayName = (d: Weekday, style: "long" | "short" = "long") =>
+  fmt({ weekday: style }).format(new Date(Date.UTC(2024, 0, 1 + WEEKDAYS.indexOf(d))));
+
+const ORDINALS: Record<number, string> = { 1: "first", 2: "second", 3: "third", 4: "fourth", 5: "fifth", [-1]: "last" };
+
+/** Which of its weekday in the month a date is (the third Wednesday), and whether it's also the last. */
+export function nthOf(date: string): { week: number; last: boolean } {
+  const d = Temporal.PlainDate.from(date.slice(0, 10));
+  return { week: Math.ceil(d.day / 7), last: d.day + 7 > d.daysInMonth };
+}
+
+const list = (items: string[]) => new Intl.ListFormat("en", { style: "long", type: "conjunction" }).format(items);
+
+/** "Weekly on Monday and Wednesday, until 30 June 2027", as the editor and an event's card say it. */
+export function repeatText(rule: RepeatRule, start: string): string {
+  if (rule.custom) return "Repeats, by a rule made in another app";
+  const n = rule.interval || 1;
+  const date = start.slice(0, 10);
+  let text: string;
+  if (rule.freq === "daily") text = n === 1 ? "Daily" : `Every ${n} days`;
+  else if (rule.freq === "weekly") {
+    const days = rule.days?.length ? rule.days : [weekdayOf(date)];
+    if (n === 1 && days.join() === "MO,TU,WE,TH,FR") text = "Every weekday (Monday to Friday)";
+    else text = `${n === 1 ? "Weekly" : `Every ${n} weeks`} on ${list(days.map((d) => dayName(d)))}`;
+  } else if (rule.freq === "monthly") {
+    const on = rule.nth ? `the ${ORDINALS[rule.nth.week]} ${dayName(rule.nth.day)}` : `day ${Temporal.PlainDate.from(date).day}`;
+    text = `${n === 1 ? "Monthly" : `Every ${n} months`} on ${on}`;
+  } else {
+    text = `${n === 1 ? "Annually" : `Every ${n} years`} on ${fmt({ day: "numeric", month: "long" }).format(asUtc(date))}`;
+  }
+  if (rule.count) text += rule.count === 1 ? ", once" : `, ${rule.count} times`;
+  else if (rule.until) text += `, until ${fmt({ day: "numeric", month: "long", year: "numeric" }).format(asUtc(rule.until))}`;
+  return text;
+}
+
+/** The repeats the editor offers for an event starting on `start`, as Google Calendar does. */
+export function repeatPresets(start: string): { label: string; rule: RepeatRule | null }[] {
+  const date = start.slice(0, 10);
+  const day = weekdayOf(date);
+  const { week, last } = nthOf(date);
+  const monthly = (w: number): RepeatRule => ({ freq: "monthly", interval: 1, nth: { week: w, day } });
+  const rules: (RepeatRule | null)[] = [
+    null,
+    { freq: "daily", interval: 1 },
+    { freq: "weekly", interval: 1 },
+    ...(week <= 4 ? [monthly(week)] : []),
+    ...(last ? [monthly(-1)] : []),
+    { freq: "yearly", interval: 1 },
+    { freq: "weekly", interval: 1, days: ["MO", "TU", "WE", "TH", "FR"] },
+  ];
+  return rules.map((rule) => ({ label: rule ? repeatText(rule, date) : "Does not repeat", rule }));
+}
+
+/** Whether two rules say the same (the server's sameRule). */
+export function sameRule(a: RepeatRule | null, b: RepeatRule | null): boolean {
+  const norm = (r: RepeatRule | null) => r && JSON.stringify([r.freq, r.interval || 1, r.days ?? [], r.nth ?? null, r.until ?? null, r.count ?? null, r.custom ?? null]);
+  return norm(a) === norm(b);
+}
+
+/**
+ * Asks which occurrences of a repeating event a change or a deletion is for: this event,
+ * this and following, or all. A new repeat rule can't be for one occurrence alone.
+ */
+export function askScope(action: "change" | "delete", ruleChanged = false): Promise<Scope | null> {
+  return new Promise((resolve) => ui.set((s) => ({ ...s, scopeDialog: { action, ruleChanged, resolve } })));
+}

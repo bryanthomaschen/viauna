@@ -16,6 +16,7 @@ import FullCalendar, {
   type EventDropInfo,
   type EventInput as FcEvent,
   type EventResizeDoneInfo,
+  type SlotHeaderInfo,
 } from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/react/daygrid";
 import interactionPlugin from "@fullcalendar/react/interaction";
@@ -28,7 +29,7 @@ import timeGridPlugin from "@fullcalendar/react/timegrid";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Temporal } from "temporal-polyfill";
 import {
-  ArrowLeft, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Copy, EllipsisVertical, Eye, MapPin, Pencil, Plus, Settings, Text, Trash2, Video, X,
+  ArrowLeft, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Copy, EllipsisVertical, Eye, Globe, MapPin, Pencil, Plus, Repeat, Settings, Text, Trash2, Video, X,
 } from "lucide-react";
 import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { ui, useAccount } from "../lib/account";
@@ -38,16 +39,20 @@ import {
   VIEW_LABELS,
   addDays,
   addMinutes,
+  askScope,
   firstDay,
   formatWhen,
   instantToWall,
+  repeatText,
   textOnColor,
   today,
   useCalendarZone,
+  wallToMs,
+  zoneOffset,
 } from "../lib/calendar";
 import { CALENDAR_VIEWS, type CalendarView, type Route, calendarPath, navigate } from "../lib/router";
 import { prefs, toast } from "../lib/store";
-import type { CalendarInfo, EventSummary } from "../lib/types";
+import type { CalendarInfo, EventSummary, Scope } from "../lib/types";
 import { IconButton } from "./common";
 import { deleteEvent, undoable } from "./EventDialog";
 import { useViewHandlers } from "./shortcuts";
@@ -69,6 +74,7 @@ const narrow = () => matchMedia("(max-width: 720px)").matches;
 const LOCALES = [enGb, enAu, enNz];
 const LOCALE = LOCALES.find((l) => l.code === navigator.language.toLowerCase())?.code ?? "en";
 const HOUR12 = new Intl.DateTimeFormat(undefined, { hour: "numeric" }).resolvedOptions().hour12 ?? true;
+const HOUR_FORMAT = new Intl.DateTimeFormat(undefined, HOUR12 ? { hour: "numeric", timeZone: "UTC", hour12: true } : { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC" });
 
 /** The view to show: the address's, else the last one picked, else week (schedule on a phone). */
 function useView(route: Route): CalendarView {
@@ -81,7 +87,7 @@ function useCalendars() {
   return useQuery({ queryKey: ["calendars", acct.index], queryFn: () => api.calendars(acct.index), staleTime: 60_000 });
 }
 
-const openEvent = (id: number) => ui.set((s) => ({ ...s, eventDialog: { id } }));
+const openEvent = (e: { id: number; occurrence: string | null }) => ui.set((s) => ({ ...s, eventDialog: { id: e.id, occurrence: e.occurrence } }));
 const newEvent = (initial: NonNullable<ReturnType<typeof ui.get>["eventDialog"]>["initial"] = {}) => ui.set((s) => ({ ...s, eventDialog: { initial } }));
 
 // ---------------------------------------------------------------- the sidebar
@@ -289,6 +295,22 @@ function CalendarGrid({ route }: { route: Route }) {
     }),
   });
 
+  // A second zone's times beside the hours, as Google Calendar shows them: at the
+  // offsets of the first day in view.
+  const second = acct.settings?.secondTimeZone && acct.settings.secondTimeZone !== zone ? acct.settings.secondTimeZone : null;
+  const secondHour = (arg: SlotHeaderInfo) => {
+    if (!second || !arg.time) return arg.text;
+    const minutes = Math.round((arg.time.milliseconds + arg.time.days * 86_400_000) / 60_000);
+    const wall = `${range?.from ?? date}T${String(Math.floor(minutes / 60) % 24).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+    const other = instantToWall(wallToMs(wall, zone), second);
+    return (
+      <span className="slot-two">
+        <span className="slot-second">{HOUR_FORMAT.format(new Date(`${other}:00Z`))}</span>
+        <span>{arg.text}</span>
+      </span>
+    );
+  };
+
   const visible = useMemo(() => new Map(calendars.filter((c) => c.visible).map((c) => [c.id, c])), [calendars]);
   const fcEvents = useMemo<FcEvent[]>(
     () =>
@@ -297,7 +319,7 @@ function CalendarGrid({ route }: { route: Route }) {
         .map((e) => {
           const color = e.color ?? visible.get(e.calendarId)!.color;
           return {
-            id: String(e.id), title: e.title || "(No title)", start: e.start, end: e.end, allDay: e.allDay,
+            id: `${e.id}:${e.occurrence ?? ""}`, title: e.title || "(No title)", start: e.start, end: e.end, allDay: e.allDay,
             color, contrastColor: textOnColor(color), className: e.busy ? "" : "event-free", extendedProps: { summary: e },
           };
         }),
@@ -331,8 +353,16 @@ function CalendarGrid({ route }: { route: Route }) {
     setCard({ rect: info.el.getBoundingClientRect(), event: info.event.extendedProps.summary as EventSummary });
   };
 
-  const onMoved = (info: EventDropInfo | EventResizeDoneInfo) => {
+  const onMoved = async (info: EventDropInfo | EventResizeDoneInfo) => {
     const ev = info.event;
+    const summary = ev.extendedProps.summary as EventSummary;
+    // A repeating event: which occurrences move, or none if that's cancelled.
+    let scope: Scope | undefined;
+    if (summary.recurring) {
+      const asked = await askScope("change");
+      if (!asked) return info.revert();
+      scope = asked;
+    }
     const allDay = ev.allDay;
     let start: string;
     let end: string;
@@ -344,7 +374,7 @@ function CalendarGrid({ route }: { route: Route }) {
       end = ev.end ? instantToWall(ev.end.getTime(), zone) : addMinutes(start, minutes, zone);
     }
     api
-      .updateEvent(acct.index, Number(ev.id), { allDay, start, end, zone: allDay ? null : zone }, zone)
+      .updateEvent(acct.index, summary.id, { allDay, start, end, zone: allDay ? null : zone, occurrence: summary.occurrence, scope }, zone)
       .then(({ undo }) => {
         refresh();
         toast("Event moved.", { action: undoable(acct.index, refresh)(undo) });
@@ -423,6 +453,17 @@ function CalendarGrid({ route }: { route: Route }) {
           slotDuration="00:15:00"
           slotHeaderInterval="01:00:00"
           slotHeaderInnerClass="calendar-slot-label"
+          {...(second
+            ? {
+                slotHeaderContent: secondHour,
+                allDayHeaderContent: () => (
+                  <span className="slot-two zone-labels" title={`${second.replace(/_/g, " ")} and ${zone.replace(/_/g, " ")}`}>
+                    <span className="slot-second">{zoneOffset(second)}</span>
+                    <span>{zoneOffset(zone)}</span>
+                  </span>
+                ),
+              }
+            : {})}
           locales={LOCALES}
           locale={LOCALE}
           eventTimeFormat={{ hour: "numeric", minute: "2-digit", hour12: HOUR12 }}
@@ -440,8 +481,8 @@ function CalendarGrid({ route }: { route: Route }) {
           select={onSelect}
           dateClick={onDateClick}
           eventClick={onEventClick}
-          eventDrop={onMoved}
-          eventResize={onMoved}
+          eventDrop={(info) => void onMoved(info)}
+          eventResize={(info) => void onMoved(info)}
         />
       </div>
       {quick && <QuickCreate state={quick} calendars={calendars} onClose={close} onSaved={refresh} />}
@@ -475,7 +516,11 @@ function QuickCreate({ state, calendars, onClose, onSaved }: { state: QuickState
     if (chosen === null) return;
     setBusy(true);
     try {
-      await api.createEvent(acct.index, chosen, { ...times, title, zone: state.allDay ? null : zone, location: "", description: "", busy: true, color: null, video: null }, zone);
+      await api.createEvent(
+        acct.index, chosen,
+        { ...times, title, zone: state.allDay ? null : zone, endZone: null, location: "", description: "", busy: true, color: null, video: null, repeat: null },
+        zone,
+      );
       onSaved();
       onClose();
     } catch (err) {
@@ -525,18 +570,22 @@ function EventCard({ state, calendars, onClose, onChanged }: { state: CardState;
   const acct = useAccount();
   const zone = useCalendarZone();
   const e = state.event;
-  const detail = useQuery({ queryKey: ["event", acct.index, e.id, zone], queryFn: () => api.event(acct.index, e.id, zone), staleTime: 0 });
+  const detail = useQuery({
+    queryKey: ["event", acct.index, e.id, zone, e.occurrence],
+    queryFn: () => api.event(acct.index, e.id, zone, e.occurrence),
+    staleTime: 0,
+  });
   const d = detail.data?.event;
   const calendar = calendars.find((c) => c.id === e.calendarId);
   const when = e.allDay ? { allDay: true, start: e.start, end: e.end } : { allDay: false, start: instantToWall(e.start, zone), end: instantToWall(e.end, zone) };
   const edit = () => {
     onClose();
-    openEvent(e.id);
+    openEvent(e);
   };
   const duplicate = () => {
     if (!d) return;
     onClose();
-    const { id: _id, created: _c, updated: _u, eventZone: _z, ...copy } = d;
+    const { id: _id, created: _c, updated: _u, eventZone: _z, eventEndZone: _ez, occurrence: _o, recurring: _r, ...copy } = d;
     newEvent({ ...copy, title: d.title ? `${d.title} (copy)` : "" });
   };
   return (
@@ -548,7 +597,7 @@ function EventCard({ state, calendars, onClose, onChanged }: { state: CardState;
           <div className="event-card-tools">
             <IconButton label="Edit event" size="sm" onClick={edit}><Pencil size={18} /></IconButton>
             <IconButton label="Duplicate" size="sm" onClick={duplicate} disabled={!d}><Copy size={18} /></IconButton>
-            <IconButton label="Delete event" size="sm" onClick={() => { onClose(); deleteEvent(acct.index, e.id, onChanged); }}><Trash2 size={18} /></IconButton>
+            <IconButton label="Delete event" size="sm" onClick={() => { onClose(); void deleteEvent(acct.index, e, onChanged); }}><Trash2 size={18} /></IconButton>
             <IconButton label="Close" size="sm" onClick={onClose}><X size={18} /></IconButton>
           </div>
           <div className="event-card-title">
@@ -556,6 +605,21 @@ function EventCard({ state, calendars, onClose, onChanged }: { state: CardState;
             <h3>{e.title || "(No title)"}</h3>
           </div>
           <div className="event-card-row muted">{formatWhen(when)}{!e.busy && " · Free"}</div>
+          {d?.repeat && <div className="event-card-row muted"><Repeat size={18} aria-hidden /> {repeatText(d.repeat, d.start)}</div>}
+          {d && (d.eventZone || d.eventEndZone) && !e.allDay && (
+            <div className="event-card-row muted">
+              <Globe size={18} aria-hidden />
+              {(() => {
+                const own = d.eventZone ?? zone;
+                const ownEnd = d.eventEndZone ?? own;
+                const s = instantToWall(e.start, own);
+                const en = instantToWall(e.end, ownEnd);
+                return own === ownEnd
+                  ? `${formatWhen({ allDay: false, start: s, end: en })} in ${own.replace(/_/g, " ")} (${zoneOffset(own, wallToMs(s, own))})`
+                  : `From ${s.slice(11)} ${own.replace(/_/g, " ")} to ${en.slice(11)} ${ownEnd.replace(/_/g, " ")}`;
+              })()}
+            </div>
+          )}
           {d?.video && (
             <a className="btn btn-primary event-join" href={d.video} target="_blank" rel="noopener noreferrer"><Video size={18} /> Join video call</a>
           )}
@@ -614,7 +678,7 @@ function CalendarSearch({ query }: { query: string }) {
                 <ul>
                   {list.map(({ e, start, end }) => (
                     <li key={e.id}>
-                      <button type="button" className="search-event" onClick={() => openEvent(e.id)}>
+                      <button type="button" className="search-event" onClick={() => openEvent(e)}>
                         <span className="swatch" style={{ background: e.color ?? calendars.find((c) => c.id === e.calendarId)?.color }} aria-hidden />
                         <span className="search-when">{e.allDay ? "All day" : formatWhen({ allDay: false, start, end }).split(" · ").pop()}</span>
                         <span className="search-what">{e.title || "(No title)"}{e.location && <span className="muted"> · {e.location}</span>}</span>

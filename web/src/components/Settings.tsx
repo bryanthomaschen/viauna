@@ -100,6 +100,15 @@ function CalendarSettings() {
         </div>
       </div>
       <div className="setting">
+        <div className="name">Second time zone<small>Its times beside yours, in the day and week views.</small></div>
+        <div className="options">
+          <select value={s.secondTimeZone} aria-label="Second time zone" onChange={(e) => void save({ secondTimeZone: e.target.value })}>
+            <option value="">None</option>
+            {zones.map((z) => <option key={z} value={z}>{z.replace(/_/g, " ")} ({zoneOffset(z)})</option>)}
+          </select>
+        </div>
+      </div>
+      <div className="setting">
         <div className="name">Start of the week</div>
         <div className="options">
           <select value={s.weekStart} aria-label="Start of the week" onChange={(e) => void save({ weekStart: e.target.value as Settings["weekStart"] })}>

@@ -27,6 +27,7 @@ server/                Node (TypeScript, Hono)
   vcard.ts             reading and writing vCard (2.1, 3.0, 4.0) without losing anything
   calendar.ts          calendars and events: storage, ranges in the reader's zone, search, undo
   icalendar.ts         events as iCalendar (ical.js) without losing anything; times and zones (Temporal)
+  recurrence.ts        repeating events: occurrences, rules, this / following / all events
   filters.ts           filters and the vacation responder: checking, loading, saving
   sieve.ts             them as a Sieve script, and reading back the script Viauna wrote
   managesieve.ts       a ManageSieve client (STARTTLS, PLAIN, scripts)

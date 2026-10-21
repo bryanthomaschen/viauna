@@ -154,6 +154,58 @@ describe.each(ENGINES)("calendars on $name", ({ url }) => {
     expect(await searchEvents(7, "100%", SG)).toEqual([]);
   });
 
+  it("lists a repeating event's occurrences, years on, and finds it at its next one", async () => {
+    const e = await createEvent(7, primary, lunch({ title: "Standup", start: "2026-10-19T09:00", end: "2026-10-19T09:15", repeat: { freq: "weekly", interval: 1, days: ["MO", "WE"] } }), SG);
+    expect(e).toMatchObject({ recurring: true, repeat: { freq: "weekly", days: ["MO", "WE"] } });
+    const later = await eventsBetween(7, "2030-01-06", "2030-01-13", SG);
+    expect(later.map((x) => [x.occurrence, x.start])).toEqual([
+      ["20300107T090000", "2030-01-07T01:00:00.000Z"],
+      ["20300109T090000", "2030-01-09T01:00:00.000Z"],
+    ]);
+    const found = await searchEvents(7, "standup", SG);
+    expect(found).toHaveLength(1);
+    expect(found[0].start > new Date().toISOString().slice(0, 10)).toBe(true);
+  });
+
+  it("splits a series for this and following, and Undo puts both back as one", async () => {
+    const e = await createEvent(7, primary, lunch({ title: "Standup", start: "2026-10-19T09:00", end: "2026-10-19T09:15", repeat: { freq: "daily", interval: 1, count: 10 } }), SG);
+    const { event, undo } = await updateEvent(7, e.id, { occurrence: "20261024T090000", scope: "following", title: "New standup", start: "2026-10-24T10:00", end: "2026-10-24T10:15" }, SG);
+    expect(event).toMatchObject({ title: "New standup", start: "2026-10-24T10:00", repeat: { freq: "daily", count: 5 } });
+    expect(event.id).not.toBe(e.id);
+    const week = await eventsBetween(7, "2026-10-19", "2026-10-29", SG);
+    expect(week.map((x) => `${x.start.slice(5, 10)} ${x.title}`)).toEqual([
+      "10-19 Standup", "10-20 Standup", "10-21 Standup", "10-22 Standup", "10-23 Standup",
+      "10-24 New standup", "10-25 New standup", "10-26 New standup", "10-27 New standup", "10-28 New standup",
+    ]);
+    expect(await undoChange(7, undo)).toBe(true);
+    const back = await eventsBetween(7, "2026-10-19", "2026-10-29", SG);
+    expect(back.map((x) => x.title)).toEqual(Array(10).fill("Standup"));
+    expect(new Set(back.map((x) => x.id))).toEqual(new Set([e.id]));
+  });
+
+  it("changes or deletes one occurrence, and Undo brings it back", async () => {
+    const e = await createEvent(7, primary, lunch({ start: "2026-10-19T12:00", end: "2026-10-19T13:00", repeat: { freq: "daily", interval: 1, count: 3 } }), SG);
+    const moved = await updateEvent(7, e.id, { occurrence: "20261020T120000", scope: "this", start: "2026-10-20T13:00", end: "2026-10-20T14:00" }, SG);
+    expect(moved.event).toMatchObject({ occurrence: "20261020T120000", start: "2026-10-20T13:00" });
+    expect(await getEvent(7, e.id, SG, "20261020T120000")).toMatchObject({ start: "2026-10-20T13:00" });
+    const token = await deleteEvent(7, e.id, "20261021T120000", "this");
+    expect((await eventsBetween(7, "2026-10-19", "2026-10-22", SG)).map((x) => x.start.slice(0, 16))).toEqual(["2026-10-19T04:00", "2026-10-20T05:00"]);
+    expect(await undoChange(7, token)).toBe(true);
+    expect(await eventsBetween(7, "2026-10-19", "2026-10-22", SG)).toHaveLength(3);
+    await expect(updateEvent(7, e.id, { occurrence: "20261021T120000", scope: "this", calendarId: (await createCalendar(7, { name: "Other" })).id }, SG)).rejects.toThrow(/another calendar/);
+    await expect(updateEvent(7, e.id, { occurrence: "20261021T120000", scope: "this", repeat: { freq: "weekly", interval: 1 } }, SG)).rejects.toThrow(/following/);
+    await expect(getEvent(7, e.id, SG, "20261025T120000")).rejects.toMatchObject({ status: 404 });
+  });
+
+  it("keeps the zones the editor sets, a different one for the end", async () => {
+    const flight = await createEvent(7, primary, lunch({ title: "SQ 322", start: "2026-11-02T23:30", zone: SG, end: "2026-11-03T06:00", endZone: "Europe/London" }), SG);
+    expect(flight).toMatchObject({ start: "2026-11-02T23:30", end: "2026-11-03T14:00", eventZone: null, eventEndZone: "Europe/London" });
+    const moved = await updateEvent(7, flight.id, { start: "2026-11-03T00:30", end: "2026-11-03T15:00" }, SG);
+    // Moved from Singapore's view, its end stays in London's time.
+    expect(moved.event).toMatchObject({ start: "2026-11-03T00:30", end: "2026-11-03T15:00", eventEndZone: "Europe/London" });
+    expect(await getEvent(7, flight.id, "Europe/London")).toMatchObject({ end: "2026-11-03T07:00", eventZone: SG });
+  });
+
   it("refuses times it can't use, and calendars that aren't the mailbox's", async () => {
     await expect(createEvent(7, primary, lunch({ end: "2026-10-21T11:00" }), SG)).rejects.toThrow(/before it starts/);
     await expect(createEvent(7, primary, lunch({ zone: "Mars/Olympus" }), SG)).rejects.toThrow(/time zone/);
@@ -163,5 +215,8 @@ describe.each(ENGINES)("calendars on $name", ({ url }) => {
     await expect(createEvent(7, 9999, lunch(), SG)).rejects.toMatchObject({ status: 404 });
     await expect(eventsBetween(7, "2026-01-01", "2027-06-01", SG)).rejects.toThrow(/at most/);
     expect(() => cleanFields(lunch({ title: "x".repeat(501) }))).toThrow(/at most 500/);
+    await expect(createEvent(7, primary, lunch({ repeat: { freq: "hourly" } }), SG)).rejects.toThrow(/how often/);
+    await expect(createEvent(7, primary, lunch({ repeat: { freq: "daily", until: "2026-10-01" } }), SG)).rejects.toThrow(/before it starts/);
+    await expect(createEvent(7, primary, lunch({ repeat: { freq: "weekly", days: ["XX"] } }), SG)).rejects.toThrow(/days of the week/);
   });
 });
