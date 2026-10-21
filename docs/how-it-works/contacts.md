@@ -19,9 +19,10 @@ With `CARDDAV_URL` set and `CONTACTS_SYNC` on, a mailbox on your own mail server
   ago, or there's been none since a restart;
 - on **Sync now**.
 
-One sync runs per mailbox at a time. Asking for one while another runs queues one more,
-to start when that one ends and shared by everyone who asks meanwhile: the running one
-may have read the contacts before the change it's being asked for. Each signs in to the
+One sync runs per mailbox at a time. A change in Viauna or **Sync now** asking while
+another runs queues one more, to start when that one ends and shared by everyone who asks
+meanwhile: the running one may have read the contacts before the change. The 10-minute
+sync and the one on opening Contacts make do with the one running. Each signs in to the
 CardDAV server with the mailbox's own login and password. The page hears on the
 [live-update stream](./live-updates.md) when a sync starts and ends, and refetches the
 list. When the last sync ended, and how, is kept in memory, so after a restart the page

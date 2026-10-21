@@ -160,6 +160,18 @@ describe.skipIf(!SERVER).each(ENGINES)("contacts sync on $name", ({ url }) => {
     }
   });
 
+  it("lets the syncs that only keep things fresh make do with the one running", async () => {
+    const saved = config.carddavUrl;
+    (config as { carddavUrl: string | undefined }).carddavUrl = `${SERVER}/{login}/`;
+    try {
+      const running = syncContacts(account, creds());
+      expect(syncContacts(account, creds(), { join: true })).toBe(running);
+      await running;
+    } finally {
+      (config as { carddavUrl: string | undefined }).carddavUrl = saved;
+    }
+  });
+
   it("doesn't sync again for a change a sync since has sent", async () => {
     // An edit schedules a sync for 1.5 s later; Sync now before then sends the edit, so
     // the scheduled one is dropped rather than run as soon as Sync now's has ended.

@@ -602,7 +602,7 @@ export function createApp() {
     const list = await listContacts(account.id, c.req.query("q") ?? "", Math.max(0, int(c.req.query("offset"), 0)));
     const sync = await syncStatus(account);
     // Opening the list fetches what changed on the server, if it's been a minute.
-    if (sync.server && !sync.syncing && (!sync.at || Date.now() - sync.at > 60_000)) void syncContacts(account, c.get("creds"));
+    if (sync.server && !sync.syncing && (!sync.at || Date.now() - sync.at > 60_000)) void syncContacts(account, c.get("creds"), { join: true });
     return c.json({ ...list, sync });
   });
 

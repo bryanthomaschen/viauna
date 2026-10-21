@@ -270,12 +270,15 @@ export async function syncAccount(account: AccountInfo, creds: Credentials, star
 /**
  * Syncs now; resolves once a sync that started after this call has finished. One already
  * running may have read the contacts before the change this call is for, so it's
- * followed by one more, shared by everyone who asks in the meantime.
+ * followed by one more, shared by everyone who asks in the meantime. With `join`, for
+ * syncs that only keep things fresh (the periodic one, opening Contacts), the one
+ * running will do.
  */
-export function syncContacts(account: AccountInfo, creds: Credentials, opts: { rediscover?: boolean } = {}): Promise<void> {
+export function syncContacts(account: AccountInfo, creds: Credentials, opts: { rediscover?: boolean; join?: boolean } = {}): Promise<void> {
   const m = mem(account.id);
   if (!syncsContacts(account)) return Promise.resolve();
   if (!m.running) return startSync(account, creds, opts);
+  if (opts.join) return m.running;
   m.againRediscover ||= !!opts.rediscover;
   m.again ??= m.running.then(() => {
     const rediscover = m.againRediscover;
@@ -331,7 +334,7 @@ export function syncSoon(account: AccountInfo, creds: Credentials) {
 
 /** Keeps a running account's contacts in sync while its runtime lives. */
 export function attachContactsSync(rt: AccountRuntime) {
-  const run = () => void syncContacts(rt.account, rt.credentials);
+  const run = () => void syncContacts(rt.account, rt.credentials, { join: true });
   const first = setTimeout(run, 2000);
   const every = setInterval(run, PERIOD_MS);
   first.unref();
