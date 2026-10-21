@@ -13,7 +13,8 @@ With `CARDDAV_URL` set and `CONTACTS_SYNC` on, a mailbox on your own mail server
 - 2 s after its [runtime](./sync.md#the-connections-to-your-mail-server) starts, then
   every 10 minutes while it runs, that is while someone has Viauna open, and for up to
   10 minutes after;
-- 1.5 s after a change in Viauna, so a burst of edits is sent once;
+- 1.5 s after a change in Viauna, so a burst of edits is sent once (unless a sync starts
+  before then, which sends it);
 - when someone opens Contacts and the last sync that worked ended more than a minute
   ago, or there's been none since a restart;
 - on **Sync now**.

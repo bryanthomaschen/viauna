@@ -10,7 +10,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { DavClient, DavError } from "../server/carddav.ts";
 import { createContact, deleteContacts, importVCards, listContacts, updateContact } from "../server/contacts.ts";
 import { config } from "../server/config.ts";
-import { merge, startUrl, syncAccount, syncContacts } from "../server/contacts-sync.ts";
+import { contactEvents, merge, startUrl, syncAccount, syncContacts, syncSoon } from "../server/contacts-sync.ts";
 import { sha256 } from "../server/crypto.ts";
 import { Database, setDatabase } from "../server/db.ts";
 import type { AccountInfo } from "../server/imap/runtime.ts";
@@ -155,6 +155,27 @@ describe.skipIf(!SERVER).each(ENGINES)("contacts sync on $name", ({ url }) => {
       await first;
       expect(order).toEqual(["first", "next"]);
       expect(await onServer()).toContain("Mo");
+    } finally {
+      (config as { carddavUrl: string | undefined }).carddavUrl = saved;
+    }
+  });
+
+  it("doesn't sync again for a change a sync since has sent", async () => {
+    // An edit schedules a sync for 1.5 s later; Sync now before then sends the edit, so
+    // the scheduled one is dropped rather than run as soon as Sync now's has ended.
+    const saved = config.carddavUrl;
+    (config as { carddavUrl: string | undefined }).carddavUrl = `${SERVER}/{login}/`;
+    try {
+      await createContact(7, { firstName: "Zed", emails: [{ address: "zed@example.net" }] });
+      syncSoon(account, creds());
+      await syncContacts(account, creds());
+      expect(await onServer()).toContain("Zed");
+      let started = 0;
+      const count = (id: number) => id === account.id && started++;
+      contactEvents.on("changed", count);
+      await new Promise((r) => setTimeout(r, 2000));
+      contactEvents.off("changed", count);
+      expect(started).toBe(0);
     } finally {
       (config as { carddavUrl: string | undefined }).carddavUrl = saved;
     }

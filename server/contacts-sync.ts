@@ -290,6 +290,12 @@ export function syncContacts(account: AccountInfo, creds: Credentials, opts: { r
 function startSync(account: AccountInfo, creds: Credentials, opts: { rediscover?: boolean }): Promise<void> {
   const m = mem(account.id);
   if (!syncsContacts(account)) return Promise.resolve();
+  // This sync sends the changes a pending syncSoon was waiting to: it reads the contacts
+  // after them. Left set, it would sync again for nothing, as soon as this one ended.
+  if (m.soon) {
+    clearTimeout(m.soon);
+    m.soon = null;
+  }
   contactEvents.emit("changed", account.id);
   m.running = syncAccount(account, creds, startUrl(config.carddavUrl!, account.login), opts)
     .then(
