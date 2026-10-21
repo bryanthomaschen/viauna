@@ -194,6 +194,8 @@ describe.skipIf(!enabled)("the keyboard, in a browser", { timeout: 30_000 }, () 
 
     it("turns single-key shortcuts on", async () => {
       await command("turn on single", /^Turn on single-key shortcuts/);
+      // The menu runs a command just after it closes, so reloading at once can lose it.
+      await until(() => page.evaluate(() => JSON.parse(localStorage.getItem("viauna.prefs") ?? "{}").shortcuts === true), "the setting to be saved");
       await inbox();
       const before = await cursor();
       await press("j");
