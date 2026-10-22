@@ -14,7 +14,7 @@ import { VERSION, setting } from "./config.ts";
 import { type ParsedFile, buildFile, busyOnly, parseFile } from "./calendar-file.ts";
 import { FEED_LIMITS, FeedError, feedUrl, fetchFeed } from "./feeds.ts";
 import { log } from "./log.ts";
-import { cleanReminders, getSettings } from "./settings.ts";
+import { cleanReminders, getSettings, myAddresses } from "./settings.ts";
 import { contains, fold } from "./text.ts";
 import { randomToken, sha256 } from "./crypto.ts";
 import {
@@ -24,6 +24,8 @@ import {
   WALL,
   eventTimes,
   eventUid,
+  type Person,
+  type Response,
   fieldsOf,
   hasReminders,
   instantIn,
@@ -31,6 +33,8 @@ import {
   masterEvent,
   newEvent,
   ownZones,
+  peopleOf,
+  responseOf,
   parseCalendar,
   serialize,
   wallToMs,
@@ -125,6 +129,8 @@ export interface EventSummary {
   readOnly: boolean;
   /** On the Birthdays calendar: whose date it is. */
   contactId: number | null;
+  /** An invitation's answer from this mailbox; null if it isn't one (or it organises it). */
+  response: Response | null;
 }
 
 export interface EventDetail extends EventFields {
@@ -132,6 +138,10 @@ export interface EventDetail extends EventFields {
   calendarId: number;
   /** In a calendar whose events come from elsewhere. */
   readOnly: boolean;
+  /** Who organises it and who's invited (empty for an event with no guests), and this mailbox's answer. */
+  organizer: Person | null;
+  attendees: Person[];
+  response: Response | null;
   occurrence: string | null;
   recurring: boolean;
   /** How the series repeats; null if it doesn't. */
@@ -421,15 +431,21 @@ function parsed(ics: string): Root | null {
 }
 
 /** One occurrence as the grid shows it, in `zone`. */
-function summaryOf(row: { id: number; calendar_id: number }, root: Root, occ: Occurrence, zone: string, readOnly: boolean): EventSummary {
+function summaryOf(row: { id: number; calendar_id: number }, root: Root, occ: Occurrence, zone: string, readOnly: boolean, me: Set<string>): EventSummary {
   const f = fieldsOf(occ.event, occ, zone);
   const start = occ.start.kind === "date" ? occ.start.date : new Date(instantIn(occ.start, zone)).toISOString();
   const end = occ.end.kind === "date" ? occ.end.date : new Date(instantIn(occ.end, zone)).toISOString();
   return {
     id: row.id, calendarId: row.calendar_id, occurrence: occ.key, recurring: isRecurring(masterEvent(root)!),
     title: f.title, allDay: f.allDay, start, end, color: f.color, busy: f.busy, location: f.location, video: !!f.video,
-    readOnly, contactId: null,
+    readOnly, contactId: null, response: responseOf(occ.event, me),
   };
+}
+
+/** The mailbox's own addresses (its own, and the ones it sends as): who "me" is in an invitation. */
+export async function meOf(accountId: number): Promise<Set<string>> {
+  const account = await state().selectFrom("accounts").select("email").where("id", "=", accountId).executeTakeFirst();
+  return account ? myAddresses(accountId, account.email) : new Set();
 }
 
 function checkZone(zone: unknown): string {
@@ -457,12 +473,13 @@ export async function eventsBetween(accountId: number, from: string, to: string,
     .execute();
   const window = { fromMs, toMs, fromDate: from, toDate: to };
   const kinds = await shownKinds(accountId);
+  const me = await meOf(accountId);
   const out: EventSummary[] = [];
   for (const row of rows) {
     const kind = kinds.get(row.calendar_id);
     const root = kind && parsed(row.ics);
     if (!root) continue;
-    for (const occ of occurrences(root, zone, window)) out.push(summaryOf(row, root, occ, zone, kind !== "events"));
+    for (const occ of occurrences(root, zone, window)) out.push(summaryOf(row, root, occ, zone, kind !== "events", me));
   }
   if (setting("contacts")) {
     const birthdays = await state().selectFrom("calendars").select("id").where("birthdays_of", "=", accountId).executeTakeFirst();
@@ -486,12 +503,13 @@ export async function searchEvents(accountId: number, q: string, zone: string): 
     .execute();
   const now = Date.now();
   const kinds = await shownKinds(accountId);
+  const me = await meOf(accountId);
   const out: EventSummary[] = [];
   for (const row of rows) {
     const kind = kinds.get(row.calendar_id);
     const root = kind && parsed(row.ics);
     const occ = root && representative(root, now, zone);
-    if (root && occ) out.push(summaryOf(row, root, occ, zone, kind !== "events"));
+    if (root && occ) out.push(summaryOf(row, root, occ, zone, kind !== "events", me));
   }
   return out.sort((a, b) => b.start.localeCompare(a.start));
 }
@@ -515,7 +533,7 @@ function cleanScope(input: unknown): Scope {
 }
 
 /** An event, or one occurrence of it, as the editor shows it, with its times in `zone`. */
-function detail(row: EventRow, zone: string, key: string | null = null, readOnly = false): EventDetail {
+function detail(row: EventRow, zone: string, key: string | null = null, readOnly = false, me: Set<string> = new Set()): EventDetail {
   const root = parseCalendar(row.ics);
   const master = masterEvent(root);
   const occ = occurrenceAt(root, key, zone);
@@ -528,6 +546,8 @@ function detail(row: EventRow, zone: string, key: string | null = null, readOnly
     id: row.id,
     calendarId: row.calendar_id,
     readOnly,
+    ...peopleOf(occ.event),
+    response: responseOf(occ.event, me),
     occurrence: recurring ? occ.key : null,
     recurring,
     repeat: readRule(master, root, zone),
@@ -541,7 +561,7 @@ function detail(row: EventRow, zone: string, key: string | null = null, readOnly
 export async function getEvent(accountId: number, id: number, zone: string, occurrence?: string): Promise<EventDetail> {
   const row = await loadEvent(accountId, id);
   const calendar = await ownCalendar(accountId, row.calendar_id);
-  return detail(row, checkZone(zone), cleanKey(occurrence), calendar.kind !== "events");
+  return detail(row, checkZone(zone), cleanKey(occurrence), calendar.kind !== "events", await meOf(accountId));
 }
 
 export async function createEvent(accountId: number, calendarId: number, input: unknown, zone: string): Promise<EventDetail> {
@@ -1036,4 +1056,59 @@ export function startFeedRefresher(): () => void {
     clearTimeout(first);
     clearInterval(timer);
   };
+}
+
+// ---------------------------------------------------------------- kept by UID (invitations)
+
+/** The event with this UID in the mailbox's calendars kept here, if there is one. */
+export async function eventByUid(accountId: number, uid: string): Promise<EventRow | null> {
+  const row = await state()
+    .selectFrom("events as e")
+    .innerJoin("calendars as c", "c.id", "e.calendar_id")
+    .selectAll("e")
+    .where("e.account_id", "=", accountId)
+    .where("e.uid", "=", uid)
+    .where("c.kind", "=", "events")
+    .orderBy("e.id")
+    .executeTakeFirst();
+  return row ?? null;
+}
+
+/**
+ * Keeps an iCalendar object as an event: in place of the event `id`, or new in the
+ * calendar given (else the mailbox's own). Returns its id.
+ */
+export async function keepEvent(accountId: number, root: Root, target: { id: number } | { calendarId: number | null }): Promise<number> {
+  const uid = eventUid(root);
+  if (!uid || uid.length > 255) throw new CalendarError("That event has no UID Viauna can keep it by.");
+  root.removeAllProperties("method");
+  await addressEmailReminders(accountId, root);
+  const ics = serialize(root);
+  if (ics.length > LIMITS.eventBytes) throw new CalendarError("That event is too large (over 1 MB).");
+  const columns = indexed(root);
+  const now = Date.now();
+  let id: number;
+  if ("id" in target) {
+    await state().updateTable("events").set({ ics, updated_at: now, ...columns }).where("account_id", "=", accountId).where("id", "=", target.id).execute();
+    id = target.id;
+  } else {
+    // The calendar asked for if it's still there and kept here, else the mailbox's own.
+    const calendars = await listCalendars(accountId, "");
+    const calendarId = calendars.find((c) => c.id === target.calendarId && c.kind === "events")?.id ?? calendars.find((c) => c.primary)!.id;
+    try {
+      await state().insertInto("events").values({ account_id: accountId, calendar_id: calendarId, uid, ics, created_at: now, updated_at: now, ...columns }).execute();
+    } catch (err) {
+      if (isUniqueViolation(err)) throw new CalendarError("That calendar already has this event.");
+      throw err;
+    }
+    id = (await state().selectFrom("events").select("id").where("calendar_id", "=", calendarId).where("uid", "=", uid).executeTakeFirstOrThrow()).id;
+  }
+  changed(accountId);
+  return id;
+}
+
+/** An event as its iCalendar object, for an invitation to change. */
+export async function eventObject(accountId: number, id: number): Promise<{ row: EventRow; root: Root }> {
+  const row = await loadEvent(accountId, id);
+  return { row, root: parseCalendar(row.ics) };
 }

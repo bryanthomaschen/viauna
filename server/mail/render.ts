@@ -304,16 +304,18 @@ export interface RenderOptions {
 }
 
 export function attachmentList(parsed: ParsedMail, html: string | null): RenderedAttachment[] {
-  return parsed.attachments.map((a, index) => {
+  return parsed.attachments.flatMap((a, index) => {
+    // An invitation's text/calendar part is a form of the body (RFC 6047), shown as its card, not a file.
+    if (a.contentType.toLowerCase() === "text/calendar" && !a.filename) return [];
     const cid = a.cid?.replace(/^<|>$/g, "");
     const referenced = !!cid && !!html && html.includes(cid);
-    return {
+    return [{
       index,
       filename: a.filename || (a.contentType === "message/rfc822" ? "message.eml" : `attachment-${index + 1}`),
       contentType: a.contentType,
       size: a.size,
       inline: referenced && a.contentType.startsWith("image/"),
-    };
+    }];
   });
 }
 

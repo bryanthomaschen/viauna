@@ -1,4 +1,4 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
 import { ui, useAccount } from "../lib/account";
@@ -149,6 +149,8 @@ function CalendarSettings() {
   const save = useSave();
   const p = prefs.use();
   const s = acct.settings;
+  const calendars = useQuery({ queryKey: ["calendars", acct.index], queryFn: () => api.calendars(acct.index), staleTime: 60_000 });
+  const own = (calendars.data?.calendars ?? []).filter((c) => !c.readOnly);
   if (!s) return <div className="empty"><div className="spinner lg" /></div>;
   const device = browserZone();
   const zones = s.timeZone && !ZONES.includes(s.timeZone) ? [s.timeZone, ...ZONES] : ZONES;
@@ -200,6 +202,17 @@ function CalendarSettings() {
           <DefaultReminders label="Notifications for all-day events" saved={s.allDayReminders} allDay onSave={(allDayReminders) => save({ allDayReminders })} />
         </div>
       </div>
+      {own.length > 1 && (
+        <div className="setting">
+          <div className="name">Invitations<small>The calendar an invitation goes into when you answer it, unless you pick another on it.</small></div>
+          <div className="options">
+            <select aria-label="Calendar for invitations" value={s.invitationCalendar ?? own.find((c) => c.primary)?.id ?? ""}
+              onChange={(e) => void save({ invitationCalendar: Number(e.target.value) })}>
+              {own.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+        </div>
+      )}
       <div className="setting">
         <div className="name">View<small>In this browser.</small></div>
         <div className="options">

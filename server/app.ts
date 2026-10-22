@@ -62,6 +62,7 @@ import { type Credentials, sha256 } from "./crypto.ts";
 import { db } from "./db.ts";
 import { contactEvents, syncContacts, syncSoon, syncStatus, syncsContacts } from "./contacts-sync.ts";
 import { FeedError } from "./feeds.ts";
+import { type InvitationAction, actOnInvitation, answerEvent, calendarPart, readItip, viewInvitation } from "./invitations.ts";
 import { FilterError, cleanFilter, cleanVacation, loadFilters, saveFilters, unavailable } from "./filters.ts";
 import { MailboxAuthError, runtimeFor, stillProven } from "./imap/pool.ts";
 import { type AccountRuntime, type ChangeEvent, syncable } from "./imap/runtime.ts";
@@ -424,7 +425,31 @@ export function createApp() {
       origin: "'self'",
       cidUrl: (cid) => `/api/u/${a}/messages/${mb.id}/${uid}/cid/${encodeURIComponent(cid)}`,
     });
-    return c.json({ ...rendered, imagesAllowed: allowRemote, trustedSender: trusted });
+    // An invitation (or an event to add) in it: the page asks for it on its own, in its zone.
+    const part = setting("calendar") ? calendarPart(parsed) : null;
+    const invitation = part ? (readItip(part)?.method ?? null) : null;
+    return c.json({ ...rendered, imagesAllowed: allowRemote, trustedSender: trusted, invitation });
+  });
+
+  // A message's invitation, as the page shows it: in the reader's zone, with what's in their calendar.
+  acct.get("/messages/:mb/:uid/invitation", async (c) => {
+    if (!setting("calendar")) return c.json({ error: "The calendar is turned off on this server." }, 404);
+    const found = await messageParts(c);
+    const part = found && calendarPart(found.parsed);
+    const invitation = part ? await viewInvitation(found.rt.account.id, part, c.req.query("zone") ?? "UTC") : null;
+    return invitation ? c.json({ invitation }) : c.json({ error: "There's no invitation in this message." }, 404);
+  });
+
+  // { action: accepted | declined | tentative | add | update | remove | apply-reply, calendarId? }
+  acct.post("/messages/:mb/:uid/invitation", async (c) => {
+    if (!setting("calendar")) return c.json({ error: "The calendar is turned off on this server." }, 404);
+    const found = await messageParts(c);
+    const part = found && calendarPart(found.parsed);
+    if (!part) return c.json({ error: "There's no invitation in this message." }, 404);
+    const b = await c.req.json().catch(() => ({}));
+    const calendarId = Number.isInteger(b.calendarId) ? (b.calendarId as number) : null;
+    const { sent } = await actOnInvitation(found.rt, c.get("creds"), part, b.action as InvitationAction, calendarId);
+    return c.json({ sent, invitation: await viewInvitation(found.rt.account.id, part, c.req.query("zone") ?? "UTC") });
   });
 
   acct.get("/messages/:mb/:uid/raw", async (c) => {
@@ -820,6 +845,12 @@ export function createApp() {
   calendar.get("/events/:id", async (c) =>
     c.json({ event: await getEvent(c.get("rt").account.id, int(c.req.param("id")), zoneOf(c), c.req.query("occurrence")) }),
   );
+
+  // An invitation kept here, answered from its card: { response: accepted | declined | tentative }.
+  calendar.post("/events/:id/respond", async (c) => {
+    const b = await body(c);
+    return c.json(await answerEvent(c.get("rt"), c.get("creds"), int(c.req.param("id")), b.response));
+  });
 
   calendar.post("/events", async (c) => {
     const b = await body(c);

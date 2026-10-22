@@ -36,6 +36,8 @@ export interface AccountSettings {
   allDayReminders: Reminder[];
   /** The zone a page last showed the calendar in, for reminders of all-day events when timeZone is "". Not shown. */
   seenZone: string;
+  /** The calendar invitations go into; null: the mailbox's own. */
+  invitationCalendar: number | null;
 }
 
 export const DEFAULT_SETTINGS: AccountSettings = {
@@ -51,6 +53,7 @@ export const DEFAULT_SETTINGS: AccountSettings = {
   reminders: [{ method: "notification", minutes: 10 }],
   allDayReminders: [],
   seenZone: "",
+  invitationCalendar: null,
 };
 
 /** Fixed limits on reminders (docs/how-it-works/limits.md). */
@@ -131,6 +134,15 @@ export async function updateSettings(accountId: number, patch: Record<string, un
   if ("eventMinutes" in patch) {
     const minutes = Number(patch.eventMinutes);
     next.eventMinutes = ([15, 30, 45, 60, 90, 120] as const).find((m) => m === minutes) ?? 60;
+  }
+  if ("invitationCalendar" in patch) {
+    const id = patch.invitationCalendar === null ? null : Number(patch.invitationCalendar);
+    if (id !== null && !Number.isInteger(id)) return { error: "Pick a calendar." };
+    if (id !== null) {
+      const cal = await state().selectFrom("calendars").select("kind").where("account_id", "=", accountId).where("id", "=", id).executeTakeFirst();
+      if (!cal || cal.kind !== "events") return { error: "Pick one of your own calendars." };
+    }
+    next.invitationCalendar = id;
   }
   for (const key of ["reminders", "allDayReminders"] as const) {
     if (!(key in patch)) continue;

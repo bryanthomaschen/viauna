@@ -6,6 +6,9 @@ import type {
   EventSummary,
   Scope,
   SecretMode,
+  Invitation,
+  InvitationAction,
+  Answer,
   AdminChange,
   AdminData,
   AdminSetting,
@@ -96,6 +99,12 @@ export const api = {
     request<Conversation>("GET", `${u(a)}/threads/${id}?view=${encodeURIComponent(view)}`),
   message: (a: number, ref: MessageRef, images: boolean) =>
     request<RenderedMessage>("GET", `${u(a)}/messages/${ref.mailboxId}/${ref.uid}${images ? "?images=1" : ""}`),
+  invitation: (a: number, ref: MessageRef, zone: string) =>
+    request<{ invitation: Invitation }>("GET", `${u(a)}/messages/${ref.mailboxId}/${ref.uid}/invitation?zone=${encodeURIComponent(zone)}`),
+  actOnInvitation: (a: number, ref: MessageRef, action: InvitationAction, calendarId: number | null, zone: string) =>
+    request<{ sent: boolean; invitation: Invitation }>(
+      "POST", `${u(a)}/messages/${ref.mailboxId}/${ref.uid}/invitation?zone=${encodeURIComponent(zone)}`, { action, calendarId },
+    ),
   composeData: (a: number, ref: MessageRef) =>
     request<{
       from: string | null;
@@ -187,6 +196,7 @@ export const api = {
     request<{ event: EventDetail; undo: string }>("PATCH", `${u(a)}/calendar/events/${id}?zone=${encodeURIComponent(zone)}`, patch),
   deleteEvent: (a: number, id: number, occurrence?: string | null, scope?: Scope) =>
     request<{ undo: string }>("DELETE", `${u(a)}/calendar/events/${id}?${new URLSearchParams({ ...(occurrence ? { occurrence } : {}), ...(scope ? { scope } : {}) })}`),
+  respondToEvent: (a: number, id: number, response: Answer) => request<{ sent: boolean }>("POST", `${u(a)}/calendar/events/${id}/respond`, { response }),
   undoCalendar: (a: number, token: string) => request<{ ok: true }>("POST", `${u(a)}/calendar/undo`, { token }),
   importCalendar: (a: number, target: number | "new", file: File) =>
     request<{ calendarId: number; added: number; updated: number; unchanged: number; skipped: number }>(

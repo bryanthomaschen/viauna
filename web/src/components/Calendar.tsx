@@ -55,9 +55,10 @@ import {
 } from "../lib/calendar";
 import { CALENDAR_VIEWS, type CalendarView, type Route, calendarPath, navigate } from "../lib/router";
 import { prefs, toast } from "../lib/store";
-import type { CalendarInfo, EventSummary, Scope } from "../lib/types";
+import type { Answer, CalendarInfo, EventSummary, Scope } from "../lib/types";
 import { IconButton } from "./common";
 import { deleteEvent, undoable } from "./EventDialog";
+import { Guests } from "./Invitation";
 import { useViewHandlers } from "./shortcuts";
 
 /** FullCalendar's name for each view; the four-day and schedule views are its custom ones. */
@@ -379,7 +380,9 @@ function CalendarGrid({ route }: { route: Route }) {
           const color = e.color ?? visible.get(e.calendarId)!.color;
           return {
             id: `${e.calendarId}:${e.id}:${e.occurrence ?? ""}`, title: e.title || "(No title)", start: e.start, end: e.end, allDay: e.allDay,
-            color, contrastColor: textOnColor(color), className: e.busy ? "" : "event-free", extendedProps: { summary: e },
+            color, contrastColor: textOnColor(color), extendedProps: { summary: e },
+            // Free, and an invitation's answer: not answered yet, maybe, no.
+            className: [e.busy ? "" : "event-free", e.response === "needs-action" ? "event-unanswered" : e.response === "tentative" ? "event-maybe" : e.response === "declined" ? "event-declined" : ""].join(" ").trim(),
             editable: !e.readOnly,
           };
         }),
@@ -658,6 +661,38 @@ function ContactDateCard({ state, calendars, onClose }: { state: CardState; cale
   );
 }
 
+/** "Going? Yes Maybe No" on an invitation kept in the calendar; a change tells the organiser. */
+function EventAnswer({ id, answer, onChanged }: { id: number; answer: Answer; onChanged: () => void }) {
+  const acct = useAccount();
+  const client = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const choose = async (value: "accepted" | "tentative" | "declined", label: string) => {
+    setBusy(true);
+    try {
+      const r = await api.respondToEvent(acct.index, id, value);
+      void client.invalidateQueries({ queryKey: ["event", acct.index, id] });
+      void client.invalidateQueries({ queryKey: ["invitation", acct.index] });
+      onChanged();
+      toast(`Answered "${label.toLowerCase()}".${r.sent ? " The organiser has been told." : ""}`);
+    } catch (err) {
+      toast((err as Error).message, { error: true });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="event-card-row invite-actions">
+      <span className="invite-going">Going?</span>
+      <div className="invite-answers" role="group" aria-label="Going?">
+        {([["accepted", "Yes"], ["tentative", "Maybe"], ["declined", "No"]] as const).map(([value, label]) => (
+          <button key={value} type="button" className={`btn ${answer === value ? "btn-primary" : "btn-outline"}`} aria-pressed={answer === value}
+            disabled={busy} onClick={() => void choose(value, label)}>{label}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** What clicking an event opens: when and where, the video call, and Edit and Delete. */
 function EventCard({ state, calendars, onClose, onChanged }: { state: CardState; calendars: CalendarInfo[]; onClose: () => void; onChanged: () => void }) {
   const acct = useAccount();
@@ -726,6 +761,8 @@ function EventCard({ state, calendars, onClose, onChanged }: { state: CardState;
             </div>
           )}
           {d?.description && <div className="event-card-row event-description"><Text size={18} aria-hidden /><div>{linked(d.description)}</div></div>}
+          {d && (d.attendees.length > 0 || d.organizer) && <Guests inv={d} me={acct.identities.map((i) => i.address)} />}
+          {d?.response && <EventAnswer id={e.id} answer={d.response} onChanged={onChanged} />}
           {!!d?.reminders?.length && (
             <div className="event-card-row muted"><Bell size={18} aria-hidden /><div>{d.reminders.map((r) => <div key={`${r.method}${r.minutes}`}>{reminderText(r, d.allDay)}</div>)}</div></div>
           )}

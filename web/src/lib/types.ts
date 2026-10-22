@@ -111,7 +111,47 @@ export interface RenderedMessage {
   unsubscribe: { url?: string; mailto?: string; oneClick: boolean } | null;
   imagesAllowed: boolean;
   trustedSender: boolean;
+  /** An invitation (or an event to add) in it, by its method; null: none. */
+  invitation: InvitationMethod | null;
 }
+
+export type InvitationMethod = "REQUEST" | "CANCEL" | "REPLY" | "PUBLISH";
+
+/** An answer to an invitation, as its PARTSTAT says. */
+export type Answer = "accepted" | "declined" | "tentative" | "needs-action" | "delegated";
+
+export interface Person {
+  address: string;
+  name: string;
+  response: Answer | null;
+  optional: boolean;
+}
+
+/** A message's invitation, as the card in it shows it. */
+export interface Invitation {
+  method: InvitationMethod;
+  title: string;
+  allDay: boolean;
+  start: string;
+  end: string;
+  repeat: RepeatRule | null;
+  location: string;
+  video: string | null;
+  description: string;
+  organizer: Person | null;
+  attendees: Person[];
+  you: Person | null;
+  youOrganize: boolean;
+  occurrence: string | null;
+  more: number;
+  stored: { id: number; calendarId: number; response: Answer | null; sequence: number } | null;
+  outdated: boolean;
+  newer: boolean;
+  replyApplied: boolean;
+  clashes: EventSummary[];
+}
+
+export type InvitationAction = "accepted" | "declined" | "tentative" | "add" | "update" | "remove" | "apply-reply";
 
 export interface SessionAccount {
   index: number;
@@ -144,6 +184,8 @@ export interface Settings {
   /** The reminders a new event gets: timed, and all-day. */
   reminders: Reminder[];
   allDayReminders: Reminder[];
+  /** The calendar invitations go into; null: your own. */
+  invitationCalendar: number | null;
 }
 
 /** A notification or an email, so many minutes before an event starts (an all-day one's day starts at midnight; negative: after). */
@@ -411,6 +453,8 @@ export interface EventSummary {
   readOnly: boolean;
   /** On the Birthdays calendar: whose date it is. */
   contactId: number | null;
+  /** Your answer, for an invitation; null otherwise. */
+  response: Answer | null;
 }
 
 export type Weekday = "MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU";
@@ -450,6 +494,10 @@ export interface EventInput {
 export interface EventDetail extends EventInput {
   /** In a calendar whose events come from elsewhere. */
   readOnly: boolean;
+  /** Who organises it and who's invited (none: an event of your own), and your answer. */
+  organizer: Person | null;
+  attendees: Person[];
+  response: Answer | null;
   id: number;
   calendarId: number;
   occurrence: string | null;

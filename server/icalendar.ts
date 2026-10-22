@@ -247,7 +247,7 @@ export function wallIn(m: Moment, zone: string): string {
 
 // ---------------------------------------------------------------- reading fields
 
-const text = (event: Component, name: string): string => {
+export const text = (event: Component, name: string): string => {
   const v = event.getFirstPropertyValue(name);
   return typeof v === "string" ? v : "";
 };
@@ -508,4 +508,67 @@ export function eventUid(root: Component): string | null {
 
 export function serialize(root: Component): string {
   return root.toString() + "\r\n";
+}
+
+// ---------------------------------------------------------------- guests
+
+/** An answer to an invitation, as PARTSTAT says it (RFC 5545 3.2.12), lower-cased. */
+export type Response = "accepted" | "declined" | "tentative" | "needs-action" | "delegated";
+
+export interface Person {
+  address: string;
+  name: string;
+  /** For an attendee: their answer so far. */
+  response: Response | null;
+  /** An attendee whose answer isn't needed (ROLE=OPT-PARTICIPANT or NON-PARTICIPANT). */
+  optional: boolean;
+}
+
+const RESPONSES: Response[] = ["accepted", "declined", "tentative", "needs-action", "delegated"];
+
+const addressOf = (p: Property) => String(p.getFirstValue() ?? "").replace(/^mailto:/i, "").trim().toLowerCase();
+
+function personOf(p: Property, attendee: boolean): Person | null {
+  const address = addressOf(p);
+  if (!/^[^\s@]+@[^\s@]+$/.test(address)) return null;
+  const status = String(p.getParameter("partstat") ?? "NEEDS-ACTION").toLowerCase() as Response;
+  const role = String(p.getParameter("role") ?? "").toUpperCase();
+  return {
+    address,
+    name: String(p.getParameter("cn") ?? "").replace(/^"|"$/g, "").trim(),
+    response: attendee ? (RESPONSES.includes(status) ? status : "needs-action") : null,
+    optional: role === "OPT-PARTICIPANT" || role === "NON-PARTICIPANT",
+  };
+}
+
+/** Who organises an event, and who's invited, with their answers. */
+export function peopleOf(event: Component): { organizer: Person | null; attendees: Person[] } {
+  const organizer = event.getFirstProperty("organizer");
+  return {
+    organizer: organizer ? personOf(organizer, false) : null,
+    attendees: event.getAllProperties("attendee").map((p) => personOf(p, true)).filter((p): p is Person => p !== null),
+  };
+}
+
+/** The attendee that is one of `me` (the mailbox and its send-as addresses), if any. */
+export function myAttendee(event: Component, me: Set<string>): Property | null {
+  return event.getAllProperties("attendee").find((p) => me.has(addressOf(p))) ?? null;
+}
+
+/** My answer to an event I'm invited to; null if I'm not a guest (or I organise it). */
+export function responseOf(event: Component, me: Set<string>): Response | null {
+  const organizer = event.getFirstProperty("organizer");
+  if (organizer && me.has(addressOf(organizer))) return null;
+  const mine = myAttendee(event, me);
+  return mine ? personOf(mine, true)?.response ?? null : null;
+}
+
+/** Sets my answer in an event; false if I'm not one of its guests. */
+export function setResponse(event: Component, me: Set<string>, response: Response): boolean {
+  const mine = myAttendee(event, me);
+  if (!mine) return false;
+  mine.setParameter("partstat", response.toUpperCase());
+  // Answered: no answer is asked for any more.
+  if (response !== "needs-action") mine.removeParameter("rsvp");
+  return true;
 }

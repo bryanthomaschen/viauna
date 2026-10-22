@@ -140,13 +140,20 @@ function yearsIn(c: Component, tzid: string): number[] {
 
 /** A calendar as one file: its events, and a VTIMEZONE for every zone they name. */
 export function buildFile(name: string, objects: Component[], prodid: string, zone: string): string {
+  return assemble(objects, prodid, zone, { method: "PUBLISH", "x-wr-calname": name, "x-wr-timezone": zone });
+}
+
+/** An iTIP message (RFC 5546): one event's object with a method (REQUEST, REPLY, CANCEL), and its zones' definitions. */
+export function buildItip(method: "REQUEST" | "REPLY" | "CANCEL", object: Component, prodid: string): string {
+  return assemble([object], prodid, "UTC", { method });
+}
+
+function assemble(objects: Component[], prodid: string, zone: string, headers: Record<string, string>): string {
   const root = new ICAL.Component(["vcalendar", [], []]);
   root.updatePropertyWithValue("prodid", prodid);
   root.updatePropertyWithValue("version", "2.0");
   root.updatePropertyWithValue("calscale", "GREGORIAN");
-  root.updatePropertyWithValue("method", "PUBLISH");
-  root.updatePropertyWithValue("x-wr-calname", name);
-  root.updatePropertyWithValue("x-wr-timezone", zone);
+  for (const [k, v] of Object.entries(headers)) root.updatePropertyWithValue(k, v);
   const events = objects.flatMap((o) => o.getAllSubcomponents("vevent"));
   const now = new Date().getUTCFullYear();
   const tzids = new Set<string>();

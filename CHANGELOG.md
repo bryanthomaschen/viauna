@@ -48,6 +48,14 @@ pushing off. **Reminders by email**, to your own address, once the server has a 
 its own: set `SENDER_ADDRESS` and `SENDER_PASSWORD` for a mailbox such as
 `noreply@example.com`.
 
+**Invitations** from any calendar app show as a card in their message: what, when, where,
+who's going, and what it clashes with. **Going?** Yes, Maybe or No puts it in your
+calendar and emails the organiser your answer the standard way; change it later from the
+event. Cards also bring your calendar up to date with a newer version, remove a cancelled
+event, add an `.ics` file's events, and, for events you organise, count a guest's answer.
+The calendar shows your answer: outlined until you answer, striped for maybe, struck
+through for no.
+
 **A secret address** for any calendar, so another app (your phone, Outlook, another
 calendar) can show it read-only: the whole calendar, or only "Busy" at the times you're
 busy. Viauna keeps only a fingerprint of it; make a new one to stop the old one, and its

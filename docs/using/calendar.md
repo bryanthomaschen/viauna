@@ -106,6 +106,35 @@ repeats; which calendar; where; a video call link (Zoom, Google Meet, Teams, Jit
 other); a description; **Show as** busy or free; and a colour, which is the calendar's
 unless you pick another.
 
+## Invitations
+
+An invitation someone sends you (from Google Calendar, Outlook, Apple Calendar, or anything
+that sends standard invitations) shows as a card at the top of its message: what, when in
+your calendar's time zone, where, a video call link, who's organising it, and its guests
+with their answers so far. If it clashes with something busy in your calendar, the card
+says so.
+
+- **Going?** Yes, Maybe or No puts it in your calendar with your answer, and emails the
+  organiser your answer, from your address, as calendar apps expect. It goes into the
+  calendar chosen in **Settings > Calendar > Invitations** (your own, out of the box), or
+  the one you pick on the card. It keeps your usual reminders.
+- Change your answer on the card, or in the calendar: click the event and choose again
+  under **Going?**. The organiser is told each time.
+- When the organiser changes it, the new invitation's card offers **Update your calendar**.
+  Your reminders and colour stay, and so does your answer, unless the time changed, when
+  it's asked again.
+- When it's called off, the card says **This event has been cancelled**, with **Remove
+  from your calendar**.
+- A calendar file sent as an attachment (`.ics`) shows the same way, with **Add to
+  calendar**. So does an invitation you're not on the guest list of (forwarded to you,
+  say): it can be added, but not answered.
+- When you organise an event and a guest's answer arrives, its card offers **Count it in
+  your event**, to show their answer on the event's guest list.
+
+In the calendar, an invitation you haven't answered is outlined, a maybe is striped, and
+one you've said no to is faded and struck through. An event's card lists its guests and
+their answers.
+
 ## Reminders
 
 An event can remind you before it starts: under **Notifications** in the editor, so many

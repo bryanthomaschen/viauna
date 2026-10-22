@@ -286,9 +286,8 @@ async function addFlag(rt: AccountRuntime, ref: { mailboxId: number; uid: number
 
 // ------------------------------------------------------------------ public
 
-/** Sends with the requesting session's own password, which it has just proven. */
-export async function sendMessage(rt: AccountRuntime, sessionHash: string, input: ComposeInput, creds: Credentials) {
-  const built = await build(rt, sessionHash, input, false);
+/** Sends a built message through the mailbox's SMTP server, as the mailbox, with its own password. */
+export async function sendRaw(rt: AccountRuntime, creds: Credentials, envelope: Built["envelope"], raw: Buffer) {
   const smtp = rt.account.smtp;
   let target: { host: string; servername?: string };
   try {
@@ -309,7 +308,7 @@ export async function sendMessage(rt: AccountRuntime, sessionHash: string, input
     socketTimeout: 120_000,
   });
   try {
-    await transport.sendMail({ envelope: built.envelope, raw: built.raw });
+    await transport.sendMail({ envelope, raw });
   } catch (err) {
     const e = err as { responseCode?: number; response?: string; message?: string; code?: string };
     if (e.code === "EAUTH") throw new ComposeError("The mail server rejected your password for sending.", 502);
@@ -317,6 +316,44 @@ export async function sendMessage(rt: AccountRuntime, sessionHash: string, input
   } finally {
     transport.close();
   }
+}
+
+/**
+ * A calendar email (iMIP, RFC 6047): an invitation, an update, a cancellation or an
+ * answer, as the mailbox. Its text and HTML for people, and the iCalendar object as a
+ * text/calendar part with its method, which calendar apps read, and as invite.ics.
+ * Not filed in Sent: the calendar is its record.
+ */
+export async function sendCalendarMail(
+  rt: AccountRuntime,
+  creds: Credentials,
+  mail: { to: Address[]; subject: string; text: string; html: string; method: "REQUEST" | "REPLY" | "CANCEL"; ics: string },
+): Promise<void> {
+  const settings = await getSettings(rt.account.id);
+  const from = rt.account.email.toLowerCase();
+  const to = cleanAddresses(mail.to);
+  if (!to.length) return;
+  const domain = from.split("@")[1] || "localhost";
+  const node = new MailComposer({
+    from: { name: settings.name, address: from },
+    to,
+    subject: mail.subject.replace(/[\r\n]+/g, " ").slice(0, 998),
+    text: mail.text,
+    html: mail.html,
+    icalEvent: { method: mail.method, filename: "invite.ics", content: mail.ics },
+    messageId: `<${crypto.randomBytes(12).toString("hex")}@${domain}>`,
+    date: new Date(),
+    headers: { "X-Mailer": config.appName },
+    disableFileAccess: true,
+    disableUrlAccess: true,
+  } as never).compile();
+  await sendRaw(rt, creds, { from, to: to.map((a) => a.address) }, await node.build());
+}
+
+/** Sends with the requesting session's own password, which it has just proven. */
+export async function sendMessage(rt: AccountRuntime, sessionHash: string, input: ComposeInput, creds: Credentials) {
+  const built = await build(rt, sessionHash, input, false);
+  await sendRaw(rt, creds, built.envelope, built.raw);
 
   // The message is out; filing and flagging are best-effort from here on.
   const errors: string[] = [];

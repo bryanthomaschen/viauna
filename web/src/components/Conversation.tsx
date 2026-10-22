@@ -17,6 +17,7 @@ import { toast } from "../lib/store";
 import type { Address, AttachmentInfo, Conversation, MessageMeta, MessageRef } from "../lib/types";
 import { Avatar, IconButton } from "./common";
 import { EmailFrame } from "./EmailFrame";
+import { InvitationCard } from "./Invitation";
 import { LabelPicker, MovePicker } from "./Pickers";
 import { useViewHandlers } from "./shortcuts";
 import { LabelChip } from "./ThreadList";
@@ -518,6 +519,7 @@ function MessageBody({ msg }: { msg: MessageMeta }) {
           )}
         </div>
       )}
+      {r.invitation && <InvitationCard refx={ref} />}
       <div className={`msg-body ${r.plain ? "" : "html-mail"}`}>
         {r.unsubscribe && (
           <div style={{ textAlign: "right", marginBottom: 4 }}>

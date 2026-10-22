@@ -546,6 +546,32 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
 .zone-labels { font-size: 10px; }
 /* Free time isn't solid, as in Google Calendar. */
 .calendar-grid .event-free { opacity: .75; }
+/* An invitation's answer: not answered yet, outlined; maybe, hatched; no, faded and struck through. */
+.calendar-grid .event-unanswered { background: var(--surface) !important; box-shadow: inset 0 0 0 1.5px var(--fc-event-color); --fc-event-contrast-color: var(--text) !important; }
+.calendar-grid .event-maybe {
+  background: repeating-linear-gradient(135deg, var(--fc-event-color) 0 6px, color-mix(in srgb, var(--fc-event-color) 55%, var(--surface)) 6px 12px) !important;
+}
+.calendar-grid .event-declined { opacity: .5; }
+.calendar-grid .event-declined * { text-decoration: line-through; }
+
+/* An invitation in its message. */
+.invite-card { margin: 4px 0 12px; padding: 12px 16px; border: 1px solid var(--border-strong); border-radius: 12px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; max-width: 640px; }
+.invite-card.cancelled .invite-title h3 { text-decoration: line-through; color: var(--text-2); }
+.invite-title { display: flex; align-items: center; gap: 10px; }
+.invite-title h3 { margin: 0; font-size: 18px; font-weight: 400; }
+.invite-row { display: flex; align-items: flex-start; gap: 10px; line-height: 20px; }
+.invite-row > svg { flex-shrink: 0; margin-top: 1px; color: var(--text-2); }
+.invite-clash { color: var(--danger); }
+.invite-clash > svg { color: var(--danger); }
+.invite-guests-toggle { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+.invite-guests { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.invite-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
+.invite-going { font-weight: 500; }
+.invite-answers { display: flex; gap: 6px; }
+.invite-answers .btn { min-width: 64px; justify-content: center; }
+.invite-calendar { display: flex; align-items: center; gap: 6px; }
+.invite-calendar .text-input { height: 36px; font-size: 14px; padding: 0 10px; width: auto; }
+.invite-open { margin-left: auto; }
 
 .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
 .swatch.lg { width: 16px; height: 16px; border-radius: 4px; margin-top: 6px; }

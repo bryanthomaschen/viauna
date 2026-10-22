@@ -17,7 +17,7 @@ export function emailReminders(account: { imap: Endpoint }): boolean {
 const escape = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 /** "Friday 23 October, 09:00 – 09:15", "Friday 23 October": when, in the zone it was worked out in. */
-function when(n: Pick<Notice, "allDay" | "start" | "end" | "zone">): string {
+export function whenText(n: Pick<Notice, "allDay" | "start" | "end" | "zone">): string {
   if (n.allDay) {
     const last = new Date(Date.parse(`${n.end}T00:00:00Z`) - 86_400_000);
     const day = new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
@@ -30,7 +30,7 @@ function when(n: Pick<Notice, "allDay" | "start" | "end" | "zone">): string {
 /** The email for a reminder: its subject, and its text as plain text and as HTML. */
 export function reminderEmail(n: Notice, link: string | null): { subject: string; text: string; html: string } {
   const title = n.title || "(No title)";
-  const time = when(n);
+  const time = whenText(n);
   const zone = n.allDay ? "" : ` (${n.zone.replace(/_/g, " ")})`;
   const short = n.allDay
     ? new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${n.start}T00:00:00Z`))

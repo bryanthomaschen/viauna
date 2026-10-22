@@ -168,6 +168,45 @@ auto-generated` so no out-of-office reply comes back. A sending that fails is lo
 tried again. Without a sender, email reminders aren't offered, and those imported events
 bring are kept but not sent.
 
+## Invitations
+
+Invitations travel by email the standard way (iMIP, RFC 6047): a message whose
+`text/calendar` part has a method (iTIP, RFC 5546). `REQUEST` invites, or brings a
+newer version; `CANCEL` calls an event, or one occurrence, off; `REPLY` is a guest's
+answer to its organiser; without a method (`PUBLISH`, or any `.ics` attached) it's an event
+to add. Viauna reads the part from the message on the server each time: the card and its
+buttons never act on anything the page sends but the choice. Of a message's calendar
+parts, it takes the `text/calendar` one with a method (an invitation also attaches the same
+object as `invite.ics`), up to 1 MB. That part isn't listed as an attachment.
+
+**You** are the guest whose address is the mailbox's or one it sends as. **The version**
+is its `SEQUENCE`: one lower than the event kept is out of date, and can't be answered; one
+higher, or the same with other times, can update it.
+
+**Answering** keeps the event, as the invitation has it, in your calendar (by its `UID`:
+in place of the one kept, if there is one), with your `PARTSTAT` set and `RSVP` taken off,
+and a copy of the mailbox's usual reminders if the invitation brought none. Then it sends
+the organiser a `REPLY`, from the mailbox, through its SMTP server, as `Accepted:`,
+`Declined:` or `Tentatively accepted:` and the title: the event's `UID`, `SEQUENCE`, times,
+title and organiser, and you alone as its guest, with your answer. It isn't filed in Sent.
+No reply is sent if you organise it yourself, or your `RSVP` is `FALSE`. Answering from the
+event's card does the same.
+
+**A newer version** replaces the one kept, except for what's yours: its reminders, its
+colour, and your answer, which stays if the first occurrence's times (`DTSTART`, `DTEND`,
+`DURATION`, `RRULE`) are the same, and is asked again if not, as RFC 5546 has organisers do
+when they reschedule. An invitation for one occurrence (a `RECURRENCE-ID`) replaces that
+occurrence in the series kept.
+
+**A cancellation** removes the event kept, or the occurrence it names. **A guest's
+answer**, to an event you organise, sets their `PARTSTAT` in your copy (on the occurrence
+it names, if it names one); one to an older version is left out.
+
+In the calendar, each event's `response` is your `PARTSTAT` when you're one of its guests
+and not its organiser, and the grid draws it: `NEEDS-ACTION` outlined, `TENTATIVE`
+striped, `DECLINED` faded and struck through. Events you organise, and events without
+guests, have none.
+
 ## Calendar files
 
 **Importing** a file splits it into events: every `VEVENT` with the same `UID` (the event
