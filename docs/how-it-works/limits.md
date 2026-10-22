@@ -72,6 +72,19 @@ Limits built into Viauna. The ones you can change are settings: see
 | Search results | The newest 200 |
 | Undo | 10 minutes, and not after a restart |
 
+## Calendars from the web
+
+| Limit | Value |
+|---|---|
+| An address | 2,000 characters |
+| One fetch | 30 s, redirects included |
+| Redirects | 5 |
+| The file | 10 MB, after decompressing |
+| Its events | 10,000, each 1 MB as iCalendar |
+| Fetched again | Every 6 hours, or an hour after a fetch that failed |
+| Refresh now | Once a minute for each calendar |
+| Calendars | Counted with the mailbox's own: 50 in all |
+
 ## Accounts and settings
 
 | Limit | Value |

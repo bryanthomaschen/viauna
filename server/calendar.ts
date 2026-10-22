@@ -2,13 +2,17 @@
 // whole, as its iCalendar object (icalendar.ts), with its title, a lower-cased text to
 // search and when it starts and ends alongside, to find what falls in a week or a month.
 // The first visit to the calendar makes the mailbox's own one, named after it, and its
-// Birthdays calendar, whose events are made from its contacts (birthdays.ts).
+// Birthdays calendar, whose events are made from its contacts (birthdays.ts). A calendar
+// from the web is fetched from its address (feeds.ts) and kept like the rest, read-only,
+// and fetched again every few hours.
 import crypto from "node:crypto";
 import { EventEmitter } from "node:events";
 import { sql } from "kysely";
 import { birthdayObjects, birthdaysBetween } from "./birthdays.ts";
 import { VERSION, setting } from "./config.ts";
-import { buildFile, parseFile } from "./calendar-file.ts";
+import { type ParsedFile, buildFile, parseFile } from "./calendar-file.ts";
+import { FEED_LIMITS, FeedError, feedUrl, fetchFeed } from "./feeds.ts";
+import { log } from "./log.ts";
 import { contains, fold } from "./text.ts";
 import { randomToken } from "./crypto.ts";
 import {
@@ -90,6 +94,8 @@ export interface CalendarInfo {
   kind: CalendarKind;
   /** Its events can't be added, changed or deleted here: they come from elsewhere. */
   readOnly: boolean;
+  /** A calendar from the web: its address, when it last came back and was last tried, and what went wrong. */
+  feed: { url: string; fetchedAt: number | null; checkedAt: number | null; error: string | null } | null;
 }
 
 /** What the calendar grid shows of an event, or one occurrence of it. Timed: ISO instants. All-day: dates, end exclusive. */
@@ -116,6 +122,8 @@ export interface EventSummary {
 export interface EventDetail extends EventFields {
   id: number;
   calendarId: number;
+  /** In a calendar whose events come from elsewhere. */
+  readOnly: boolean;
   occurrence: string | null;
   recurring: boolean;
   /** How the series repeats; null if it doesn't. */
@@ -130,8 +138,11 @@ export interface EventDetail extends EventFields {
 
 type EventRow = Omit<EventTable, "id"> & { id: number };
 
-type CalendarRow = { id: number; name: string; color: string; visible: number; primary_of: number | null; kind: CalendarKind };
-const CALENDAR_COLUMNS = ["id", "name", "color", "visible", "primary_of", "kind"] as const;
+type CalendarRow = {
+  id: number; name: string; color: string; visible: number; primary_of: number | null; kind: CalendarKind;
+  source_url: string | null; fetched_at: number | null; checked_at: number | null; fetch_error: string | null;
+};
+const CALENDAR_COLUMNS = ["id", "name", "color", "visible", "primary_of", "kind", "source_url", "fetched_at", "checked_at", "fetch_error"] as const;
 
 const calendarJson = (r: CalendarRow): CalendarInfo => ({
   id: r.id,
@@ -141,10 +152,17 @@ const calendarJson = (r: CalendarRow): CalendarInfo => ({
   primary: r.primary_of !== null,
   kind: r.kind,
   readOnly: r.kind !== "events",
+  feed: r.kind === "feed" ? { url: r.source_url ?? "", fetchedAt: r.fetched_at, checkedAt: r.checked_at, error: r.fetch_error } : null,
 });
 
-/** Kinds whose calendar is shown: the Birthdays calendar only while there are contacts. */
-const shown = (kind: CalendarKind) => kind !== "birthdays" || setting("contacts");
+/** Kinds whose calendars are shown: the Birthdays calendar while there are contacts, the web's while they're allowed. */
+const shown = (kind: CalendarKind) => (kind === "birthdays" ? setting("contacts") : kind === "feed" ? setting("calendarFeeds") : true);
+
+/** The kind of each of the mailbox's calendars that's shown. */
+async function shownKinds(accountId: number): Promise<Map<number, CalendarKind>> {
+  const rows = await state().selectFrom("calendars").select(["id", "kind"]).where("account_id", "=", accountId).execute();
+  return new Map(rows.filter((r) => shown(r.kind)).map((r) => [r.id, r.kind]));
+}
 
 const changed = (accountId: number) => calendarEvents.emit("changed", accountId);
 
@@ -212,6 +230,7 @@ async function ownCalendar(accountId: number, id: number) {
 async function eventsCalendar(accountId: number, id: number) {
   const row = await ownCalendar(accountId, id);
   if (row.kind === "birthdays") throw new CalendarError("The Birthdays calendar shows your contacts' dates. Change them in Contacts.");
+  if (row.kind === "feed") throw new CalendarError("This calendar comes from the web, so it can't be changed here. Duplicate an event into one of your calendars to change it.");
   return row;
 }
 
@@ -374,14 +393,14 @@ function parsed(ics: string): Root | null {
 }
 
 /** One occurrence as the grid shows it, in `zone`. */
-function summaryOf(row: { id: number; calendar_id: number }, root: Root, occ: Occurrence, zone: string): EventSummary {
+function summaryOf(row: { id: number; calendar_id: number }, root: Root, occ: Occurrence, zone: string, readOnly: boolean): EventSummary {
   const f = fieldsOf(occ.event, occ, zone);
   const start = occ.start.kind === "date" ? occ.start.date : new Date(instantIn(occ.start, zone)).toISOString();
   const end = occ.end.kind === "date" ? occ.end.date : new Date(instantIn(occ.end, zone)).toISOString();
   return {
     id: row.id, calendarId: row.calendar_id, occurrence: occ.key, recurring: isRecurring(masterEvent(root)!),
     title: f.title, allDay: f.allDay, start, end, color: f.color, busy: f.busy, location: f.location, video: !!f.video,
-    readOnly: false, contactId: null,
+    readOnly, contactId: null,
   };
 }
 
@@ -409,11 +428,13 @@ export async function eventsBetween(accountId: number, from: string, to: string,
     .where("end_at", ">", fromMs - DAY)
     .execute();
   const window = { fromMs, toMs, fromDate: from, toDate: to };
+  const kinds = await shownKinds(accountId);
   const out: EventSummary[] = [];
   for (const row of rows) {
-    const root = parsed(row.ics);
+    const kind = kinds.get(row.calendar_id);
+    const root = kind && parsed(row.ics);
     if (!root) continue;
-    for (const occ of occurrences(root, zone, window)) out.push(summaryOf(row, root, occ, zone));
+    for (const occ of occurrences(root, zone, window)) out.push(summaryOf(row, root, occ, zone, kind !== "events"));
   }
   if (setting("contacts")) {
     const birthdays = await state().selectFrom("calendars").select("id").where("birthdays_of", "=", accountId).executeTakeFirst();
@@ -436,11 +457,13 @@ export async function searchEvents(accountId: number, q: string, zone: string): 
     .limit(LIMITS.results)
     .execute();
   const now = Date.now();
+  const kinds = await shownKinds(accountId);
   const out: EventSummary[] = [];
   for (const row of rows) {
-    const root = parsed(row.ics);
+    const kind = kinds.get(row.calendar_id);
+    const root = kind && parsed(row.ics);
     const occ = root && representative(root, now, zone);
-    if (root && occ) out.push(summaryOf(row, root, occ, zone));
+    if (root && occ) out.push(summaryOf(row, root, occ, zone, kind !== "events"));
   }
   return out.sort((a, b) => b.start.localeCompare(a.start));
 }
@@ -464,7 +487,7 @@ function cleanScope(input: unknown): Scope {
 }
 
 /** An event, or one occurrence of it, as the editor shows it, with its times in `zone`. */
-function detail(row: EventRow, zone: string, key: string | null = null): EventDetail {
+function detail(row: EventRow, zone: string, key: string | null = null, readOnly = false): EventDetail {
   const root = parseCalendar(row.ics);
   const master = masterEvent(root);
   const occ = occurrenceAt(root, key, zone);
@@ -476,6 +499,7 @@ function detail(row: EventRow, zone: string, key: string | null = null): EventDe
     ...f,
     id: row.id,
     calendarId: row.calendar_id,
+    readOnly,
     occurrence: recurring ? occ.key : null,
     recurring,
     repeat: readRule(master, root, zone),
@@ -487,7 +511,9 @@ function detail(row: EventRow, zone: string, key: string | null = null): EventDe
 }
 
 export async function getEvent(accountId: number, id: number, zone: string, occurrence?: string): Promise<EventDetail> {
-  return detail(await loadEvent(accountId, id), checkZone(zone), cleanKey(occurrence));
+  const row = await loadEvent(accountId, id);
+  const calendar = await ownCalendar(accountId, row.calendar_id);
+  return detail(row, checkZone(zone), cleanKey(occurrence), calendar.kind !== "events");
 }
 
 export async function createEvent(accountId: number, calendarId: number, input: unknown, zone: string): Promise<EventDetail> {
@@ -567,6 +593,7 @@ export async function undoChange(accountId: number, token: string): Promise<bool
 export async function updateEvent(accountId: number, id: number, input: Record<string, unknown>, zone: string): Promise<{ event: EventDetail; undo: string }> {
   checkZone(zone);
   const row = await loadEvent(accountId, id);
+  await eventsCalendar(accountId, row.calendar_id);
   const root = parseCalendar(row.ics);
   const key = cleanKey(input.occurrence);
   const scope = cleanScope(input.scope);
@@ -631,6 +658,7 @@ export async function updateEvent(accountId: number, id: number, input: Record<s
  */
 export async function deleteEvent(accountId: number, id: number, occurrence?: string, scope?: string): Promise<string> {
   const row = await loadEvent(accountId, id);
+  await eventsCalendar(accountId, row.calendar_id);
   const key = cleanKey(occurrence);
   let left: Root | null = null;
   if (key !== null) {
@@ -720,4 +748,171 @@ export async function exportCalendar(accountId: number, calendarId: number, zone
   const rows = await state().selectFrom("events").select("ics").where("account_id", "=", accountId).where("calendar_id", "=", calendarId).orderBy("start_at").execute();
   const roots = rows.map((r) => parsed(r.ics)).filter((r): r is Root => r !== null);
   return { name: cal.name, text: buildFile(cal.name, roots, PRODID, zone) };
+}
+
+// ---------------------------------------------------------------- calendars from the web
+
+/** A feed's file read, or why it can't be. */
+function readFeed(text: string): ParsedFile {
+  try {
+    return parseFile(text, PRODID);
+  } catch (err) {
+    throw new FeedError(`That address doesn't give a calendar Viauna can read (${(err as Error).message}).`);
+  }
+}
+
+/** A feed's events put in its calendar: the new added, the changed replaced, and those it no longer has deleted. */
+async function storeFeed(accountId: number, calendarId: number, file: ParsedFile): Promise<boolean> {
+  if (file.events.length > LIMITS.importEvents) throw new FeedError(`That calendar has over ${LIMITS.importEvents.toLocaleString("en")} events, more than Viauna keeps.`);
+  const now = Date.now();
+  let changes = 0;
+  await state().transaction().execute(async (trx) => {
+    const existing = new Map((await trx.selectFrom("events").select(["id", "uid", "ics"]).where("calendar_id", "=", calendarId).execute()).map((r) => [r.uid, r]));
+    const kept = new Set<string>();
+    for (const { uid, root } of file.events) {
+      root.removeAllProperties("method");
+      const ics = serialize(root);
+      let columns: ReturnType<typeof indexed>;
+      try {
+        if (ics.length > LIMITS.eventBytes) continue;
+        columns = indexed(root);
+      } catch {
+        continue;
+      }
+      kept.add(uid);
+      const old = existing.get(uid);
+      if (old?.ics === ics) continue;
+      changes++;
+      if (old) await trx.updateTable("events").set({ ics, updated_at: now, ...columns }).where("id", "=", old.id).execute();
+      else await trx.insertInto("events").values({ account_id: accountId, calendar_id: calendarId, uid, ics, created_at: now, updated_at: now, ...columns }).execute();
+    }
+    const gone = [...existing.values()].filter((r) => !kept.has(r.uid)).map((r) => r.id);
+    for (let i = 0; i < gone.length; i += 500) await trx.deleteFrom("events").where("id", "in", gone.slice(i, i + 500)).execute();
+    changes += gone.length;
+  });
+  return changes > 0;
+}
+
+type FeedRow = { id: number; account_id: number; source_url: string | null; etag: string | null; last_modified: string | null };
+
+/**
+ * Fetches a feed calendar's address and keeps what comes back. On failure its events stay
+ * as they were, and what went wrong is kept to show, to try again in an hour.
+ */
+async function fetchAndStore(row: FeedRow): Promise<{ changed: boolean; error: string | null }> {
+  const now = Date.now();
+  try {
+    const got = await fetchFeed(row.source_url ?? "", { etag: row.etag, lastModified: row.last_modified });
+    const changed = got.notModified ? false : await storeFeed(row.account_id, row.id, readFeed(got.text));
+    await state()
+      .updateTable("calendars")
+      .set({ etag: got.etag, last_modified: got.lastModified, checked_at: now, fetched_at: now, fetch_error: null, next_fetch_at: now + FEED_LIMITS.refreshMs })
+      .where("id", "=", row.id)
+      .execute();
+    return { changed, error: null };
+  } catch (err) {
+    const error = err instanceof FeedError || err instanceof CalendarError ? err.message : `Couldn't read the calendar (${(err as Error).message}).`;
+    await state().updateTable("calendars").set({ checked_at: now, fetch_error: error, next_fetch_at: now + FEED_LIMITS.retryMs }).where("id", "=", row.id).execute();
+    return { changed: false, error };
+  }
+}
+
+/**
+ * Adds a calendar from the web by its address: fetched at once, so a wrong address says
+ * so now, and named as the file names itself unless a name is given.
+ */
+export async function subscribe(accountId: number, input: Record<string, unknown>): Promise<CalendarInfo> {
+  const given = typeof input.url === "string" ? input.url.trim() : "";
+  const url = feedUrl(given);
+  const existing = await state().selectFrom("calendars").select(["name", "color", "position", "kind", "source_url"]).where("account_id", "=", accountId).execute();
+  if (existing.length >= LIMITS.calendars) throw new CalendarError(`A mailbox can have at most ${LIMITS.calendars} calendars.`);
+  const same = existing.find((c) => c.kind === "feed" && c.source_url && feedUrl(c.source_url) === url);
+  if (same) throw new CalendarError(`That calendar is already here, as "${same.name}".`);
+  const got = await fetchFeed(given);
+  const file = readFeed(got.text);
+  const name = cleanName(typeof input.name === "string" && input.name.trim() ? input.name : (file.name ?? new URL(url).hostname).slice(0, LIMITS.name));
+  const color = input.color === undefined ? (COLORS.find((c) => !existing.some((e) => e.color === c)) ?? COLORS[0]) : cleanColor(input.color);
+  const now = Date.now();
+  await state()
+    .insertInto("calendars")
+    .values({
+      account_id: accountId, name, color, position: Math.max(0, ...existing.map((e) => e.position)) + 1, primary_of: null, kind: "feed",
+      source_url: given, etag: got.etag, last_modified: got.lastModified, checked_at: now, fetched_at: now, next_fetch_at: now + FEED_LIMITS.refreshMs,
+      created_at: now, updated_at: now,
+    })
+    .execute();
+  // MySQL has no RETURNING: the newest of this mailbox's calendars is the one just made.
+  const row = await state().selectFrom("calendars").select([...CALENDAR_COLUMNS]).where("account_id", "=", accountId).orderBy("id", "desc").executeTakeFirstOrThrow();
+  try {
+    await storeFeed(accountId, row.id, file);
+  } catch (err) {
+    await state().deleteFrom("calendars").where("id", "=", row.id).execute();
+    throw err;
+  }
+  changed(accountId);
+  return calendarJson(row);
+}
+
+/** Refresh now: fetches a calendar from the web again, at most once a minute. */
+export async function refreshFeed(accountId: number, id: number): Promise<CalendarInfo> {
+  const row = await ownCalendar(accountId, id);
+  if (row.kind !== "feed") throw new CalendarError("Only a calendar from the web can be fetched again.");
+  if (row.checked_at && Date.now() - row.checked_at < FEED_LIMITS.manualMs) throw new CalendarError("It was fetched less than a minute ago. Try again in a moment.", 429);
+  const full = await state().selectFrom("calendars").select(["id", "account_id", "source_url", "etag", "last_modified"]).where("id", "=", id).executeTakeFirstOrThrow();
+  const result = await fetchAndStore(full);
+  changed(accountId);
+  if (result.error) throw new CalendarError(result.error);
+  return calendarJson(await ownCalendar(accountId, id));
+}
+
+/**
+ * Fetches the calendars from the web that are due, a few at a time. Each is claimed first
+ * (its next fetch moved on, only if no one else has), so instances sharing a database
+ * don't both fetch it.
+ */
+export async function refreshDueFeeds(limit = 10): Promise<number> {
+  if (!setting("calendar") || !setting("calendarFeeds")) return 0;
+  const now = Date.now();
+  const due = await state()
+    .selectFrom("calendars")
+    .select(["id", "account_id", "source_url", "etag", "last_modified", "next_fetch_at"])
+    .where("kind", "=", "feed")
+    .where((eb) => eb.or([eb("next_fetch_at", "<=", now), eb("next_fetch_at", "is", null)]))
+    .orderBy("next_fetch_at")
+    .limit(limit)
+    .execute();
+  let fetched = 0;
+  for (const row of due) {
+    const claim = await state()
+      .updateTable("calendars")
+      .set({ next_fetch_at: now + FEED_LIMITS.retryMs })
+      .where("id", "=", row.id)
+      .where((eb) => (row.next_fetch_at === null ? eb("next_fetch_at", "is", null) : eb("next_fetch_at", "=", row.next_fetch_at)))
+      .executeTakeFirst();
+    if (!Number(claim.numUpdatedRows)) continue;
+    const result = await fetchAndStore(row);
+    if (result.changed) changed(row.account_id);
+    fetched++;
+  }
+  return fetched;
+}
+
+/** Looks for calendars from the web to fetch every 5 minutes, while Viauna runs. */
+export function startFeedRefresher(): () => void {
+  let running = false;
+  const tick = () => {
+    if (running) return;
+    running = true;
+    refreshDueFeeds()
+      .catch((err) => log.warn("fetching calendars from the web failed", { error: (err as Error).message }))
+      .finally(() => (running = false));
+  };
+  const first = setTimeout(tick, 30_000);
+  const timer = setInterval(tick, 5 * 60_000);
+  first.unref();
+  timer.unref();
+  return () => {
+    clearTimeout(first);
+    clearInterval(timer);
+  };
 }

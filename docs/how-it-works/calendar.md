@@ -169,6 +169,47 @@ date changed in Contacts or synced from a phone is right at once.
 - With `CONTACTS` off it isn't listed and its part of the API answers that it doesn't
   exist; it comes back as it was when Contacts does.
 
+## Calendars from the web
+
+A calendar of kind `feed` comes from an address: its events are fetched from there and
+kept like any other's, but only Viauna changes them, from what the address gives. So it
+can't be changed from the page: no adding, changing, moving, deleting or importing events.
+
+**Fetching** is done by the server, from anywhere it can reach, so the address is checked
+like a mail server entered at sign-in: only public addresses, unless
+`ALLOW_PRIVATE_SERVERS` is on.
+The name is looked up, every address it has checked, and the connection made to one of
+them, so an answer that changes between the check and the connection can't point the
+server at your network. An address written as an IP (in any of its spellings) is checked
+as it is. Redirects, up to 5, are checked the same way.
+
+- `webcal://` is fetched over `https://`, and, if the server can't be reached that way,
+  over `http://`, since webcal names neither. `http://` and `https://` are fetched as they
+  are. An address with a name and password in it is refused, so none is kept.
+- The request says it's Viauna (`User-Agent: Viauna/<version> (calendar; +<the
+  repository>)`), asks for gzip, deflate or Brotli, and sends the `ETag` and
+  `Last-Modified` of the last answer (`If-None-Match`, `If-Modified-Since`), so a calendar
+  that hasn't changed costs a `304 Not Modified`.
+- Limits: 30 s for the whole fetch, redirects included; 10 MB after decompressing (counted
+  as it arrives, so a small compressed file can't unpack into a large one); 10,000 events;
+  1 MB an event.
+
+**Keeping it**: the file is split into events as an import is (see
+[Calendar files](#calendar-files)), its `METHOD` left out. An event whose `UID` is new is
+added, one whose content changed is replaced, and one no longer in the file is deleted,
+all in one transaction. A file Viauna can't read (a server's error page, say), an
+answer other than `200` or `304`, or any other failure leaves the events as they were and
+keeps the reason, which the page shows. The calendar is named as the file names itself
+(`X-WR-CALNAME`), or after the address's host. The same address can't be added twice.
+
+**When it's fetched**: when it's added, then every 6 hours, or an hour after a fetch that
+failed. Every 5 minutes (and 30 s after starting) Viauna looks for calendars that are due,
+up to 10 at a time, and fetches them one by one. Each is claimed first, by moving its next
+fetch on only if no one else has, so instances sharing a database don't both fetch it.
+**Refresh now** fetches one at once, at most once a minute. With `CALENDAR_FEEDS` (or
+`CALENDAR`) off, nothing is fetched and these calendars are hidden; they come back as they
+were.
+
 ## Undo and other pages
 
 - Moving, changing or deleting an event keeps it as it was, in memory, for 10 minutes;

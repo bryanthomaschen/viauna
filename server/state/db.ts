@@ -134,7 +134,7 @@ export interface ContactDateTable {
   day: number;
 }
 
-export type CalendarKind = "events" | "birthdays";
+export type CalendarKind = "events" | "birthdays" | "feed";
 
 export interface CalendarTable {
   id: Generated<number>;
@@ -145,10 +145,19 @@ export interface CalendarTable {
   visible: Generated<number>;
   /** The account id, on the mailbox's own calendar; null on the others. */
   primary_of: number | null;
-  /** "events", kept here; "birthdays", made from the mailbox's contacts' dates. */
+  /** "events", kept here; "birthdays", made from the mailbox's contacts' dates; "feed", fetched from source_url. */
   kind: Generated<CalendarKind>;
   /** The account id, on the mailbox's Birthdays calendar. */
   birthdays_of: number | null;
+  /** A feed's address, as it was given (webcal:// or https://), and what its server said last. */
+  source_url: string | null;
+  etag: string | null;
+  last_modified: string | null;
+  /** When it was last fetched, whatever came of it; when it last came back, changed or not. */
+  checked_at: number | null;
+  fetched_at: number | null;
+  fetch_error: string | null;
+  next_fetch_at: number | null;
   created_at: number;
   updated_at: number;
 }

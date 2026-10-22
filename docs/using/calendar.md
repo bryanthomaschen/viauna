@@ -32,6 +32,28 @@ birthday**, for someone whose other details you don't have. You can rename it, r
 it or hide it, but not delete it. It's there while Contacts is; if your server's admins
 turn Contacts off, it goes too.
 
+## Calendars from the web
+
+A calendar elsewhere that has an address, one ending in `.ics` or starting with
+`webcal://`, can be shown here: public holidays, a team's fixtures, a school's terms, or
+another calendar app's secret address for one of your calendars there. Click the **+**
+next to **My calendars**, choose **From the web, by its address**, and paste it. It's
+named as it names itself; rename it in its **Settings**.
+
+These calendars are under **Other calendars**. Your server fetches each one when you add
+it and every 6 hours after, and shows it as it is there: an event that's gone from it goes
+from here too. So it can't be changed here. Click an event and **Duplicate** it into one of
+your calendars to change your copy.
+
+- **Refresh now**, in its menu, fetches it again (at most once a minute).
+- A warning sign next to its name means the last fetch failed; its **Settings** say why
+  and when, and its events stay as they were until a fetch works.
+- **Remove calendar** removes it from here. It stays where it is on the web.
+- An address with a name and password in it (`https://me:secret@…`) can't be used: ask
+  the other app for its secret address instead.
+- Your server's admins can turn this off; then the menu doesn't offer it, and calendars
+  added before are hidden until it's on again.
+
 ## Finding your way around
 
 - **Day**, **Week**, **Month**, **Schedule** (the next 30 days as a list) and **4 days**:

@@ -31,6 +31,12 @@ A **Birthdays** calendar shows the birthdays, anniversaries and other dates in y
 contacts every year, with the age or the years when the contact has the year. It changes
 when the contacts do, and its menu can **Add a birthday**.
 
+**Calendars from the web**: add one by its address (`https://` or `webcal://`): public
+holidays, fixtures, another app's calendar. Your server fetches it every 6 hours, and only
+from public addresses, and shows it under **Other calendars** as it is there, so it can't
+be changed here; **Duplicate** an event to keep your own copy. **Refresh now** fetches it
+at once, and a failed fetch says why. `CALENDAR_FEEDS` (or the admin page) turns it off.
+
 Calendars move in and out as `.ics` files: import Google Calendar's, Outlook's, Apple
 Calendar's or Thunderbird's exports (again, without adding anything twice), and export
 any calendar, with the time zone definitions Outlook needs. See

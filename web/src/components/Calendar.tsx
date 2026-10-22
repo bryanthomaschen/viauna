@@ -29,12 +29,13 @@ import timeGridPlugin from "@fullcalendar/react/timegrid";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Temporal } from "temporal-polyfill";
 import {
-  ArrowLeft, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Copy, Download, EllipsisVertical, Eye, Globe, MapPin, Pencil, Plus, Repeat, Settings, Text, Trash2, Upload,
-  UserRound, Video, X,
+  ArrowLeft, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Copy, Download, EllipsisVertical, Eye, Globe, Link, MapPin, Pencil, Plus, RefreshCw, Repeat,
+  Settings, Text, Trash2, TriangleAlert, Upload, UserRound, Video, X,
 } from "lucide-react";
 import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { ui, useAccount } from "../lib/account";
 import { api } from "../lib/api";
+import { useConfig } from "../lib/config";
 import {
   VIEW_KEYS,
   VIEW_LABELS,
@@ -114,10 +115,30 @@ export function CalendarSidebar({ route, collapsed, open }: { route: Route; coll
     await Promise.all(calendars.map((x) => (x.visible !== (x.id === c.id) ? api.updateCalendar(acct.index, x.id, { visible: x.id === c.id }) : null)));
     void client.invalidateQueries({ queryKey: ["calendars", acct.index] });
   };
+  const feeds = useConfig().data?.calendarFeeds ?? false;
+  const refetch = async (c: CalendarInfo) => {
+    try {
+      await api.refreshCalendar(acct.index, c.id);
+      toast(`Fetched "${c.name}" again.`);
+    } catch (err) {
+      toast((err as Error).message, { error: true });
+    }
+    void client.invalidateQueries({ queryKey: ["calendars", acct.index] });
+    void client.invalidateQueries({ queryKey: ["events", acct.index] });
+  };
   const remove = (c: CalendarInfo) =>
     ui.set((s) => ({
       ...s,
-      confirm: {
+      confirm: c.kind === "feed" ? {
+        title: `Remove the calendar "${c.name}"?`,
+        body: "Its events go from here. The calendar itself stays where it is on the web, and can be added again.",
+        action: "Remove",
+        run: async () => {
+          await api.deleteCalendar(acct.index, c.id);
+          void client.invalidateQueries({ queryKey: ["calendars", acct.index] });
+          void client.invalidateQueries({ queryKey: ["events", acct.index] });
+        },
+      } : {
         title: `Delete the calendar "${c.name}"?`,
         body: "It and every event in it will be deleted. This can't be undone.",
         action: "Delete",
@@ -128,6 +149,49 @@ export function CalendarSidebar({ route, collapsed, open }: { route: Route; coll
         },
       },
     }));
+
+  /** A calendar in the list: its tick, its name, a warning if it couldn't be fetched, and its menu. */
+  const item = (c: CalendarInfo) => (
+    <li key={c.id} className="has-menu">
+      <label className="nav-item" title={c.feed?.error ? `${c.name}: ${c.feed.error}` : c.name}>
+        <input type="checkbox" className="calendar-check" checked={c.visible} style={{ accentColor: c.color }}
+          onChange={(e) => void toggle(c, e.target.checked)} />
+        <span className="nav-label">{c.name}</span>
+        {c.feed?.error && <TriangleAlert size={16} className="calendar-warning" aria-label="Couldn't be fetched" />}
+      </label>
+      <DropdownMenu.Root>
+        <DropdownMenu.Trigger asChild>
+          <button type="button" className="icon-btn xs nav-menu-btn" aria-label={`Options for ${c.name}`}>
+            <EllipsisVertical size={16} />
+          </button>
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Portal>
+          <DropdownMenu.Content className="menu" align="start" sideOffset={4}>
+            <DropdownMenu.Item className="menu-item" onSelect={() => void only(c)}><Eye size={18} /> Show only this one</DropdownMenu.Item>
+            <DropdownMenu.Item className="menu-item" onSelect={() => ui.set((s) => ({ ...s, calendarDialog: { calendar: c } }))}>
+              <Settings size={18} /> {c.kind === "feed" ? "Settings" : "Name and colour"}
+            </DropdownMenu.Item>
+            {c.kind === "birthdays" && (
+              <DropdownMenu.Item className="menu-item" onSelect={() => ui.set((s) => ({ ...s, contactDialog: { birthday: true } }))}>
+                <Plus size={18} /> Add a birthday
+              </DropdownMenu.Item>
+            )}
+            {c.kind === "feed" && (
+              <DropdownMenu.Item className="menu-item" onSelect={() => void refetch(c)}><RefreshCw size={18} /> Refresh now</DropdownMenu.Item>
+            )}
+            <DropdownMenu.Item className="menu-item" onSelect={() => (location.href = api.exportCalendarUrl(acct.index, c.id, zone))}>
+              <Download size={18} /> Export to a file (.ics)
+            </DropdownMenu.Item>
+            {!c.primary && c.kind !== "birthdays" && (
+              <DropdownMenu.Item className="menu-item" onSelect={() => remove(c)}>
+                <Trash2 size={18} /> {c.kind === "feed" ? "Remove calendar" : "Delete calendar"}
+              </DropdownMenu.Item>
+            )}
+          </DropdownMenu.Content>
+        </DropdownMenu.Portal>
+      </DropdownMenu.Root>
+    </li>
+  );
 
   return (
     <nav className={`sidebar calendar-sidebar ${collapsed ? "collapsed" : ""} ${open ? "open" : ""}`} aria-label="Calendars">
@@ -157,47 +221,24 @@ export function CalendarSidebar({ route, collapsed, open }: { route: Route; coll
             <DropdownMenu.Content className="menu" align="end" sideOffset={4}>
               <DropdownMenu.Item className="menu-item" onSelect={() => ui.set((s) => ({ ...s, calendarDialog: {} }))}><Plus size={18} /> New calendar</DropdownMenu.Item>
               <DropdownMenu.Item className="menu-item" onSelect={() => ui.set((s) => ({ ...s, importDialog: true }))}><Upload size={18} /> Import from a file (.ics)</DropdownMenu.Item>
+              {feeds && (
+                <DropdownMenu.Item className="menu-item" onSelect={() => ui.set((s) => ({ ...s, subscribeDialog: true }))}><Link size={18} /> From the web, by its address</DropdownMenu.Item>
+              )}
             </DropdownMenu.Content>
           </DropdownMenu.Portal>
         </DropdownMenu.Root>
       </div>
       <ul className="nav calendar-list">
-        {calendars.map((c) => (
-          <li key={c.id} className="has-menu">
-            <label className="nav-item" title={c.name}>
-              <input type="checkbox" className="calendar-check" checked={c.visible} style={{ accentColor: c.color }}
-                onChange={(e) => void toggle(c, e.target.checked)} />
-              <span className="nav-label">{c.name}</span>
-            </label>
-            <DropdownMenu.Root>
-              <DropdownMenu.Trigger asChild>
-                <button type="button" className="icon-btn xs nav-menu-btn" aria-label={`Options for ${c.name}`}>
-                  <EllipsisVertical size={16} />
-                </button>
-              </DropdownMenu.Trigger>
-              <DropdownMenu.Portal>
-                <DropdownMenu.Content className="menu" align="start" sideOffset={4}>
-                  <DropdownMenu.Item className="menu-item" onSelect={() => void only(c)}><Eye size={18} /> Show only this one</DropdownMenu.Item>
-                  <DropdownMenu.Item className="menu-item" onSelect={() => ui.set((s) => ({ ...s, calendarDialog: { calendar: c } }))}>
-                    <Settings size={18} /> Name and colour
-                  </DropdownMenu.Item>
-                  {c.kind === "birthdays" && (
-                    <DropdownMenu.Item className="menu-item" onSelect={() => ui.set((s) => ({ ...s, contactDialog: { birthday: true } }))}>
-                      <Plus size={18} /> Add a birthday
-                    </DropdownMenu.Item>
-                  )}
-                  <DropdownMenu.Item className="menu-item" onSelect={() => (location.href = api.exportCalendarUrl(acct.index, c.id, zone))}>
-                    <Download size={18} /> Export to a file (.ics)
-                  </DropdownMenu.Item>
-                  {!c.primary && c.kind === "events" && (
-                    <DropdownMenu.Item className="menu-item" onSelect={() => remove(c)}><Trash2 size={18} /> Delete calendar</DropdownMenu.Item>
-                  )}
-                </DropdownMenu.Content>
-              </DropdownMenu.Portal>
-            </DropdownMenu.Root>
-          </li>
-        ))}
+        {calendars.filter((c) => c.kind !== "feed").map((c) => item(c))}
       </ul>
+      {calendars.some((c) => c.kind === "feed") && (
+        <>
+          <div className="nav-section"><span>Other calendars</span></div>
+          <ul className="nav calendar-list">
+            {calendars.filter((c) => c.kind === "feed").map((c) => item(c))}
+          </ul>
+        </>
+      )}
     </nav>
   );
 }
@@ -636,8 +677,9 @@ function EventCard({ state, calendars, onClose, onChanged }: { state: CardState;
   const duplicate = () => {
     if (!d) return;
     onClose();
-    const { id: _id, created: _c, updated: _u, eventZone: _z, eventEndZone: _ez, occurrence: _o, recurring: _r, ...copy } = d;
-    newEvent({ ...copy, title: d.title ? `${d.title} (copy)` : "" });
+    const { id: _id, created: _c, updated: _u, eventZone: _z, eventEndZone: _ez, occurrence: _o, recurring: _r, readOnly: _ro, ...copy } = d;
+    // A copy of an event from the web goes into one of your own calendars.
+    newEvent({ ...copy, ...(d.readOnly ? { calendarId: undefined, repeat: d.repeat?.custom ? null : d.repeat } : {}), title: d.title ? `${d.title} (copy)` : "" });
   };
   return (
     <Popover.Root open onOpenChange={(o) => !o && onClose()}>
@@ -646,9 +688,11 @@ function EventCard({ state, calendars, onClose, onChanged }: { state: CardState;
         <Popover.Content className="popover event-card" side="right" align="start" sideOffset={8} collisionPadding={16} aria-label={e.title || "Event"}
           tabIndex={-1} onOpenAutoFocus={(ev) => { ev.preventDefault(); (ev.currentTarget as HTMLElement).focus(); }}>
           <div className="event-card-tools">
-            <IconButton label="Edit event" size="sm" onClick={edit}><Pencil size={18} /></IconButton>
+            {!e.readOnly && <IconButton label="Edit event" size="sm" onClick={edit}><Pencil size={18} /></IconButton>}
             <IconButton label="Duplicate" size="sm" onClick={duplicate} disabled={!d}><Copy size={18} /></IconButton>
-            <IconButton label="Delete event" size="sm" onClick={() => { onClose(); void deleteEvent(acct.index, e, onChanged); }}><Trash2 size={18} /></IconButton>
+            {!e.readOnly && (
+              <IconButton label="Delete event" size="sm" onClick={() => { onClose(); void deleteEvent(acct.index, e, onChanged); }}><Trash2 size={18} /></IconButton>
+            )}
             <IconButton label="Close" size="sm" onClick={onClose}><X size={18} /></IconButton>
           </div>
           <div className="event-card-title">

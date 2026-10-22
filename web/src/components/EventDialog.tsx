@@ -1,11 +1,12 @@
 // The event editor, opened from the calendar, from an event's card, or from an email
 // ("Create event"); the question of which occurrences a change to a repeating event is
-// for; and the dialog that names and colours a calendar. Times are edited as dates and
+// for; the dialog that names and colours a calendar; and those that add calendars from a
+// file or from the web. Times are edited as dates and
 // wall-clock times: in the calendar's time zone, or in the event's own zones when it has
 // them or they're set here. Kept apart from Calendar.tsx so that opening it from a
 // message doesn't load the calendar grid.
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Globe, Trash2 } from "lucide-react";
+import { Copy, Globe, RefreshCw, Trash2 } from "lucide-react";
 import { type FormEvent, useRef, useState } from "react";
 import { ui, useAccount } from "../lib/account";
 import { api } from "../lib/api";
@@ -28,6 +29,7 @@ import {
   weekdayOf,
   zoneOffset,
 } from "../lib/calendar";
+import { relative } from "../lib/format";
 import { toast } from "../lib/store";
 import type { CalendarInfo, EventInput, RepeatRule, Scope } from "../lib/types";
 import { Modal } from "./common";
@@ -104,9 +106,10 @@ export function EventDialog({ id, occurrence, initial }: { id?: number; occurren
   const [customOpen, setCustomOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  // Only calendars whose events are kept here can take one.
-  const list = (calendars.data?.calendars ?? []).filter((c) => !c.readOnly);
   const loaded = existing.data?.event;
+  // An event from the web is shown, not changed; only calendars whose events are kept here can take one.
+  const readOnly = !!loaded?.readOnly;
+  const list = (calendars.data?.calendars ?? []).filter((c) => readOnly || !c.readOnly);
   const d: Draft | null = draft ?? (loaded ? fromLoaded(loaded, zone) : null);
   const calendarId = d?.calendarId ?? list.find((c) => c.primary)?.id ?? list[0]?.id ?? null;
   const calendar = list.find((c) => c.id === calendarId);
@@ -184,9 +187,21 @@ export function EventDialog({ id, occurrence, initial }: { id?: number; occurren
     }
   };
 
+  const duplicate = () => {
+    if (!loaded) return;
+    const { id: _id, created: _c, updated: _u, eventZone: _z, eventEndZone: _ez, occurrence: _o, recurring: _r, readOnly: _ro, calendarId: _cal, ...copy } = loaded;
+    ui.set((s) => ({ ...s, eventDialog: { initial: { ...copy, repeat: copy.repeat?.custom ? null : copy.repeat, title: copy.title } } }));
+  };
+
   return (
-    <Modal open onClose={close} title={id === undefined ? "New event" : "Edit event"}>
+    <Modal open onClose={close} title={id === undefined ? "New event" : readOnly ? "Event" : "Edit event"}>
       <form className="event-form" onSubmit={(e) => void save(e)}>
+        {readOnly && (
+          <p className="dialog-text">
+            This event is in {calendar?.name ?? "a calendar"}, which comes from the web, so it can't be changed here. Duplicate it into one of your calendars to change it.
+          </p>
+        )}
+        <fieldset className="event-fieldset" disabled={readOnly}>
         <input className="text-input event-title" aria-label="Title" placeholder="Add title" value={d.title} autoFocus maxLength={500} onChange={(e) => set({ title: e.target.value })} />
         <div className="event-times">
           <label className="event-when">
@@ -263,17 +278,25 @@ export function EventDialog({ id, occurrence, initial }: { id?: number; occurren
             ))}
           </div>
         </div>
+        </fieldset>
         {error && <div className="form-error" role="alert">{error}</div>}
-        <div className="buttons">
-          {id !== undefined && loaded && (
-            <button type="button" className="btn btn-danger" style={{ marginRight: "auto" }}
-              onClick={() => { close(); void deleteEvent(acct.index, loaded, refresh); }}>
-              <Trash2 size={16} /> Delete
-            </button>
-          )}
-          <button type="button" className="btn btn-text" onClick={close}>Cancel</button>
-          <button type="submit" className="btn btn-primary" disabled={busy || backwards || calendarId === null}>{busy ? "Saving…" : "Save"}</button>
-        </div>
+        {readOnly ? (
+          <div className="buttons">
+            <button type="button" className="btn btn-text" onClick={close}>Close</button>
+            <button type="button" className="btn btn-primary" onClick={duplicate}><Copy size={16} /> Duplicate</button>
+          </div>
+        ) : (
+          <div className="buttons">
+            {id !== undefined && loaded && (
+              <button type="button" className="btn btn-danger" style={{ marginRight: "auto" }}
+                onClick={() => { close(); void deleteEvent(acct.index, loaded, refresh); }}>
+                <Trash2 size={16} /> Delete
+              </button>
+            )}
+            <button type="button" className="btn btn-text" onClick={close}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={busy || backwards || calendarId === null}>{busy ? "Saving…" : "Save"}</button>
+          </div>
+        )}
       </form>
     </Modal>
   );
@@ -427,7 +450,7 @@ export function ScopeDialog() {
   );
 }
 
-/** Names and colours a new calendar, or one already there. */
+/** Names and colours a new calendar, or one already there; for one from the web, its address and how fetching it went. */
 export function CalendarDialog({ calendar }: { calendar?: CalendarInfo }) {
   const acct = useAccount();
   const client = useQueryClient();
@@ -435,6 +458,9 @@ export function CalendarDialog({ calendar }: { calendar?: CalendarInfo }) {
   const [color, setColor] = useState<string | undefined>(calendar?.color);
   const [busy, setBusy] = useState(false);
   const close = () => ui.set((s) => ({ ...s, calendarDialog: null }));
+  // The list's copy, which a refresh brings up to date.
+  const listed = useQuery({ queryKey: ["calendars", acct.index], queryFn: () => api.calendars(acct.index), enabled: !!calendar?.feed });
+  const feed = listed.data?.calendars.find((c) => c.id === calendar?.id)?.feed ?? calendar?.feed ?? null;
   const save = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
@@ -452,6 +478,7 @@ export function CalendarDialog({ calendar }: { calendar?: CalendarInfo }) {
     <Modal open onClose={close} title={calendar ? "Calendar settings" : "New calendar"}>
       <form onSubmit={(e) => void save(e)}>
         <input className="text-input" aria-label="Calendar name" placeholder="Name" value={name} autoFocus maxLength={100} onChange={(e) => setName(e.target.value)} />
+        {calendar && feed && <FeedStatus calendarId={calendar.id} feed={feed} />}
         <div className="color-grid" role="radiogroup" aria-label="Calendar colour">
           {COLORS.map((c) => (
             <button key={c.name} type="button" role="radio" aria-checked={color === c.name} className={`color-dot ${color === c.name ? "on" : ""}`}
@@ -461,6 +488,86 @@ export function CalendarDialog({ calendar }: { calendar?: CalendarInfo }) {
         <div className="buttons">
           <button type="button" className="btn btn-text" onClick={close}>Cancel</button>
           <button type="submit" className="btn btn-primary" disabled={!name.trim() || busy}>{calendar ? "Save" : "Create"}</button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+/** A calendar from the web: where it comes from, when it last came, what went wrong, and Refresh now. */
+function FeedStatus({ calendarId, feed }: { calendarId: number; feed: NonNullable<CalendarInfo["feed"]> }) {
+  const acct = useAccount();
+  const client = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const refresh = async () => {
+    setBusy(true);
+    try {
+      await api.refreshCalendar(acct.index, calendarId);
+      toast("Calendar fetched again.");
+    } catch (err) {
+      toast((err as Error).message, { error: true });
+    } finally {
+      await client.invalidateQueries({ queryKey: ["calendars", acct.index] });
+      void client.invalidateQueries({ queryKey: ["events", acct.index] });
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="feed-status">
+      <div className="feed-url" title={feed.url}>{feed.url}</div>
+      <div className="muted">
+        {feed.fetchedAt ? <>Updated {relative(feed.fetchedAt)}. </> : null}
+        Fetched again every 6 hours.
+      </div>
+      {feed.error && (
+        <div className="form-error" role="status">
+          {feed.checkedAt ? `Last tried ${relative(feed.checkedAt)}: ` : ""}{feed.error}
+        </div>
+      )}
+      <button type="button" className="btn btn-outline" disabled={busy} onClick={() => void refresh()}>
+        <RefreshCw size={16} className={busy ? "spin" : ""} /> Refresh now
+      </button>
+    </div>
+  );
+}
+
+/** Adds a calendar from the web by its address: holidays, fixtures, another service's calendar. */
+export function SubscribeDialog() {
+  const acct = useAccount();
+  const client = useQueryClient();
+  const [url, setUrl] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const close = () => ui.set((s) => ({ ...s, subscribeDialog: false }));
+  const go = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      const { calendar } = await api.subscribeCalendar(acct.index, url);
+      void client.invalidateQueries({ queryKey: ["calendars", acct.index] });
+      void client.invalidateQueries({ queryKey: ["events", acct.index] });
+      toast(`Added "${calendar.name}".`);
+      close();
+    } catch (err) {
+      setError((err as Error).message);
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal open onClose={close} title="Add a calendar from the web">
+      <form className="event-form" onSubmit={(e) => void go(e)}>
+        <p className="dialog-text">
+          The calendar's address, which ends in .ics or starts with webcal://: public holidays, a team's fixtures, or another
+          calendar app's secret address. This server fetches it now and every 6 hours. It shows here as it is there, and
+          can't be changed here.
+        </p>
+        <input className="text-input" type="url" aria-label="Calendar address" placeholder="https://… or webcal://…" value={url} autoFocus
+          maxLength={2000} onChange={(e) => setUrl(e.target.value)} />
+        {error && <div className="form-error" role="alert">{error}</div>}
+        <div className="buttons">
+          <button type="button" className="btn btn-text" onClick={close}>Cancel</button>
+          <button type="submit" className="btn btn-primary" disabled={!url.trim() || busy}>{busy ? "Fetching…" : "Add calendar"}</button>
         </div>
       </form>
     </Modal>

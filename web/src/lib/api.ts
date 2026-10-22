@@ -157,6 +157,8 @@ export const api = {
   updateCalendar: (a: number, id: number, patch: Partial<Pick<CalendarInfo, "name" | "color" | "visible">>) =>
     request<{ calendar: CalendarInfo }>("PATCH", `${u(a)}/calendar/calendars/${id}`, patch),
   deleteCalendar: (a: number, id: number) => request<{ ok: true }>("DELETE", `${u(a)}/calendar/calendars/${id}`),
+  subscribeCalendar: (a: number, url: string) => request<{ calendar: CalendarInfo }>("POST", `${u(a)}/calendar/feeds`, { url }),
+  refreshCalendar: (a: number, id: number) => request<{ calendar: CalendarInfo }>("POST", `${u(a)}/calendar/calendars/${id}/refresh`),
   events: (a: number, from: string, to: string, zone: string) =>
     request<{ events: EventSummary[] }>("GET", `${u(a)}/calendar/events?${new URLSearchParams({ from, to, zone })}`),
   searchEvents: (a: number, q: string, zone: string) =>

@@ -33,7 +33,7 @@ Settings that are on or off take `true` or `false`, `1` or `0`, `yes` or `no`, `
 |---|---|---|
 | `ALLOWED_DOMAINS` | — | **Live.** Comma-separated email domains allowed to sign in, checked against both the address and the login sent to the server, so a username without a domain can't sign in. Empty: any address your IMAP server accepts. Checked at sign-in only. |
 | `ALLOW_CUSTOM_SERVERS` | `false` | **Live.** Let people enter their own IMAP and SMTP servers, and a username different from their address, on the sign-in page. Turning it off stops new sign-ins that way; it doesn't sign out those already in. |
-| `ALLOW_PRIVATE_SERVERS` | `false` | With custom servers on, also allow private and loopback addresses. Leave it off on a public instance, or anyone could use Viauna to probe your internal network. |
+| `ALLOW_PRIVATE_SERVERS` | `false` | Allow private and loopback addresses for the mail servers people enter (with custom servers on) and the calendars they add from the web. Leave it off on a public instance, or anyone could use Viauna to probe your internal network. |
 
 ## Web
 
@@ -53,6 +53,7 @@ Settings that are on or off take `true` or `false`, `1` or `0`, `yes` or `no`, `
 | `CARDDAV_URL` | — | A CardDAV server to sync contacts with, signed in as each mailbox with its own password. `{login}` (or `{email}`, the same), `{user}` and `{domain}` are filled in. Environment only. See [Contacts and CardDAV](./contacts.md). |
 | `CONTACTS_SYNC` | `true` | **Live.** Sync with `CARDDAV_URL`, when it's set. |
 | `CALENDAR` | `true` | **Live.** Each mailbox's calendars, kept by Viauna as iCalendar in the state store. Off: the calendar is gone from every page; calendars and events are kept. See [How it works: Calendar](../how-it-works/calendar.md). |
+| `CALENDAR_FEEDS` | `true` | **Live.** Let people add a calendar from the web by its address, which this server fetches every 6 hours: only from public addresses, unless `ALLOW_PRIVATE_SERVERS` is on. Off: nothing is fetched, and those calendars are hidden until it's on again. See [Calendars from the web](../how-it-works/calendar.md#calendars-from-the-web). |
 | `FILTERS` | `true` | **Live.** Filters, kept on the mail server as Sieve. See [Filters and vacation](./filters.md). |
 | `FILTER_FORWARDING` | `false` | **Live.** Let a filter forward mail to another address. |
 | `VACATION` | `true` | **Live.** The vacation responder. |

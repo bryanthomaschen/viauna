@@ -91,6 +91,8 @@ export interface UiState {
   eventDialog: null | { id?: number; occurrence?: string | null; initial?: Partial<EventInput> & { calendarId?: number } };
   /** Importing a calendar file. */
   importDialog: boolean;
+  /** Adding a calendar from the web by its address. */
+  subscribeDialog: boolean;
   /** Which occurrences of a repeating event a change or deletion is for, being asked. */
   scopeDialog: null | { action: "change" | "delete"; ruleChanged: boolean; resolve: (scope: Scope | null) => void };
   /** A calendar being renamed or recoloured, or made. */
@@ -102,7 +104,7 @@ export interface UiState {
 }
 
 export const ui = createStore<UiState>({
-  shortcutsOpen: false, commandsOpen: false, labelDialog: null, contactDialog: null, filterDialog: null, eventDialog: null, calendarDialog: null, scopeDialog: null, importDialog: false,
+  shortcutsOpen: false, commandsOpen: false, labelDialog: null, contactDialog: null, filterDialog: null, eventDialog: null, calendarDialog: null, scopeDialog: null, importDialog: false, subscribeDialog: false,
   folderDialog: null, confirm: null, sidebarOpen: false, searchFocus: 0,
 });
 

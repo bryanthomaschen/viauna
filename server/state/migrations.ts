@@ -277,6 +277,21 @@ export function migrations(dialect: Dialect): MigrationProvider {
         await db.schema.createIndex("calendars_birthdays").on("calendars").column("birthdays_of").unique().execute();
       },
     },
+
+    // 0.6: calendars from elsewhere by their address, kind "feed". Viauna fetches the
+    // address and keeps its events as the calendar's, with the validators to ask whether it
+    // changed (ETag, Last-Modified), when it last tried and last got it, what went wrong
+    // if it didn't, and when to fetch it next.
+    "0008_calendar_feeds": {
+      async up(db: Kysely<any>) {
+        for (const [name, type] of [
+          ["source_url", "text"], ["etag", "varchar(255)"], ["last_modified", "varchar(64)"], ["checked_at", "bigint"],
+          ["fetched_at", "bigint"], ["fetch_error", "text"], ["next_fetch_at", "bigint"],
+        ] as const) {
+          await db.schema.alterTable("calendars").addColumn(name, type).execute();
+        }
+      },
+    },
   };
   return { getMigrations: async () => all };
 }

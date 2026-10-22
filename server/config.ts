@@ -169,7 +169,7 @@ interface Common<K extends string, V extends SettingValue> {
 }
 
 export type SettingDef =
-  | (Common<"allowCustomServers" | "contacts" | "contactsSync" | "calendar" | "filters" | "vacation" | "filterForwarding", boolean> & { type: "boolean" })
+  | (Common<"allowCustomServers" | "contacts" | "contactsSync" | "calendar" | "calendarFeeds" | "filters" | "vacation" | "filterForwarding", boolean> & { type: "boolean" })
   | (Common<"sessionDays" | "maxAccounts" | "maxUploadMb" | "cacheMb", number> & { type: "integer"; min: number; max: number; unit: string })
   | (Common<"appName", string> & { type: "text"; max: number; required?: boolean })
   | (Common<"admins" | "allowedDomains", string[]> & { type: "list"; item: "address" | "domain" })
@@ -184,6 +184,7 @@ export interface SettingValues {
   contacts: boolean;
   contactsSync: boolean;
   calendar: boolean;
+  calendarFeeds: boolean;
   filters: boolean;
   vacation: boolean;
   filterForwarding: boolean;
@@ -226,6 +227,11 @@ export const SETTINGS: readonly SettingDef[] = [
     key: "calendar", env: "CALENDAR", type: "boolean", default: true,
     section: "Features", label: "Calendar",
     help: "Each mailbox's calendars, kept by Viauna in standard iCalendar.",
+  },
+  {
+    key: "calendarFeeds", env: "CALENDAR_FEEDS", type: "boolean", default: true,
+    section: "Features", label: "Calendars from the web",
+    help: "Let people add a calendar by its address (public holidays, fixtures, another service's calendar), which this server fetches from the internet every 6 hours.",
   },
   {
     key: "filters", env: "FILTERS", type: "boolean", default: true,
@@ -392,7 +398,7 @@ export const config = {
   imap: endpoint("IMAP", 993),
   smtp: endpoint("SMTP", 465),
   managesieve: sieveEndpoint(endpoint("IMAP", 993)),
-  /** Custom servers may not resolve to private/loopback addresses unless this is on. */
+  /** Custom servers and calendar feeds may not resolve to private/loopback addresses unless this is on. */
   allowPrivateServers: bool("ALLOW_PRIVATE_SERVERS", false),
 
   // Where password changes go (password.ts). Set only here: a page that could change

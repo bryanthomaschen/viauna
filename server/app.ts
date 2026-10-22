@@ -29,7 +29,9 @@ import {
   getEvent,
   importEvents,
   listCalendars,
+  refreshFeed,
   searchEvents,
+  subscribe,
   undoChange,
   updateCalendar,
   updateEvent,
@@ -55,6 +57,7 @@ import {
 import type { Credentials } from "./crypto.ts";
 import { db } from "./db.ts";
 import { contactEvents, syncContacts, syncSoon, syncStatus, syncsContacts } from "./contacts-sync.ts";
+import { FeedError } from "./feeds.ts";
 import { FilterError, cleanFilter, cleanVacation, loadFilters, saveFilters, unavailable } from "./filters.ts";
 import { MailboxAuthError, runtimeFor, stillProven } from "./imap/pool.ts";
 import { type AccountRuntime, type ChangeEvent, syncable } from "./imap/runtime.ts";
@@ -182,6 +185,7 @@ export function createApp() {
     if (err instanceof ContactError) return c.json({ error: err.message }, err.status as 400);
     if (err instanceof FilterError) return c.json({ error: err.message }, err.status as 400);
     if (err instanceof CalendarError) return c.json({ error: err.message }, err.status as 400);
+    if (err instanceof FeedError) return c.json({ error: err.message }, 400);
     log.error("request failed", { path: c.req.path, error: (err as Error).message, stack: (err as Error).stack });
     const message = /ECONNREFUSED|ETIMEDOUT|ENOTFOUND|Connection not available|closed/i.test((err as Error).message)
       ? "The mail server isn't responding. Try again in a moment."
@@ -222,6 +226,7 @@ export function createApp() {
       configured: !!config.imap,
       contacts: setting("contacts"),
       calendar: setting("calendar"),
+      calendarFeeds: setting("calendar") && setting("calendarFeeds"),
       filters: setting("filters") && !!config.managesieve,
       vacation: setting("vacation") && !!config.managesieve,
     }),
@@ -724,6 +729,14 @@ export function createApp() {
   });
 
   calendar.post("/calendars", async (c) => c.json({ calendar: await createCalendar(c.get("rt").account.id, await body(c)) }));
+
+  // A calendar from the web: { url, name? }, fetched at once.
+  calendar.post("/feeds", async (c) => {
+    if (!setting("calendarFeeds")) return c.json({ error: "Calendars from the web are turned off on this server." }, 404);
+    return c.json({ calendar: await subscribe(c.get("rt").account.id, await body(c)) });
+  });
+
+  calendar.post("/calendars/:id/refresh", async (c) => c.json({ calendar: await refreshFeed(c.get("rt").account.id, int(c.req.param("id"))) }));
 
   calendar.patch("/calendars/:id", async (c) =>
     c.json({ calendar: await updateCalendar(c.get("rt").account.id, int(c.req.param("id")), await body(c)) }),

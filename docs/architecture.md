@@ -31,6 +31,7 @@ server/                Node (TypeScript, Hono)
   recurrence.ts        repeating events: occurrences, rules, this / following / all events
   calendar-file.ts     calendar files (.ics): split into events to import, built to export
   birthdays.ts         the Birthdays calendar: contacts' dates made into events, never stored
+  feeds.ts             fetching calendars from the web: public addresses only, limits, conditional requests
   vtimezone.ts         VTIMEZONE definitions for IANA zones, from the zone's own changes
   filters.ts           filters and the vacation responder: checking, loading, saving
   sieve.ts             them as a Sieve script, and reading back the script Viauna wrote
@@ -228,8 +229,11 @@ should say which kind it is.
   CSP (`script-src 'none'`, remote `img-src` only when allowed).
 - **Attachments** download as `application/octet-stream` with `Content-Disposition:
   attachment`, except a short list of safe types viewed inline under a sandbox CSP.
-- **SSRF**: users can't choose servers unless the operator allows it, and even then
-  private and loopback addresses are refused.
+- **SSRF**: users can't choose mail servers unless the operator allows it, and even then
+  private and loopback addresses are refused. Calendars from the web (`CALENDAR_FEEDS`)
+  are fetched the same way: every address a name has is checked as it's looked up, the
+  connection goes to one of them, and redirects are checked again, within limits on time
+  and size.
 - **Brute force**: sign-in attempts are counted before the login is tried (so
   parallel bursts can't slip under the limit), per IP and per login; with
   `TRUST_PROXY` the client address is the last `X-Forwarded-For` entry, the one your

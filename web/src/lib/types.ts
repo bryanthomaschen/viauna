@@ -152,6 +152,8 @@ export interface AppConfig {
   /** The address book is on. */
   contacts: boolean;
   calendar: boolean;
+  /** Calendars can be added from the web by their address. */
+  calendarFeeds: boolean;
   /** Filters and the vacation responder can be used (the mail server's ManageSieve). */
   filters: boolean;
   vacation: boolean;
@@ -343,10 +345,12 @@ export interface CalendarInfo {
   visible: boolean;
   /** The mailbox's own calendar, which can't be deleted. */
   primary: boolean;
-  /** "events", kept here; "birthdays", made from contacts' dates. */
-  kind: "events" | "birthdays";
+  /** "events", kept here; "birthdays", made from contacts' dates; "feed", fetched from the web. */
+  kind: "events" | "birthdays" | "feed";
   /** Its events come from elsewhere, and can't be changed here. */
   readOnly: boolean;
+  /** From the web: its address, when it last came back and was last tried, and what went wrong. */
+  feed: { url: string; fetchedAt: number | null; checkedAt: number | null; error: string | null } | null;
 }
 
 /** An event, or one occurrence of it, as the grid shows it. Timed: ISO instants. All-day: dates, the end exclusive. */
@@ -403,6 +407,8 @@ export interface EventInput {
 }
 
 export interface EventDetail extends EventInput {
+  /** In a calendar whose events come from elsewhere. */
+  readOnly: boolean;
   id: number;
   calendarId: number;
   occurrence: string | null;

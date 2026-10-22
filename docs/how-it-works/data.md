@@ -69,6 +69,10 @@ state store and unaffected.
   and "Viauna" as the client's name.
 - **To `CARDDAV_URL`**, if set: each mailbox's contacts, signed in with its own login and
   password. Only mailboxes on your own mail server (`IMAP_HOST`) sync.
+- **To the address of a calendar from the web**, every 6 hours while it's added: a request
+  for the file, saying it's Viauna and which version, from your server's address. Only
+  to public addresses unless `ALLOW_PRIVATE_SERVERS` is on. See
+  [Calendars from the web](./calendar.md#calendars-from-the-web).
 - **For a password change**: the login, the address, and the current and new passwords,
   to your command (on its standard input), your webhook (a signed POST) or your LDAP
   directory. See [Password changes](../self-hosting/passwords.md).

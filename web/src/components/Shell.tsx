@@ -28,6 +28,7 @@ const CalendarMain = lazy(() => import("./Calendar").then((m) => ({ default: m.C
 const EventDialog = lazy(() => import("./EventDialog").then((m) => ({ default: m.EventDialog })));
 const CalendarDialog = lazy(() => import("./EventDialog").then((m) => ({ default: m.CalendarDialog })));
 const ScopeDialog = lazy(() => import("./EventDialog").then((m) => ({ default: m.ScopeDialog })));
+const SubscribeDialog = lazy(() => import("./EventDialog").then((m) => ({ default: m.SubscribeDialog })));
 const ImportDialog = lazy(() => import("./EventDialog").then((m) => ({ default: m.ImportDialog })));
 
 export function Shell({ route, accounts, appName }: { route: Route; accounts: SessionAccount[]; appName: string }) {
@@ -95,6 +96,7 @@ function ShellInner({ route, appName }: { route: Route; appName: string }) {
   const calendarDialog = ui.use((s) => s.calendarDialog);
   const scopeDialog = ui.use((s) => s.scopeDialog);
   const importDialog = ui.use((s) => s.importDialog);
+  const subscribeDialog = ui.use((s) => s.subscribeDialog);
   const loading = <div className="empty"><div className="spinner lg" /></div>;
   useShortcuts(route);
   useCommandMenuKey();
@@ -155,6 +157,11 @@ function ShellInner({ route, appName }: { route: Route; appName: string }) {
       {importDialog && (
         <Suspense fallback={null}>
           <ImportDialog />
+        </Suspense>
+      )}
+      {subscribeDialog && (
+        <Suspense fallback={null}>
+          <SubscribeDialog />
         </Suspense>
       )}
       {scopeDialog && (
