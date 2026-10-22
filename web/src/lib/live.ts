@@ -65,7 +65,8 @@ export function useLiveUpdates(client: QueryClient, accountCount: number, onOpen
       });
       source.addEventListener("contacts", (e) => {
         const { index } = JSON.parse((e as MessageEvent).data) as { index: number };
-        void client.invalidateQueries({ queryKey: ["contacts", index] });
+        // The Birthdays calendar shows the contacts' dates.
+        for (const key of ["contacts", "contact-labels", "events"]) void client.invalidateQueries({ queryKey: [key, index] });
       });
       source.addEventListener("reauth", (e) => {
         const { index } = JSON.parse((e as MessageEvent).data) as { index: number };

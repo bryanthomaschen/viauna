@@ -20,6 +20,8 @@ import {
   updateCalendar,
   updateEvent,
 } from "../server/calendar.ts";
+import { setOverrides } from "../server/config.ts";
+import { createContact } from "../server/contacts.ts";
 import { sha256 } from "../server/crypto.ts";
 import { type StateStore, openState, setState, state } from "../server/state/db.ts";
 import { ENGINES, emptyDatabase } from "./databases.ts";
@@ -59,12 +61,17 @@ describe.each(ENGINES)("calendars on $name", ({ url }) => {
 
   afterEach(() => setState(null));
 
-  it("makes the mailbox's own calendar once, even when asked for at the same moment", async () => {
+  it("makes the mailbox's own calendar and its Birthdays once, even when asked for at the same moment", async () => {
     await state().deleteFrom("calendars").execute();
     const lists = await Promise.all([listCalendars(7, "Me"), listCalendars(7, "Me"), listCalendars(7, "Me")]);
-    for (const list of lists) expect(list).toEqual([expect.objectContaining({ name: "Me", primary: true, visible: true })]);
+    for (const list of lists) {
+      expect(list).toEqual([
+        expect.objectContaining({ name: "Me", primary: true, visible: true, kind: "events", readOnly: false }),
+        expect.objectContaining({ name: "Birthdays", primary: false, visible: true, kind: "birthdays", readOnly: true }),
+      ]);
+    }
     const rows = await state().selectFrom("calendars").select("id").execute();
-    expect(rows).toHaveLength(1);
+    expect(rows).toHaveLength(2);
   });
 
   it("adds, renames, hides and deletes calendars, but not the mailbox's own", async () => {
@@ -80,7 +87,7 @@ describe.each(ENGINES)("calendars on $name", ({ url }) => {
 
     await createEvent(7, work.id, lunch(), SG);
     await deleteCalendar(7, work.id);
-    expect((await listCalendars(7, "Me")).map((c) => c.name)).toEqual(["Me Myself"]);
+    expect((await listCalendars(7, "Me")).map((c) => c.name)).toEqual(["Me Myself", "Birthdays"]);
     expect(await state().selectFrom("events").selectAll().execute()).toEqual([]);
   });
 
@@ -233,6 +240,57 @@ describe.each(ENGINES)("calendars on $name", ({ url }) => {
     await expect(importEvents(7, primary, "BEGIN:VCARD\r\nFN:Ann\r\nEND:VCARD\r\n")).rejects.toThrow(/calendar file/);
     await expect(importEvents(7, primary, "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n")).rejects.toThrow(/no events/);
     await expect(importEvents(7, 9999, file("x"))).rejects.toMatchObject({ status: 404 });
+  });
+
+  it("shows the contacts' dates on a Birthdays calendar, which can't be changed from here", async () => {
+    const birthdays = (await listCalendars(7, "Me Myself")).find((c) => c.kind === "birthdays")!;
+    const kai = await createContact(7, {
+      firstName: "Kai", lastName: "Lim", birthday: "1988-03-14",
+      dates: [{ date: "2015-06-20", label: "anniversary" }, { date: "--01-06", label: "First day at work" }],
+    });
+    await createContact(7, { firstName: "Leap", birthday: "2000-02-29" });
+    const dated = async (from: string, to: string) =>
+      (await eventsBetween(7, from, to, SG)).filter((e) => e.calendarId === birthdays.id).map((e) => [e.start, e.title]);
+    expect(await dated("2027-01-01", "2028-01-01")).toEqual([
+      ["2027-01-06", "Kai Lim: First day at work"],
+      ["2027-02-28", "Leap's birthday (27)"],
+      ["2027-03-14", "Kai Lim's birthday (39)"],
+      ["2027-06-20", "Kai Lim's anniversary (12 years)"],
+    ]);
+    // 29 February when there is one; nothing before someone was born.
+    expect(await dated("2028-02-01", "2028-03-01")).toEqual([["2028-02-29", "Leap's birthday (28)"]]);
+    expect(await dated("1999-12-01", "2000-03-01")).toEqual([["2000-01-06", "Kai Lim: First day at work"], ["2000-02-29", "Leap's birthday"]]);
+    const one = (await eventsBetween(7, "2027-03-14", "2027-03-15", SG)).find((e) => e.calendarId === birthdays.id);
+    expect(one).toMatchObject({ allDay: true, start: "2027-03-14", end: "2027-03-15", readOnly: true, contactId: kai!.id, busy: false });
+
+    await expect(createEvent(7, birthdays.id, lunch(), SG)).rejects.toThrow(/in Contacts/);
+    await expect(importEvents(7, birthdays.id, "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:x\r\nDTSTART;VALUE=DATE:20270101\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n")).rejects.toThrow(/in Contacts/);
+    const ev = await createEvent(7, primary, lunch(), SG);
+    await expect(updateEvent(7, ev.id, { calendarId: birthdays.id }, SG)).rejects.toThrow(/in Contacts/);
+    await expect(deleteCalendar(7, birthdays.id)).rejects.toThrow(/Hide it/);
+    expect(await updateCalendar(7, birthdays.id, { name: "Dates", color: "tomato", visible: false })).toMatchObject({ name: "Dates", visible: false });
+
+    // As a file: yearly events, 29 February on the last day of February, no ages.
+    const { text } = await exportCalendar(7, birthdays.id, SG);
+    expect(text).toContain("DTSTART;VALUE=DATE:19880314");
+    expect(text).toContain("SUMMARY:Kai Lim's birthday\r\n");
+    expect(text).toContain("DTSTART;VALUE=DATE:20000106"); // its year isn't known
+    expect(text).toMatch(/DTSTART;VALUE=DATE:20000229\r\n(.*\r\n)*?RRULE:FREQ=YEARLY;BYMONTH=2;BYMONTHDAY=-1\r\n/);
+    expect(text).toContain("TRANSP:TRANSPARENT");
+  });
+
+  it("leaves the Birthdays calendar out while contacts are off", async () => {
+    const birthdays = (await listCalendars(7, "Me Myself")).find((c) => c.kind === "birthdays")!;
+    await createContact(7, { firstName: "Kai", birthday: "--03-14" });
+    setOverrides(new Map([["contacts", false]]));
+    try {
+      expect((await listCalendars(7, "Me Myself")).map((c) => c.kind)).toEqual(["events"]);
+      expect(await eventsBetween(7, "2027-03-01", "2027-04-01", SG)).toEqual([]);
+      await expect(updateCalendar(7, birthdays.id, { visible: false })).rejects.toMatchObject({ status: 404 });
+    } finally {
+      setOverrides(new Map());
+    }
+    expect((await eventsBetween(7, "2027-03-01", "2027-04-01", SG)).map((e) => e.title)).toEqual(["Kai's birthday"]);
   });
 
   it("refuses times it can't use, and calendars that aren't the mailbox's", async () => {

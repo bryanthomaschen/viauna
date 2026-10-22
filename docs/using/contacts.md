@@ -59,8 +59,11 @@ A birthday is a day and a month, with the year if you know it. **Add a date** ad
 anniversary, or any other date with your own label for it ("First day at work"), again
 with or without its year.
 
+Every date shows on the [Birthdays calendar](./calendar.md#birthdays), with the age or
+the years when you've given the year.
+
 A date that another app wrote in words, such as "circa 1950", is kept as it is and shown
-as written; **Replace** swaps it for a date.
+as written; **Replace** swaps it for a date. It isn't on the Birthdays calendar.
 
 ## A nickname
 

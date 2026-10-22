@@ -1,11 +1,13 @@
 // Each mailbox's calendars and their events, kept in the state store. An event is kept
 // whole, as its iCalendar object (icalendar.ts), with its title, a lower-cased text to
 // search and when it starts and ends alongside, to find what falls in a week or a month.
-// The first visit to the calendar makes the mailbox's own one, named after it.
+// The first visit to the calendar makes the mailbox's own one, named after it, and its
+// Birthdays calendar, whose events are made from its contacts (birthdays.ts).
 import crypto from "node:crypto";
 import { EventEmitter } from "node:events";
 import { sql } from "kysely";
-import { VERSION } from "./config.ts";
+import { birthdayObjects, birthdaysBetween } from "./birthdays.ts";
+import { VERSION, setting } from "./config.ts";
 import { buildFile, parseFile } from "./calendar-file.ts";
 import { contains, fold } from "./text.ts";
 import { randomToken } from "./crypto.ts";
@@ -44,7 +46,7 @@ import {
   seriesSpan,
   writeRule,
 } from "./recurrence.ts";
-import { type EventTable, isUniqueViolation, orIgnore, state } from "./state/db.ts";
+import { type CalendarKind, type EventTable, isUniqueViolation, orIgnore, state } from "./state/db.ts";
 
 export class CalendarError extends Error {
   status: number;
@@ -85,6 +87,9 @@ export interface CalendarInfo {
   color: string;
   visible: boolean;
   primary: boolean;
+  kind: CalendarKind;
+  /** Its events can't be added, changed or deleted here: they come from elsewhere. */
+  readOnly: boolean;
 }
 
 /** What the calendar grid shows of an event, or one occurrence of it. Timed: ISO instants. All-day: dates, end exclusive. */
@@ -102,6 +107,10 @@ export interface EventSummary {
   busy: boolean;
   location: string;
   video: boolean;
+  /** In a calendar whose events come from elsewhere. */
+  readOnly: boolean;
+  /** On the Birthdays calendar: whose date it is. */
+  contactId: number | null;
 }
 
 export interface EventDetail extends EventFields {
@@ -121,13 +130,21 @@ export interface EventDetail extends EventFields {
 
 type EventRow = Omit<EventTable, "id"> & { id: number };
 
-const calendarJson = (r: { id: number; name: string; color: string; visible: number; primary_of: number | null }): CalendarInfo => ({
+type CalendarRow = { id: number; name: string; color: string; visible: number; primary_of: number | null; kind: CalendarKind };
+const CALENDAR_COLUMNS = ["id", "name", "color", "visible", "primary_of", "kind"] as const;
+
+const calendarJson = (r: CalendarRow): CalendarInfo => ({
   id: r.id,
   name: r.name,
   color: r.color,
   visible: !!r.visible,
   primary: r.primary_of !== null,
+  kind: r.kind,
+  readOnly: r.kind !== "events",
 });
+
+/** Kinds whose calendar is shown: the Birthdays calendar only while there are contacts. */
+const shown = (kind: CalendarKind) => kind !== "birthdays" || setting("contacts");
 
 const changed = (accountId: number) => calendarEvents.emit("changed", accountId);
 
@@ -143,19 +160,22 @@ function cleanColor(input: unknown): string {
   throw new CalendarError("Pick one of the colours offered.");
 }
 
-/** The mailbox's calendars, making its own one first if this is the first visit. */
+/**
+ * The mailbox's calendars, making its own one first if this is the first visit, and its
+ * Birthdays calendar the first time contacts are on.
+ */
 export async function listCalendars(accountId: number, ownerName: string): Promise<CalendarInfo[]> {
   const read = () =>
     state()
       .selectFrom("calendars")
-      .select(["id", "name", "color", "visible", "primary_of"])
+      .select([...CALENDAR_COLUMNS, "birthdays_of", "position"])
       .where("account_id", "=", accountId)
       .orderBy("position")
       .orderBy("id")
       .execute();
   let rows = await read();
+  const now = Date.now();
   if (!rows.some((r) => r.primary_of !== null)) {
-    const now = Date.now();
     await orIgnore(
       state()
         .insertInto("calendars")
@@ -163,17 +183,35 @@ export async function listCalendars(accountId: number, ownerName: string): Promi
     ).execute();
     rows = await read();
   }
-  return rows.map(calendarJson);
+  if (setting("contacts") && !rows.some((r) => r.birthdays_of !== null)) {
+    await orIgnore(
+      state()
+        .insertInto("calendars")
+        .values({
+          account_id: accountId, name: "Birthdays", color: "mediumseagreen", position: Math.max(0, ...rows.map((r) => r.position)) + 1, primary_of: null,
+          kind: "birthdays", birthdays_of: accountId, created_at: now, updated_at: now,
+        }),
+    ).execute();
+    rows = await read();
+  }
+  return rows.filter((r) => shown(r.kind)).map(calendarJson);
 }
 
 async function ownCalendar(accountId: number, id: number) {
   const row = await state()
     .selectFrom("calendars")
-    .select(["id", "name", "color", "visible", "primary_of"])
+    .select([...CALENDAR_COLUMNS])
     .where("account_id", "=", accountId)
     .where("id", "=", id)
     .executeTakeFirst();
-  if (!row) throw new CalendarError("This calendar no longer exists.", 404);
+  if (!row || !shown(row.kind)) throw new CalendarError("This calendar no longer exists.", 404);
+  return row;
+}
+
+/** A calendar whose events are kept here, to add, change or import events in. */
+async function eventsCalendar(accountId: number, id: number) {
+  const row = await ownCalendar(accountId, id);
+  if (row.kind === "birthdays") throw new CalendarError("The Birthdays calendar shows your contacts' dates. Change them in Contacts.");
   return row;
 }
 
@@ -188,7 +226,7 @@ export async function createCalendar(accountId: number, input: Record<string, un
   // MySQL has no RETURNING: the newest of this mailbox's calendars is the one just made.
   const row = await state()
     .selectFrom("calendars")
-    .select(["id", "name", "color", "visible", "primary_of"])
+    .select([...CALENDAR_COLUMNS])
     .where("account_id", "=", accountId)
     .orderBy("id", "desc")
     .executeTakeFirstOrThrow();
@@ -211,6 +249,7 @@ export async function updateCalendar(accountId: number, id: number, input: Recor
 export async function deleteCalendar(accountId: number, id: number): Promise<void> {
   const row = await ownCalendar(accountId, id);
   if (row.primary_of !== null) throw new CalendarError("Your own calendar can't be deleted. Rename it, or delete its events.");
+  if (row.kind === "birthdays") throw new CalendarError("The Birthdays calendar comes from your contacts, so it can't be deleted. Hide it instead.");
   await state().transaction().execute(async (trx) => {
     await trx.deleteFrom("events").where("account_id", "=", accountId).where("calendar_id", "=", id).execute();
     await trx.deleteFrom("calendars").where("account_id", "=", accountId).where("id", "=", id).execute();
@@ -342,6 +381,7 @@ function summaryOf(row: { id: number; calendar_id: number }, root: Root, occ: Oc
   return {
     id: row.id, calendarId: row.calendar_id, occurrence: occ.key, recurring: isRecurring(masterEvent(root)!),
     title: f.title, allDay: f.allDay, start, end, color: f.color, busy: f.busy, location: f.location, video: !!f.video,
+    readOnly: false, contactId: null,
   };
 }
 
@@ -374,6 +414,10 @@ export async function eventsBetween(accountId: number, from: string, to: string,
     const root = parsed(row.ics);
     if (!root) continue;
     for (const occ of occurrences(root, zone, window)) out.push(summaryOf(row, root, occ, zone));
+  }
+  if (setting("contacts")) {
+    const birthdays = await state().selectFrom("calendars").select("id").where("birthdays_of", "=", accountId).executeTakeFirst();
+    if (birthdays) out.push(...(await birthdaysBetween(accountId, birthdays.id, from, to)));
   }
   return out.sort((a, b) => a.start.localeCompare(b.start));
 }
@@ -448,7 +492,7 @@ export async function getEvent(accountId: number, id: number, zone: string, occu
 
 export async function createEvent(accountId: number, calendarId: number, input: unknown, zone: string): Promise<EventDetail> {
   checkZone(zone);
-  await ownCalendar(accountId, calendarId);
+  await eventsCalendar(accountId, calendarId);
   const fields = cleanFields(input);
   const repeat = cleanRule((input as Record<string, unknown> | null)?.repeat, fields.start.slice(0, 10));
   const root = newEvent(fields, crypto.randomUUID(), PRODID);
@@ -542,7 +586,7 @@ export async function updateEvent(accountId: number, id: number, input: Record<s
   let calendarId = row.calendar_id;
   if (input.calendarId !== undefined && input.calendarId !== row.calendar_id) {
     if (current.recurring && scope === "this") throw new CalendarError("One occurrence can't move to another calendar. Move this and following events, or all of them.");
-    calendarId = (await ownCalendar(accountId, Number(input.calendarId))).id;
+    calendarId = (await eventsCalendar(accountId, Number(input.calendarId))).id;
   }
   let edited: ReturnType<typeof editEvent>;
   try {
@@ -635,7 +679,7 @@ export async function importEvents(accountId: number, target: number | "new", te
   }
   if (!file.events.length) throw new CalendarError(file.skipped ? "That file has no events in it, only tasks or other entries." : "That file has no events in it.");
   if (file.events.length > LIMITS.importEvents) throw new CalendarError(`Import at most ${LIMITS.importEvents.toLocaleString("en")} events at a time.`);
-  const calendarId = target === "new" ? (await createCalendar(accountId, { name: (file.name ?? "Imported").slice(0, LIMITS.name) || "Imported" })).id : (await ownCalendar(accountId, target)).id;
+  const calendarId = target === "new" ? (await createCalendar(accountId, { name: (file.name ?? "Imported").slice(0, LIMITS.name) || "Imported" })).id : (await eventsCalendar(accountId, target)).id;
   const result: ImportResult = { calendarId, added: 0, updated: 0, unchanged: 0, skipped: file.skipped };
   const now = Date.now();
   await state().transaction().execute(async (trx) => {
@@ -672,6 +716,7 @@ export async function importEvents(accountId: number, target: number | "new", te
 export async function exportCalendar(accountId: number, calendarId: number, zone: string): Promise<{ name: string; text: string }> {
   checkZone(zone);
   const cal = await ownCalendar(accountId, calendarId);
+  if (cal.kind === "birthdays") return { name: cal.name, text: buildFile(cal.name, await birthdayObjects(accountId, PRODID), PRODID, zone) };
   const rows = await state().selectFrom("events").select("ics").where("account_id", "=", accountId).where("calendar_id", "=", calendarId).orderBy("start_at").execute();
   const roots = rows.map((r) => parsed(r.ics)).filter((r): r is Root => r !== null);
   return { name: cal.name, text: buildFile(cal.name, roots, PRODID, zone) };

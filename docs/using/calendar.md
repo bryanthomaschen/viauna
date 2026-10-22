@@ -18,6 +18,20 @@ name from Settings, or your address). Add more with the **+** next to **My calen
   **Delete calendar**, which deletes its events too. Your own calendar can be renamed,
   but not deleted.
 
+## Birthdays
+
+The **Birthdays** calendar shows the birthdays, anniversaries and other dates in your
+[contacts](./contacts.md#birthdays-and-other-dates), every year: "Kai Lim's birthday (38)",
+"Kai Lim's anniversary (11 years)", "Kai Lim: First day at work". The age or the years show
+when the contact has the year. A birthday on 29 February is on 28 February in other
+years. Nothing shows before the year a date happened.
+
+These come from your contacts, so they change there: click one, then **Open contact**.
+They can't be moved, and nothing else can be added to this calendar. Its menu has **Add a
+birthday**, for someone whose other details you don't have. You can rename it, recolour
+it or hide it, but not delete it. It's there while Contacts is; if your server's admins
+turn Contacts off, it goes too.
+
 ## Finding your way around
 
 - **Day**, **Week**, **Month**, **Schedule** (the next 30 days as a list) and **4 days**:
@@ -114,12 +128,14 @@ can be up to 20 MB and 10,000 events.
 
 **Export** (a calendar's menu, the three dots, then **Export to a file**) saves the
 calendar as one `.ics` file that any calendar app can import, with the time zone
-definitions they need.
+definitions they need. The Birthdays calendar exports each date as an event every year,
+without the ages, which a file can't know.
 
 ## Searching
 
 In the calendar, the search box at the top searches events: their titles, places and
-descriptions, accents and capitals aside. Results are grouped by day, newest first;
+descriptions, accents and capitals aside. Birthdays aren't searched; search your
+contacts for them. Results are grouped by day, newest first;
 click one to open it, or its date to go to that day.
 
 ## Settings

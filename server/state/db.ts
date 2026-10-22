@@ -134,6 +134,8 @@ export interface ContactDateTable {
   day: number;
 }
 
+export type CalendarKind = "events" | "birthdays";
+
 export interface CalendarTable {
   id: Generated<number>;
   account_id: number;
@@ -143,6 +145,10 @@ export interface CalendarTable {
   visible: Generated<number>;
   /** The account id, on the mailbox's own calendar; null on the others. */
   primary_of: number | null;
+  /** "events", kept here; "birthdays", made from the mailbox's contacts' dates. */
+  kind: Generated<CalendarKind>;
+  /** The account id, on the mailbox's Birthdays calendar. */
+  birthdays_of: number | null;
   created_at: number;
   updated_at: number;
 }

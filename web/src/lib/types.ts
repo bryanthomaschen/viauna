@@ -343,6 +343,10 @@ export interface CalendarInfo {
   visible: boolean;
   /** The mailbox's own calendar, which can't be deleted. */
   primary: boolean;
+  /** "events", kept here; "birthdays", made from contacts' dates. */
+  kind: "events" | "birthdays";
+  /** Its events come from elsewhere, and can't be changed here. */
+  readOnly: boolean;
 }
 
 /** An event, or one occurrence of it, as the grid shows it. Timed: ISO instants. All-day: dates, the end exclusive. */
@@ -360,6 +364,10 @@ export interface EventSummary {
   busy: boolean;
   location: string;
   video: boolean;
+  /** In a calendar whose events come from elsewhere. */
+  readOnly: boolean;
+  /** On the Birthdays calendar: whose date it is. */
+  contactId: number | null;
 }
 
 export type Weekday = "MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU";

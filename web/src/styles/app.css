@@ -533,7 +533,8 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
 .calendar-toolbar .btn-outline { height: 36px; }
 .calendar-title { margin: 0 8px; font-size: 22px; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .view-btn { padding: 0 10px 0 16px; gap: 6px; }
-.calendar-grid { flex: 1; min-height: 0; border-top: 1px solid var(--border); font-size: 13px; }
+/* Dragging on the grid selects times or moves events, never the text under the mouse. */
+.calendar-grid { flex: 1; min-height: 0; border-top: 1px solid var(--border); font-size: 13px; -webkit-user-select: none; user-select: none; }
 .calendar-grid > * { font-size: 13px; }
 /* Quarter-hour rows (for dragging), drawn as hours with a dotted half hour. A row is as
    tall as its label, so the hour's label is small, and straddles its line. */

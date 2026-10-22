@@ -29,7 +29,8 @@ import timeGridPlugin from "@fullcalendar/react/timegrid";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Temporal } from "temporal-polyfill";
 import {
-  ArrowLeft, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Copy, Download, EllipsisVertical, Eye, Globe, MapPin, Pencil, Plus, Repeat, Settings, Text, Trash2, Upload, Video, X,
+  ArrowLeft, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Copy, Download, EllipsisVertical, Eye, Globe, MapPin, Pencil, Plus, Repeat, Settings, Text, Trash2, Upload,
+  UserRound, Video, X,
 } from "lucide-react";
 import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { ui, useAccount } from "../lib/account";
@@ -180,10 +181,15 @@ export function CalendarSidebar({ route, collapsed, open }: { route: Route; coll
                   <DropdownMenu.Item className="menu-item" onSelect={() => ui.set((s) => ({ ...s, calendarDialog: { calendar: c } }))}>
                     <Settings size={18} /> Name and colour
                   </DropdownMenu.Item>
+                  {c.kind === "birthdays" && (
+                    <DropdownMenu.Item className="menu-item" onSelect={() => ui.set((s) => ({ ...s, contactDialog: { birthday: true } }))}>
+                      <Plus size={18} /> Add a birthday
+                    </DropdownMenu.Item>
+                  )}
                   <DropdownMenu.Item className="menu-item" onSelect={() => (location.href = api.exportCalendarUrl(acct.index, c.id, zone))}>
                     <Download size={18} /> Export to a file (.ics)
                   </DropdownMenu.Item>
-                  {!c.primary && (
+                  {!c.primary && c.kind === "events" && (
                     <DropdownMenu.Item className="menu-item" onSelect={() => remove(c)}><Trash2 size={18} /> Delete calendar</DropdownMenu.Item>
                   )}
                 </DropdownMenu.Content>
@@ -330,8 +336,9 @@ function CalendarGrid({ route }: { route: Route }) {
         .map((e) => {
           const color = e.color ?? visible.get(e.calendarId)!.color;
           return {
-            id: `${e.id}:${e.occurrence ?? ""}`, title: e.title || "(No title)", start: e.start, end: e.end, allDay: e.allDay,
+            id: `${e.calendarId}:${e.id}:${e.occurrence ?? ""}`, title: e.title || "(No title)", start: e.start, end: e.end, allDay: e.allDay,
             color, contrastColor: textOnColor(color), className: e.busy ? "" : "event-free", extendedProps: { summary: e },
+            editable: !e.readOnly,
           };
         }),
     [events.data, visible],
@@ -497,7 +504,9 @@ function CalendarGrid({ route }: { route: Route }) {
         />
       </div>
       {quick && <QuickCreate state={quick} calendars={calendars} onClose={close} onSaved={refresh} />}
-      {card && <EventCard state={card} calendars={calendars} onClose={() => setCard(null)} onChanged={refresh} />}
+      {card && (card.event.contactId !== null
+        ? <ContactDateCard state={card} calendars={calendars} onClose={() => setCard(null)} />
+        : <EventCard state={card} calendars={calendars} onClose={() => setCard(null)} onChanged={refresh} />)}
     </>
   );
 }
@@ -516,7 +525,8 @@ function QuickCreate({ state, calendars, onClose, onSaved }: { state: QuickState
   const [title, setTitle] = useState("");
   const [calendarId, setCalendarId] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
-  const chosen = calendarId ?? calendars.find((c) => c.primary)?.id ?? calendars[0]?.id ?? null;
+  const writable = calendars.filter((c) => !c.readOnly);
+  const chosen = calendarId ?? writable.find((c) => c.primary)?.id ?? writable[0]?.id ?? null;
   const times = { allDay: state.allDay, start: state.start, end: state.end };
   const more = () => {
     onClose();
@@ -550,11 +560,11 @@ function QuickCreate({ state, calendars, onClose, onSaved }: { state: QuickState
           <form className="quick-create" onSubmit={(e) => void save(e)}>
             <input className="quick-title" aria-label="Title" placeholder="Add title" value={title} autoFocus maxLength={500} onChange={(e) => setTitle(e.target.value)} />
             <div className="event-card-row"><CalendarDays size={18} aria-hidden /> {formatWhen(times)}</div>
-            {calendars.length > 1 && (
+            {writable.length > 1 && (
               <label className="event-card-row">
-                <span className="swatch" style={{ background: calendars.find((c) => c.id === chosen)?.color }} aria-hidden />
+                <span className="swatch" style={{ background: writable.find((c) => c.id === chosen)?.color }} aria-hidden />
                 <select aria-label="Calendar" value={chosen ?? ""} onChange={(e) => setCalendarId(Number(e.target.value))}>
-                  {calendars.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {writable.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </label>
             )}
@@ -573,6 +583,36 @@ function QuickCreate({ state, calendars, onClose, onSaved }: { state: QuickState
 function linked(text: string): ReactNode[] {
   return text.split(/(https?:\/\/[^\s<>"]+)/g).map((part, i) =>
     i % 2 ? <a key={i} href={part} target="_blank" rel="noopener noreferrer">{part}</a> : part,
+  );
+}
+
+/** A date on the Birthdays calendar: whose, when, and their contact to change it in. */
+function ContactDateCard({ state, calendars, onClose }: { state: CardState; calendars: CalendarInfo[]; onClose: () => void }) {
+  const e = state.event;
+  const calendar = calendars.find((c) => c.id === e.calendarId);
+  const openContact = () => {
+    onClose();
+    ui.set((s) => ({ ...s, contactDialog: { id: e.contactId! } }));
+  };
+  return (
+    <Popover.Root open onOpenChange={(o) => !o && onClose()}>
+      <At rect={state.rect} />
+      <Popover.Portal>
+        <Popover.Content className="popover event-card" side="right" align="start" sideOffset={8} collisionPadding={16} aria-label={e.title}
+          tabIndex={-1} onOpenAutoFocus={(ev) => { ev.preventDefault(); (ev.currentTarget as HTMLElement).focus(); }}>
+          <div className="event-card-tools">
+            <IconButton label="Close" size="sm" onClick={onClose}><X size={18} /></IconButton>
+          </div>
+          <div className="event-card-title">
+            <span className="swatch lg" style={{ background: calendar?.color }} aria-hidden />
+            <h3>{e.title}</h3>
+          </div>
+          <div className="event-card-row muted">{formatWhen({ allDay: true, start: e.start, end: e.end })}</div>
+          {calendar && <div className="event-card-row muted"><CalendarDays size={18} aria-hidden /> {calendar.name}, from your contacts</div>}
+          <button type="button" className="btn btn-outline event-join" onClick={openContact}><UserRound size={18} /> Open contact</button>
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
   );
 }
 

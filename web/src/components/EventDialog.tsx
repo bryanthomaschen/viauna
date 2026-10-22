@@ -104,7 +104,8 @@ export function EventDialog({ id, occurrence, initial }: { id?: number; occurren
   const [customOpen, setCustomOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const list = calendars.data?.calendars ?? [];
+  // Only calendars whose events are kept here can take one.
+  const list = (calendars.data?.calendars ?? []).filter((c) => !c.readOnly);
   const loaded = existing.data?.event;
   const d: Draft | null = draft ?? (loaded ? fromLoaded(loaded, zone) : null);
   const calendarId = d?.calendarId ?? list.find((c) => c.primary)?.id ?? list[0]?.id ?? null;
@@ -471,7 +472,7 @@ export function ImportDialog() {
   const acct = useAccount();
   const client = useQueryClient();
   const calendars = useQuery({ queryKey: ["calendars", acct.index], queryFn: () => api.calendars(acct.index) });
-  const list = calendars.data?.calendars ?? [];
+  const list = (calendars.data?.calendars ?? []).filter((c) => !c.readOnly);
   const [file, setFile] = useState<File | null>(null);
   const [target, setTarget] = useState<string>("");
   const [busy, setBusy] = useState(false);

@@ -27,6 +27,10 @@ zone beside them if you like; an event can be in a zone of its own, with its end
 another for a flight; an event made in another zone keeps it when you move it; and a
 repeating meeting stays at 09:00 in its own zone through clock changes.
 
+A **Birthdays** calendar shows the birthdays, anniversaries and other dates in your
+contacts every year, with the age or the years when the contact has the year. It changes
+when the contacts do, and its menu can **Add a birthday**.
+
 Calendars move in and out as `.ics` files: import Google Calendar's, Outlook's, Apple
 Calendar's or Thunderbird's exports (again, without adding anything twice), and export
 any calendar, with the time zone definitions Outlook needs. See

@@ -265,6 +265,18 @@ export function migrations(dialect: Dialect): MigrationProvider {
         }
       },
     },
+
+    // 0.6: calendars Viauna makes from something else. A calendar's kind says which:
+    // "events", kept here; or "birthdays", its mailbox's contacts' dates, made into events
+    // as they're asked for and never stored. The Birthdays calendar has its account id in
+    // birthdays_of, unique, so each mailbox has one however many pages open at once.
+    "0007_calendar_kinds": {
+      async up(db: Kysely<any>) {
+        await db.schema.alterTable("calendars").addColumn("kind", "varchar(16)", (c) => c.notNull().defaultTo("events")).execute();
+        await db.schema.alterTable("calendars").addColumn("birthdays_of", "integer").execute();
+        await db.schema.createIndex("calendars_birthdays").on("calendars").column("birthdays_of").unique().execute();
+      },
+    },
   };
   return { getMigrations: async () => all };
 }

@@ -49,7 +49,7 @@ Settings that are on or off take `true` or `false`, `1` or `0`, `yes` or `no`, `
 
 | Variable | Default | |
 |---|---|---|
-| `CONTACTS` | `true` | **Live.** Each mailbox's address book, with vCard import and export, and suggestions from it while writing. Off: the Contacts page is gone and suggestions come only from mail people have exchanged; saved contacts are kept. |
+| `CONTACTS` | `true` | **Live.** Each mailbox's address book, with vCard import and export, and suggestions from it while writing. Off: the Contacts page and the Birthdays calendar are gone, and suggestions come only from mail people have exchanged; saved contacts are kept. |
 | `CARDDAV_URL` | — | A CardDAV server to sync contacts with, signed in as each mailbox with its own password. `{login}` (or `{email}`, the same), `{user}` and `{domain}` are filled in. Environment only. See [Contacts and CardDAV](./contacts.md). |
 | `CONTACTS_SYNC` | `true` | **Live.** Sync with `CARDDAV_URL`, when it's set. |
 | `CALENDAR` | `true` | **Live.** Each mailbox's calendars, kept by Viauna as iCalendar in the state store. Off: the calendar is gone from every page; calendars and events are kept. See [How it works: Calendar](../how-it-works/calendar.md). |

@@ -327,7 +327,10 @@ describe.skipIf(!enabled)("against a real IMAP server", { timeout: 30_000 }, () 
   it("keeps calendars: events in the reader's zone, moved and undone, other pages told, and turned off", async () => {
     expect((await call("GET", "/api/config")).json.calendar).toBe(true);
     const own = (await call("GET", "/api/u/0/calendar/calendars")).json.calendars;
-    expect(own).toEqual([expect.objectContaining({ name: "Ivy Tester", primary: true })]);
+    expect(own).toEqual([
+      expect.objectContaining({ name: "Ivy Tester", primary: true }),
+      expect.objectContaining({ name: "Birthdays", kind: "birthdays", readOnly: true }),
+    ]);
     const work = (await call("POST", "/api/u/0/calendar/calendars", { name: "Work" })).json.calendar;
 
     // Another page, listening for changes.

@@ -541,7 +541,7 @@ export function ContactDialog({ id, initial, birthday: birthdayOnly }: { id?: nu
     return (
       <Modal open onClose={close} title="Add a birthday">
         <form className="contact-form" onSubmit={(e) => void save(e)}>
-          <p className="dialog-text">For someone whose other details you don't have.</p>
+          <p className="dialog-text">For someone whose other details you don't have. It shows on the Birthdays calendar.</p>
           {names}
           <DateField name="Birthday" value={f.birthday} onChange={(birthday) => set({ birthday })} />
           {buttons}

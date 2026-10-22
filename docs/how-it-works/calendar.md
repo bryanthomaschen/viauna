@@ -144,6 +144,31 @@ from one date to another in the reader's time zone; Viauna takes those overlappi
 range with a day to spare either side, then places each one exactly in the reader's zone.
 One request covers at most 400 days.
 
+## The Birthdays calendar
+
+A calendar's `kind` says where its events come from: `events`, kept in the state store
+as above, or `birthdays`. Each mailbox gets one Birthdays calendar, the first time its
+calendar is opened while `CONTACTS` is on, and only one, however many pages open at once.
+It's never stored as events: when the calendar asks for a range of dates, Viauna makes an
+all-day event for each date in the mailbox's contacts that falls in it, from the dates kept
+beside each contact (see [Contacts](./contacts.md#what-viauna-reads-and-writes)), so a
+date changed in Contacts or synced from a phone is right at once.
+
+- A birthday is "Name's birthday", an anniversary "Name's anniversary", any other date
+  "Name: its label" ("Name: a date" without one). With the date's year known, the age or
+  the years follow in brackets, from the year after.
+- 29 February is on 28 February in a year without one. Nothing shows before the date's
+  year. A date in words ("circa 1950") isn't a date, so it isn't shown.
+- The events are free, not busy, and can't be changed, moved or deleted, nor can events be
+  added, imported or moved into this calendar. It can be renamed, recoloured and hidden,
+  but not deleted. Search doesn't look at it.
+- **Exported**, each date is a yearly all-day event (`RRULE:FREQ=YEARLY`) from the year it
+  happened, or from 2000 when that isn't known (a leap year, so 29 February is a date),
+  free (`TRANSP:TRANSPARENT`), titled without the age. 29 February repeats on the last day
+  of February (`BYMONTH=2;BYMONTHDAY=-1`). Its `UID` is made from the contact's.
+- With `CONTACTS` off it isn't listed and its part of the API answers that it doesn't
+  exist; it comes back as it was when Contacts does.
+
 ## Undo and other pages
 
 - Moving, changing or deleting an event keeps it as it was, in memory, for 10 minutes;

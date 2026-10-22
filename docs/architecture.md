@@ -30,6 +30,7 @@ server/                Node (TypeScript, Hono)
   icalendar.ts         events as iCalendar (ical.js) without losing anything; times and zones (Temporal)
   recurrence.ts        repeating events: occurrences, rules, this / following / all events
   calendar-file.ts     calendar files (.ics): split into events to import, built to export
+  birthdays.ts         the Birthdays calendar: contacts' dates made into events, never stored
   vtimezone.ts         VTIMEZONE definitions for IANA zones, from the zone's own changes
   filters.ts           filters and the vacation responder: checking, loading, saving
   sieve.ts             them as a Sieve script, and reading back the script Viauna wrote
