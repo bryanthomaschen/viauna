@@ -457,6 +457,8 @@ export interface EventSummary {
   contactId: number | null;
   /** Your answer, for an invitation; null otherwise. */
   response: Answer | null;
+  /** You organise it, and it has guests: a change can be emailed to them. */
+  hostedWithGuests: boolean;
 }
 
 export type Weekday = "MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU";
@@ -491,6 +493,10 @@ export interface EventInput {
   video: string | null;
   /** Left out: the mailbox's usual ones. */
   reminders?: Reminder[];
+  /** Who's invited, for an event you organise; left out: unchanged. */
+  guests?: Address[];
+  /** Email the guests about it (an event you organise). */
+  notify?: boolean;
 }
 
 export interface EventDetail extends EventInput {

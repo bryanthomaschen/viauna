@@ -49,7 +49,8 @@ import { getParsed } from "./mail/fetch.ts";
 import { sendCalendarMail } from "./mail/compose.ts";
 import { type RepeatRule, readRule, representative } from "./recurrence.ts";
 import { whenText } from "./sender.ts";
-import { setting } from "./config.ts";
+import { type Endpoint, onOwnServer, setting } from "./config.ts";
+import { state } from "./state/db.ts";
 import { getSettings, reminderZone } from "./settings.ts";
 
 const PRODID = `-//Viauna//Viauna ${VERSION}//EN`;
@@ -127,6 +128,26 @@ function sameTimes(a: Component, b: Component): boolean {
   return t(a) === t(b);
 }
 
+/**
+ * Whether two versions say the same in what the organiser decides: times, repeats, title,
+ * place, description, status and who's invited (not anyone's answer, nor your own
+ * reminders). A change to any of these may come without a new SEQUENCE (RFC 5546 asks for
+ * one only for some), so a version that differs in them is newer.
+ */
+function sameVersion(a: Component, b: Component): boolean {
+  const v = (root: Component) =>
+    root.getAllSubcomponents("vevent").map((e) => [
+      ...["recurrence-id", "dtstart", "dtend", "duration", "rrule", "rdate", "exdate", "summary", "location", "description", "status"]
+        .map((p) => e.getAllProperties(p).map((x) => x.toICALString()).join(";")),
+      peopleOf(e).attendees.map((x) => x.address).sort().join(","),
+    ].join("|")).sort().join("\n");
+  return v(a) === v(b);
+}
+
+/** Whether an incoming version is newer than the one kept: a higher SEQUENCE, or the same with other details. */
+const isNewer = (incoming: Component, kept: Component) =>
+  SEQ(masterEvent(incoming)!) > SEQ(masterEvent(kept)!) || (SEQ(masterEvent(incoming)!) === SEQ(masterEvent(kept)!) && !sameVersion(incoming, kept));
+
 // ---------------------------------------------------------------- what the page shows
 
 export interface InvitationView {
@@ -192,7 +213,7 @@ export async function viewInvitation(accountId: number, part: CalendarPart, zone
     more: itip.more,
     stored: row && storedRoot ? { id: row.id, calendarId: row.calendar_id, response: responseOf(masterEvent(storedRoot)!, me), sequence: storedSeq } : null,
     outdated: !!storedRoot && SEQ(master) < storedSeq,
-    newer: !!storedRoot && (SEQ(master) > storedSeq || (SEQ(master) === storedSeq && !sameTimes(itip.root, storedRoot))),
+    newer: !!storedRoot && isNewer(itip.root, storedRoot),
     replyApplied: false,
     clashes: [],
   };
@@ -340,7 +361,9 @@ export async function actOnInvitation(rt: AccountRuntime, creds: Credentials, pa
     if (!kept) root = withUsualReminders(root, await getSettings(accountId));
     for (const e of root.getAllSubcomponents("vevent")) setResponse(e, me, action);
     await keepEvent(accountId, root, target);
-    return { sent: await sendReply(rt, creds, itip.root, me, action) };
+    const sent = await sendReply(rt, creds, itip.root, me, action);
+    await answerOnThisServer(rt, itip.root, me, action);
+    return { sent };
   }
   if (action === "add") {
     if (kept) throw new CalendarError("It's in your calendar already.");
@@ -421,7 +444,119 @@ export async function answerEvent(rt: AccountRuntime, creds: Credentials, eventI
   if (!myAttendee(masterEvent(root)!, me)) throw new CalendarError("You aren't one of this event's guests.");
   for (const e of root.getAllSubcomponents("vevent")) setResponse(e, me, response);
   await keepEvent(accountId, root, { id: row.id });
-  return { sent: await sendReply(rt, creds, root, me, response) };
+  const sent = await sendReply(rt, creds, root, me, response);
+  await answerOnThisServer(rt, root, me, response);
+  return { sent };
+}
+
+/**
+ * When the organiser is a mailbox on this server too (both on its own mail server, which
+ * vouches for each), the answer is counted in their event at once, without waiting for the
+ * email. Only the answer: nothing goes into anyone's calendar unasked.
+ */
+async function answerOnThisServer(rt: AccountRuntime, root: Component, me: Set<string>, response: Response): Promise<void> {
+  const { organizer } = peopleOf(masterEvent(root)!);
+  if (!organizer || !onOwnServer(rt.account)) return;
+  const accounts = await state().selectFrom("accounts").select(["id", "imap"]).where("email", "=", organizer.address).execute();
+  const host = accounts.find((a) => a.id !== rt.account.id && onOwnServer({ imap: JSON.parse(a.imap) as Endpoint }));
+  const uid = String(masterEvent(root)!.getFirstPropertyValue("uid") ?? "");
+  const row = host && (await eventByUid(host.id, uid));
+  if (!host || !row) return;
+  try {
+    await keepEvent(host.id, applyReply(parseCalendar(row.ics), replyObject(root, me, response), await meOf(host.id)), { id: row.id });
+  } catch (err) {
+    log.warn("couldn't count an answer in its organiser's event", { organizer: host.id, error: (err as Error).message });
+  }
+}
+
+// ---------------------------------------------------------------- sending invitations
+
+/** The guests of an object, on the event and its occurrences changed on their own, not the organiser. */
+function guestsOf(root: Component | null, me: Set<string>): Map<string, Person> {
+  const out = new Map<string, Person>();
+  for (const e of root?.getAllSubcomponents("vevent") ?? []) for (const p of peopleOf(e).attendees) if (!me.has(p.address)) out.set(p.address, p);
+  return out;
+}
+
+/** A version for guests to cancel: STATUS:CANCELLED, a new SEQUENCE, and only the guests named. */
+function cancellation(root: Component, guests: string[] | null): Component {
+  const out = clone(root);
+  for (const e of out.getAllSubcomponents("vevent")) {
+    e.updatePropertyWithValue("status", "CANCELLED");
+    e.updatePropertyWithValue("sequence", SEQ(e) + 1);
+    e.updatePropertyWithValue("dtstamp", ICAL.Time.fromJSDate(new Date(), true));
+    if (guests) for (const a of e.getAllProperties("attendee")) if (!guests.includes(String(a.getFirstValue()).replace(/^mailto:/i, "").toLowerCase())) e.removeProperty(a);
+    e.removeAllSubcomponents("valarm");
+  }
+  return out;
+}
+
+/**
+ * Emails an event's guests after the mailbox, its organiser, changed it: the new version to
+ * everyone invited (an invitation to those new to it, an update to the rest), and a
+ * cancellation to anyone taken off, or to all if it's gone. `before` and `after` are the
+ * event's iCalendar text before and after (null: not there). Returns how many emails went.
+ */
+export async function notifyGuests(rt: AccountRuntime, creds: Credentials, before: string | null, after: string | null): Promise<number> {
+  const me = await meOf(rt.account.id);
+  const b = before ? parseCalendar(before) : null;
+  const a = after ? parseCalendar(after) : null;
+  const main = a ?? b;
+  if (!main) return 0;
+  const { organizer } = peopleOf(masterEvent(main)!);
+  if (!organizer || !me.has(organizer.address)) return 0;
+  const was = guestsOf(b, me);
+  const now = guestsOf(a, me);
+  const settings = await getSettings(rt.account.id);
+  const who = settings.name || rt.account.email;
+  const zone = await reminderZone(rt.account.id);
+  const describe = (root: Component) => {
+    const master = masterEvent(root)!;
+    const occ = representative(root, Date.now(), zone);
+    const iso = (m: NonNullable<typeof occ>["start"]) => (m.kind === "date" ? m.date : new Date(instantIn(m, zone)).toISOString());
+    return {
+      title: text(master, "summary") || "(No title)",
+      when: occ ? whenText({ allDay: occ.start.kind === "date", start: iso(occ.start), end: iso(occ.end), zone }) : "",
+      location: text(master, "location"),
+      video: (videoProperty(master)?.getFirstValue() as string | undefined) ?? null,
+      description: text(master, "description").slice(0, 5000),
+    };
+  };
+  const mail = async (to: Person[], root: Component, method: "REQUEST" | "CANCEL", kind: "invited" | "updated" | "cancelled") => {
+    if (!to.length) return 0;
+    const d = describe(root);
+    const verb = { invited: "Invitation", updated: "Updated invitation", cancelled: "Cancelled" }[kind];
+    const says = { invited: "has invited you to", updated: "has changed", cancelled: "has cancelled" }[kind];
+    const lines = [d.when, d.location, d.video ? `Video call: ${d.video}` : ""].filter(Boolean);
+    await sendCalendarMail(rt, creds, {
+      to: to.map((p) => ({ address: p.address, name: p.name || undefined })),
+      subject: `${verb}: ${d.title}${d.when ? ` @ ${d.when}` : ""}`,
+      text: `${who} ${says} ${d.title}.\n\n${lines.join("\n")}\n${d.description ? `\n${d.description}\n` : ""}`,
+      html: [
+        `<p>${escape(who)} ${says} <b>${escape(d.title)}</b>.</p>`,
+        `<p>${lines.map((l) => escape(l)).join("<br>")}</p>`,
+        d.video ? `<p><a href="${escape(d.video)}">Join the video call</a></p>` : "",
+        d.description ? `<p style="white-space:pre-wrap">${escape(d.description)}</p>` : "",
+      ].join("\n"),
+      method,
+      ics: buildItip(method, root, PRODID),
+    });
+    return 1;
+  };
+  let sent = 0;
+  if (a) {
+    const fresh = [...now.values()].filter((p) => !was.has(p.address));
+    const known = [...now.values()].filter((p) => was.has(p.address));
+    const forGuests = clone(a);
+    for (const e of forGuests.getAllSubcomponents("vevent")) e.removeAllSubcomponents("valarm");
+    sent += await mail(fresh, forGuests, "REQUEST", "invited");
+    sent += await mail(known, forGuests, "REQUEST", "updated");
+    const gone = [...was.values()].filter((p) => !now.has(p.address));
+    if (gone.length && b) sent += await mail(gone, cancellation(b, gone.map((p) => p.address)), "CANCEL", "cancelled");
+  } else if (b) {
+    sent += await mail([...was.values()], cancellation(b, null), "CANCEL", "cancelled");
+  }
+  return sent;
 }
 
 // ---------------------------------------------------------------- as they arrive
@@ -464,8 +599,7 @@ export async function processArrival(accountId: number, parsed: ParsedMail): Pro
     if (me.has(organizer.address) || from !== organizer.address) return null;
     if (kept && row) {
       if (keptOrganizer !== organizer.address) return null;
-      const newer = SEQ(master) > SEQ(masterEvent(kept)!) || (SEQ(master) === SEQ(masterEvent(kept)!) && !sameTimes(itip.root, kept));
-      if (!newer) return null;
+      if (!isNewer(itip.root, kept)) return null;
       await keepEvent(accountId, occurrenceOf(itip.root) ? withOccurrence(kept, itip.root) : merged(itip.root, kept, me), { id: row.id });
       return "updated";
     }

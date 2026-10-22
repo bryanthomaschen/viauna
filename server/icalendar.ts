@@ -572,3 +572,42 @@ export function setResponse(event: Component, me: Set<string>, response: Respons
   if (response !== "needs-action") mine.removeParameter("rsvp");
   return true;
 }
+
+/** A guest as the editor sends one. */
+export interface Guest {
+  address: string;
+  name?: string;
+}
+
+/**
+ * Sets an event's guests (ATTENDEE) to those given, organised by `organizer`: a guest
+ * already there keeps their answer; a new one is asked for one (NEEDS-ACTION, RSVP=TRUE);
+ * one left out goes. With guests and no organiser yet, the organiser is set; with none
+ * left, the organiser goes too, and it's an event of one's own again. Returns whether the
+ * list changed.
+ */
+export function setGuests(event: Component, guests: Guest[], organizer: Guest): boolean {
+  const before = event.getAllProperties("attendee").map(addressOf).sort().join(",");
+  const wanted = new Map(guests.map((g) => [g.address.toLowerCase(), g]));
+  for (const p of event.getAllProperties("attendee")) if (!wanted.has(addressOf(p))) event.removeProperty(p);
+  const kept = new Set(event.getAllProperties("attendee").map(addressOf));
+  for (const [address, g] of wanted) {
+    if (kept.has(address)) continue;
+    const p = new ICAL.Property("attendee", event);
+    p.setValue(`mailto:${address}`);
+    p.setParameter("cutype", "INDIVIDUAL");
+    p.setParameter("role", "REQ-PARTICIPANT");
+    p.setParameter("partstat", "NEEDS-ACTION");
+    p.setParameter("rsvp", "TRUE");
+    if (g.name) p.setParameter("cn", g.name);
+    event.addProperty(p);
+  }
+  if (wanted.size && !event.hasProperty("organizer")) {
+    const o = new ICAL.Property("organizer", event);
+    o.setValue(`mailto:${organizer.address.toLowerCase()}`);
+    if (organizer.name) o.setParameter("cn", organizer.name);
+    event.addProperty(o);
+  }
+  if (!wanted.size) event.removeAllProperties("organizer");
+  return event.getAllProperties("attendee").map(addressOf).sort().join(",") !== before;
+}

@@ -57,7 +57,11 @@ The calendar shows your answer: outlined until you answer, striped for maybe, st
 through for no. As invitations arrive, they can go into your calendar before you answer:
 from everyone, from people you know (the choice out of the box), or only when you answer
 (**Settings > Calendar**). Updates, cancellations and guests' answers are applied as they
-arrive, when they come from the organiser (or that guest) itself.
+arrive, when they come from the organiser (or that guest) itself. **Invite people** to
+your events: add guests in the editor, and Viauna emails them standard invitations (it
+asks first), updates when you change or move the event, and cancellations when you take
+someone off or delete it. Their answers are counted as they arrive; a guest on the same
+Viauna server answers your event at once.
 
 **A secret address** for any calendar, so another app (your phone, Outlook, another
 calendar) can show it read-only: the whole calendar, or only "Busy" at the times you're

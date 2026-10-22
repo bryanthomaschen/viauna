@@ -28,6 +28,7 @@ const CalendarMain = lazy(() => import("./Calendar").then((m) => ({ default: m.C
 const EventDialog = lazy(() => import("./EventDialog").then((m) => ({ default: m.EventDialog })));
 const CalendarDialog = lazy(() => import("./EventDialog").then((m) => ({ default: m.CalendarDialog })));
 const ScopeDialog = lazy(() => import("./EventDialog").then((m) => ({ default: m.ScopeDialog })));
+const SendDialog = lazy(() => import("./EventDialog").then((m) => ({ default: m.SendDialog })));
 const SubscribeDialog = lazy(() => import("./EventDialog").then((m) => ({ default: m.SubscribeDialog })));
 const ImportDialog = lazy(() => import("./EventDialog").then((m) => ({ default: m.ImportDialog })));
 
@@ -95,6 +96,7 @@ function ShellInner({ route, appName }: { route: Route; appName: string }) {
   const eventDialog = ui.use((s) => s.eventDialog);
   const calendarDialog = ui.use((s) => s.calendarDialog);
   const scopeDialog = ui.use((s) => s.scopeDialog);
+  const sendDialog = ui.use((s) => s.sendDialog);
   const importDialog = ui.use((s) => s.importDialog);
   const subscribeDialog = ui.use((s) => s.subscribeDialog);
   const loading = <div className="empty"><div className="spinner lg" /></div>;
@@ -162,6 +164,11 @@ function ShellInner({ route, appName }: { route: Route; appName: string }) {
       {subscribeDialog && (
         <Suspense fallback={null}>
           <SubscribeDialog />
+        </Suspense>
+      )}
+      {sendDialog && (
+        <Suspense fallback={null}>
+          <SendDialog key={sendDialog.action} />
         </Suspense>
       )}
       {scopeDialog && (

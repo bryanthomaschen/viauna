@@ -16,6 +16,7 @@ import {
   addDays,
   addMinutes,
   askScope,
+  askSend,
   colorLabel,
   dayName,
   instantToWall,
@@ -34,6 +35,8 @@ import { longDate, relative } from "../lib/format";
 import { toast } from "../lib/store";
 import type { CalendarInfo, EventInput, RepeatRule, Scope, SecretMode } from "../lib/types";
 import { Modal } from "./common";
+import { Guests } from "./Invitation";
+import { RecipientField } from "./RecipientField";
 import { RemindersField } from "./Reminders";
 
 type Draft = EventInput & {
@@ -69,17 +72,20 @@ export function undoable(index: number, refresh: () => void) {
 }
 
 /** Deletes an event; for one that repeats, asks first which occurrences. */
-export async function deleteEvent(index: number, e: { id: number; occurrence: string | null; recurring: boolean }, refresh: () => void) {
+export async function deleteEvent(index: number, e: { id: number; occurrence: string | null; recurring: boolean; hostedWithGuests?: boolean }, refresh: () => void) {
   let scope: Scope | undefined;
   if (e.recurring) {
     const asked = await askScope("delete");
     if (!asked) return;
     scope = asked;
   }
+  // An event you organise with guests: tell them, or not.
+  const notify = e.hostedWithGuests ? await askSend("delete") : false;
+  if (notify === null) return;
   try {
-    const { undo } = await api.deleteEvent(index, e.id, e.recurring ? e.occurrence : null, scope);
+    const { undo, emailed } = await api.deleteEvent(index, e.id, e.recurring ? e.occurrence : null, scope, notify);
     refresh();
-    toast("Event deleted.", { action: undoable(index, refresh)(undo) });
+    toast(emailed ? "Event deleted. The guests have been told." : "Event deleted.", { action: undoable(index, refresh)(undo) });
   } catch (err) {
     toast((err as Error).message, { error: true });
   }
@@ -111,6 +117,9 @@ export function EventDialog({ id, occurrence, initial }: { id?: number; occurren
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const loaded = existing.data?.event;
+  const mine = acct.identities.map((i) => i.address.toLowerCase());
+  // Its guest list is the organiser's: yours to change if you organise it, or it's new.
+  const hosting = !loaded || !loaded.organizer || mine.includes(loaded.organizer.address);
   // An event from the web is shown, not changed; only calendars whose events are kept here can take one.
   const readOnly = !!loaded?.readOnly;
   const list = (calendars.data?.calendars ?? []).filter((c) => readOnly || !c.readOnly);
@@ -168,7 +177,15 @@ export function EventDialog({ id, occurrence, initial }: { id?: number; occurren
       title: d.title, allDay: d.allDay, start: d.start, end: d.end, zone: d.allDay ? null : startZone, endZone: d.allDay || endZone === startZone ? null : endZone,
       location: d.location, description: d.description, busy: d.busy, color: d.color, video: d.video?.trim() || null, repeat: d.repeat,
       reminders: d.reminders ?? [],
+      ...(hosting ? { guests: d.guests ?? [] } : {}),
     };
+    // With guests, before or now: email them, or not.
+    const before = loaded?.attendees.length ?? 0;
+    if (hosting && ((d.guests?.length ?? 0) > 0 || before > 0)) {
+      const send = await askSend(id === undefined || !before ? "invite" : "change");
+      if (send === null) return;
+      input.notify = send;
+    }
     let scope: Scope | undefined;
     if (loaded?.recurring) {
       const asked = await askScope("change", !sameRule(d.repeat, loaded.repeat));
@@ -179,13 +196,13 @@ export function EventDialog({ id, occurrence, initial }: { id?: number; occurren
     setError("");
     try {
       if (id === undefined) {
-        await api.createEvent(acct.index, calendarId, input, zone);
-        toast("Event saved.");
+        const { emailed } = await api.createEvent(acct.index, calendarId, input, zone);
+        toast(emailed ? "Event saved. Invitations sent." : "Event saved.");
       } else {
         // The editor's times are in the zones it shows: say so, so they're kept.
         const setZones = d.zonesOpen || startZone !== zone;
-        const { undo } = await api.updateEvent(acct.index, id, { ...input, calendarId, occurrence: loaded?.occurrence ?? null, scope, setZones }, zone);
-        toast("Event saved.", { action: undoable(acct.index, refresh)(undo) });
+        const { undo, emailed } = await api.updateEvent(acct.index, id, { ...input, calendarId, occurrence: loaded?.occurrence ?? null, scope, setZones }, zone);
+        toast(emailed ? "Event saved. The guests have been told." : "Event saved.", { action: undoable(acct.index, refresh)(undo) });
       }
       refresh();
       close();
@@ -263,6 +280,14 @@ export function EventDialog({ id, occurrence, initial }: { id?: number; occurren
             </select>
           </span>
         </label>
+        {hosting ? (
+          <div className="event-guests">
+            <RecipientField label="Guests" account={acct.index} value={d.guests ?? []} onChange={(guests) => set({ guests })} />
+            {loaded && loaded.attendees.length > 0 && <Guests inv={loaded} me={mine} />}
+          </div>
+        ) : (
+          loaded && <Guests inv={loaded} me={mine} />
+        )}
         <input className="text-input" aria-label="Location" placeholder="Add location" value={d.location} maxLength={1000} onChange={(e) => set({ location: e.target.value })} />
         <input className="text-input" type="url" aria-label="Video call link" placeholder="Add a video call link" value={d.video ?? ""} maxLength={2000}
           onChange={(e) => set({ video: e.target.value })} />
@@ -322,6 +347,7 @@ function fromLoaded(e: NonNullable<Awaited<ReturnType<typeof api.event>>["event"
   const zoned = !e.allDay && (e.eventZone !== null || e.eventEndZone !== null);
   return {
     ...e,
+    guests: e.attendees.map((p) => ({ address: p.address, name: p.name || undefined })),
     start: zoned ? instantToWall(wallToMs(e.start, zone), own) : e.start,
     end: zoned ? instantToWall(wallToMs(e.end, zone), ownEnd) : e.end,
     zone: e.allDay ? null : own,
@@ -458,6 +484,31 @@ export function ScopeDialog() {
       <div className="buttons">
         <button type="button" className="btn btn-text" onClick={() => done(null)}>Cancel</button>
         <button type="button" className="btn btn-primary" autoFocus onClick={() => done(scope)}>OK</button>
+      </div>
+    </Modal>
+  );
+}
+
+/** "Email the guests?" before a change to an event you organise reaches them, or doesn't. */
+export function SendDialog() {
+  const req = ui.use((s) => s.sendDialog);
+  if (!req) return null;
+  const done = (send: boolean | null) => {
+    ui.set((x) => ({ ...x, sendDialog: null }));
+    req.resolve(send);
+  };
+  const [title, body] = {
+    invite: ["Send invitations?", "Email the guests an invitation, which any calendar app can answer."],
+    change: ["Email the guests?", "Let the guests know about the change. Anyone you've taken off is told it's cancelled for them."],
+    delete: ["Tell the guests it's cancelled?", "Email the guests that the event is cancelled."],
+  }[req.action];
+  return (
+    <Modal open onClose={() => done(null)} title={title}>
+      <p className="dialog-text">{body}</p>
+      <div className="buttons">
+        <button type="button" className="btn btn-text" onClick={() => done(null)}>Back</button>
+        <button type="button" className="btn btn-outline" onClick={() => done(false)}>Don't send</button>
+        <button type="button" className="btn btn-primary" autoFocus onClick={() => done(true)}>Send</button>
       </div>
     </Modal>
   );

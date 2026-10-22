@@ -83,6 +83,7 @@ export async function birthdaysBetween(accountId: number, calendarId: number, fr
         readOnly: true,
         contactId: row.contact_id,
         response: null,
+        hostedWithGuests: false,
       });
     }
   }

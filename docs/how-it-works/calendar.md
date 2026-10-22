@@ -202,6 +202,27 @@ occurrence in the series kept.
 answer**, to an event you organise, sets their `PARTSTAT` in your copy (on the occurrence
 it names, if it names one); one to an older version is left out.
 
+**Sending.** Guests set in the editor become `ATTENDEE`s (`ROLE=REQ-PARTICIPANT`,
+`PARTSTAT=NEEDS-ACTION`, `RSVP=TRUE`, and their name as `CN`), on the event and each
+occurrence changed on its own; the mailbox becomes its `ORGANIZER`. A guest already there
+keeps their answer; with none left, the organiser goes too. Only the organiser can change
+the list. When the page says to email the guests (it asks), Viauna compares the event as it
+was and as it is: everyone now invited gets the new version as a `REQUEST` (as
+`Invitation:` to those new to it, `Updated invitation:` to the rest), anyone taken off a
+`CANCEL` naming only them, and if the event is gone, everyone a `CANCEL`. A `CANCEL` has
+`STATUS:CANCELLED` and its `SEQUENCE` raised. Your reminders aren't sent. Each email goes
+from the mailbox through its SMTP server, with its own password, and isn't filed in Sent.
+`SEQUENCE` goes up when an event's times change (above); other changes keep it, and a
+receiving app tells them apart by what changed, as Viauna does: a version is newer if its
+`SEQUENCE` is higher, or the same with other times, repeats, title, place, description,
+status or guests.
+
+**Guests on the same server.** A guest whose mailbox is on this Viauna server gets the
+same email as anyone else, and their calendar only takes it as their settings say; nothing
+is put in anyone's calendar unasked. Their answer, though, is counted in the organiser's
+event at once, without waiting for the email, when both mailboxes are on this server's own
+mail server (`IMAP_HOST`), which vouches for each. The email goes too.
+
 **As they arrive.** Sync notes each new message in the Inbox whose structure has a
 calendar part, and Viauna reads it as soon as it's indexed, one at a time, while the
 mailbox's [connection](./sync.md) runs: mail that arrived while nobody had Viauna open is

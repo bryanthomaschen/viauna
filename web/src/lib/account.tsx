@@ -95,6 +95,8 @@ export interface UiState {
   subscribeDialog: boolean;
   /** Which occurrences of a repeating event a change or deletion is for, being asked. */
   scopeDialog: null | { action: "change" | "delete"; ruleChanged: boolean; resolve: (scope: Scope | null) => void };
+  /** Whether to email an event's guests about a change: true, false, or null to call it off. */
+  sendDialog: null | { action: "invite" | "change" | "delete"; resolve: (send: boolean | null) => void };
   /** A calendar being renamed or recoloured, or made. */
   calendarDialog: null | { calendar?: CalendarInfo };
   folderDialog: null | { mailbox?: Mailbox; parentId?: number };
@@ -104,7 +106,7 @@ export interface UiState {
 }
 
 export const ui = createStore<UiState>({
-  shortcutsOpen: false, commandsOpen: false, labelDialog: null, contactDialog: null, filterDialog: null, eventDialog: null, calendarDialog: null, scopeDialog: null, importDialog: false, subscribeDialog: false,
+  shortcutsOpen: false, commandsOpen: false, labelDialog: null, contactDialog: null, filterDialog: null, eventDialog: null, calendarDialog: null, scopeDialog: null, sendDialog: null, importDialog: false, subscribeDialog: false,
   folderDialog: null, confirm: null, sidebarOpen: false, searchFocus: 0,
 });
 

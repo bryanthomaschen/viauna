@@ -24,6 +24,7 @@ import {
   WALL,
   eventTimes,
   eventUid,
+  type Guest,
   type Person,
   type Response,
   fieldsOf,
@@ -35,6 +36,7 @@ import {
   ownZones,
   peopleOf,
   responseOf,
+  setGuests,
   parseCalendar,
   serialize,
   wallToMs,
@@ -86,6 +88,7 @@ export const LIMITS = {
   rangeDays: 400,
   /** Search results, newest first. */
   results: 200,
+  guests: 100,
   /** One import: the file, its events, and one event as iCalendar. */
   importBytes: 20 * 1024 * 1024,
   importEvents: 10_000,
@@ -131,6 +134,8 @@ export interface EventSummary {
   contactId: number | null;
   /** An invitation's answer from this mailbox; null if it isn't one (or it organises it). */
   response: Response | null;
+  /** It has guests, and this mailbox organises it: a change can be emailed to them. */
+  hostedWithGuests: boolean;
 }
 
 export interface EventDetail extends EventFields {
@@ -438,8 +443,44 @@ function summaryOf(row: { id: number; calendar_id: number }, root: Root, occ: Oc
   return {
     id: row.id, calendarId: row.calendar_id, occurrence: occ.key, recurring: isRecurring(masterEvent(root)!),
     title: f.title, allDay: f.allDay, start, end, color: f.color, busy: f.busy, location: f.location, video: !!f.video,
-    readOnly, contactId: null, response: responseOf(occ.event, me),
+    readOnly, contactId: null, response: responseOf(occ.event, me), hostedWithGuests: hosts(occ.event, me),
   };
+}
+
+/** Whether this mailbox organises an event that has guests. */
+function hosts(event: Root, me: Set<string>): boolean {
+  const { organizer, attendees } = peopleOf(event);
+  return attendees.some((a) => !me.has(a.address)) && (!organizer || me.has(organizer.address));
+}
+
+/** The guests the editor sent: addresses, each once, not the mailbox's own, at most 100. */
+function cleanGuests(input: unknown, me: Set<string>): Guest[] {
+  if (input === undefined || input === null) return [];
+  if (!Array.isArray(input) || input.length > LIMITS.guests) throw new CalendarError(`An event can have at most ${LIMITS.guests} guests.`);
+  const out = new Map<string, Guest>();
+  for (const g of input as { address?: unknown; name?: unknown }[]) {
+    const address = typeof g?.address === "string" ? g.address.trim().toLowerCase() : "";
+    if (!/^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/.test(address) || address.length > 320) throw new CalendarError(`"${address}" isn't an email address.`);
+    if (me.has(address) || out.has(address)) continue;
+    out.set(address, { address, name: typeof g.name === "string" ? g.name.replace(/[\r\n"]/g, " ").trim().slice(0, 200) : undefined });
+  }
+  return [...out.values()];
+}
+
+/** The mailbox as an organiser: its address, and its name from Settings. */
+async function organizerOf(accountId: number): Promise<Guest> {
+  const account = await state().selectFrom("accounts").select("email").where("id", "=", accountId).executeTakeFirstOrThrow();
+  return { address: account.email, name: (await getSettings(accountId)).name || undefined };
+}
+
+/** Sets an object's guests, on the event and each occurrence changed on its own. Only its organiser may. */
+async function applyGuests(accountId: number, root: Root, input: unknown): Promise<void> {
+  const me = await meOf(accountId);
+  const { organizer } = peopleOf(masterEvent(root)!);
+  if (organizer && !me.has(organizer.address)) throw new CalendarError("Only its organiser can change who's invited.");
+  const guests = cleanGuests(input, me);
+  const host = await organizerOf(accountId);
+  for (const e of root.getAllSubcomponents("vevent")) setGuests(e, guests, host);
 }
 
 /** The mailbox's own addresses (its own, and the ones it sends as): who "me" is in an invitation. */
@@ -577,6 +618,7 @@ export async function createEvent(accountId: number, calendarId: number, input: 
   const repeat = cleanRule((input as Record<string, unknown> | null)?.repeat, fields.start.slice(0, 10));
   const root = newEvent(fields, crypto.randomUUID(), PRODID);
   if (repeat) writeRule(masterEvent(root)!, root, repeat);
+  if ((given as Record<string, unknown>).guests !== undefined) await applyGuests(accountId, root, (given as Record<string, unknown>).guests);
   await addressEmailReminders(accountId, root);
   const now = Date.now();
   const uid = eventUid(root)!;
@@ -678,6 +720,10 @@ export async function updateEvent(accountId: number, id: number, input: Record<s
   } catch (err) {
     if (err instanceof CalendarError) throw err;
     throw new CalendarError((err as Error).message);
+  }
+  if ("guests" in input) {
+    await applyGuests(accountId, edited.root, input.guests);
+    if (edited.split) await applyGuests(accountId, edited.split, input.guests);
   }
   await addressEmailReminders(accountId, edited.root);
   if (edited.split) await addressEmailReminders(accountId, edited.split);

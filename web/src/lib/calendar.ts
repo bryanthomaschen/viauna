@@ -196,6 +196,11 @@ export function askScope(action: "change" | "delete", ruleChanged = false): Prom
   return new Promise((resolve) => ui.set((s) => ({ ...s, scopeDialog: { action, ruleChanged, resolve } })));
 }
 
+/** Asks whether to email an event's guests about a change you make as its organiser; null: don't make it. */
+export function askSend(action: "invite" | "change" | "delete"): Promise<boolean | null> {
+  return new Promise((resolve) => ui.set((s) => ({ ...s, sendDialog: { action, resolve } })));
+}
+
 // ---------------------------------------------------------------- reminders
 
 export type ReminderUnit = "minutes" | "hours" | "days" | "weeks";

@@ -24,6 +24,7 @@ import {
   createEvent,
   deleteCalendar,
   deleteEvent,
+  eventObject,
   eventsBetween,
   exportCalendar,
   getEvent,
@@ -62,7 +63,7 @@ import { type Credentials, sha256 } from "./crypto.ts";
 import { db } from "./db.ts";
 import { contactEvents, syncContacts, syncSoon, syncStatus, syncsContacts } from "./contacts-sync.ts";
 import { FeedError } from "./feeds.ts";
-import { type InvitationAction, actOnInvitation, answerEvent, calendarPart, readItip, viewInvitation } from "./invitations.ts";
+import { type InvitationAction, actOnInvitation, answerEvent, calendarPart, notifyGuests, readItip, viewInvitation } from "./invitations.ts";
 import { FilterError, cleanFilter, cleanVacation, loadFilters, saveFilters, unavailable } from "./filters.ts";
 import { MailboxAuthError, runtimeFor, stillProven } from "./imap/pool.ts";
 import { type AccountRuntime, type ChangeEvent, syncable } from "./imap/runtime.ts";
@@ -852,17 +853,43 @@ export function createApp() {
     return c.json(await answerEvent(c.get("rt"), c.get("creds"), int(c.req.param("id")), b.response));
   });
 
+  // The event's text now, or null once it's gone: for telling its guests what changed.
+  const icsOf = (accountId: number, id: number) => eventObject(accountId, id).then((e) => e.row.ics, () => null);
+
+  // With { notify: true }, an event the mailbox organises is emailed to its guests.
   calendar.post("/events", async (c) => {
     const b = await body(c);
-    return c.json({ event: await createEvent(c.get("rt").account.id, int(String(b.calendarId)), b, zoneOf(c)) });
+    const { account } = c.get("rt");
+    const event = await createEvent(account.id, int(String(b.calendarId)), b, zoneOf(c));
+    const emailed = b.notify === true ? await notifyGuests(c.get("rt"), c.get("creds"), null, await icsOf(account.id, event.id)) : 0;
+    return c.json({ event, emailed });
   });
 
-  calendar.patch("/events/:id", async (c) => c.json(await updateEvent(c.get("rt").account.id, int(c.req.param("id")), await body(c), zoneOf(c))));
+  calendar.patch("/events/:id", async (c) => {
+    const b = await body(c);
+    const { account } = c.get("rt");
+    const id = int(c.req.param("id"));
+    const before = b.notify === true ? await icsOf(account.id, id) : null;
+    const result = await updateEvent(account.id, id, b, zoneOf(c));
+    let emailed = 0;
+    if (b.notify === true) {
+      emailed += await notifyGuests(c.get("rt"), c.get("creds"), before, await icsOf(account.id, id));
+      // This and following: the new series is new to everyone.
+      if (result.event.id !== id) emailed += await notifyGuests(c.get("rt"), c.get("creds"), null, await icsOf(account.id, result.event.id));
+    }
+    return c.json({ ...result, emailed });
+  });
 
-  // ?occurrence=…&scope=this|following|all for an event that repeats.
-  calendar.delete("/events/:id", async (c) =>
-    c.json({ undo: await deleteEvent(c.get("rt").account.id, int(c.req.param("id")), c.req.query("occurrence"), c.req.query("scope")) }),
-  );
+  // ?occurrence=…&scope=this|following|all for an event that repeats; &notify=1 to email its guests.
+  calendar.delete("/events/:id", async (c) => {
+    const { account } = c.get("rt");
+    const id = int(c.req.param("id"));
+    const notify = c.req.query("notify") === "1";
+    const before = notify ? await icsOf(account.id, id) : null;
+    const undo = await deleteEvent(account.id, id, c.req.query("occurrence"), c.req.query("scope"));
+    const emailed = notify ? await notifyGuests(c.get("rt"), c.get("creds"), before, await icsOf(account.id, id)) : 0;
+    return c.json({ undo, emailed });
+  });
 
   calendar.post("/undo", async (c) => {
     const b = await c.req.json().catch(() => ({}));

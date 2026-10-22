@@ -142,6 +142,24 @@ In the calendar, an invitation you haven't answered is outlined, a maybe is stri
 one you've said no to is faded and struck through. An event's card lists its guests and
 their answers.
 
+### Inviting people
+
+Add **Guests** in the event's editor: type names or addresses, as in a message, and pick
+from the suggestions. When you save, Viauna asks **Send invitations?**: **Send** emails each
+guest a standard invitation, which they can answer from whatever calendar or mail app they
+use; **Don't send** saves without emailing anyone. You're the event's organiser.
+
+Their answers come back by email. Each one is counted on the event as it arrives (or from
+its card, **Count it in your event**), and the event's card and editor list who's said
+yes, maybe or no. A guest whose mailbox is on your Viauna server too gets the same email as
+anyone else, and their answer reaches your event at once.
+
+When you change, move or delete an event you organise with guests, Viauna asks whether to
+email them. Yes sends the new version (an invitation to anyone new), tells anyone you took
+off that it's cancelled for them, and tells everyone if you delete it. Only an event's
+organiser can change who's invited: on an invitation from someone else, the guest list is
+just shown.
+
 ## Reminders
 
 An event can remind you before it starts: under **Notifications** in the editor, so many

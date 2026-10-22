@@ -186,16 +186,18 @@ export const api = {
   event: (a: number, id: number, zone: string, occurrence?: string | null) =>
     request<{ event: EventDetail }>("GET", `${u(a)}/calendar/events/${id}?${new URLSearchParams({ zone, ...(occurrence ? { occurrence } : {}) })}`),
   createEvent: (a: number, calendarId: number, input: EventInput, zone: string) =>
-    request<{ event: EventDetail }>("POST", `${u(a)}/calendar/events?zone=${encodeURIComponent(zone)}`, { ...input, calendarId }),
+    request<{ event: EventDetail; emailed: number }>("POST", `${u(a)}/calendar/events?zone=${encodeURIComponent(zone)}`, { ...input, calendarId }),
   updateEvent: (
     a: number,
     id: number,
     patch: Partial<EventInput> & { calendarId?: number; occurrence?: string | null; scope?: Scope; setZones?: boolean },
     zone: string,
   ) =>
-    request<{ event: EventDetail; undo: string }>("PATCH", `${u(a)}/calendar/events/${id}?zone=${encodeURIComponent(zone)}`, patch),
-  deleteEvent: (a: number, id: number, occurrence?: string | null, scope?: Scope) =>
-    request<{ undo: string }>("DELETE", `${u(a)}/calendar/events/${id}?${new URLSearchParams({ ...(occurrence ? { occurrence } : {}), ...(scope ? { scope } : {}) })}`),
+    request<{ event: EventDetail; undo: string; emailed: number }>("PATCH", `${u(a)}/calendar/events/${id}?zone=${encodeURIComponent(zone)}`, patch),
+  deleteEvent: (a: number, id: number, occurrence?: string | null, scope?: Scope, notify = false) =>
+    request<{ undo: string; emailed: number }>(
+      "DELETE", `${u(a)}/calendar/events/${id}?${new URLSearchParams({ ...(occurrence ? { occurrence } : {}), ...(scope ? { scope } : {}), ...(notify ? { notify: "1" } : {}) })}`,
+    ),
   respondToEvent: (a: number, id: number, response: Answer) => request<{ sent: boolean }>("POST", `${u(a)}/calendar/events/${id}/respond`, { response }),
   undoCalendar: (a: number, token: string) => request<{ ok: true }>("POST", `${u(a)}/calendar/undo`, { token }),
   importCalendar: (a: number, target: number | "new", file: File) =>

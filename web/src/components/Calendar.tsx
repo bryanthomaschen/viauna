@@ -42,6 +42,7 @@ import {
   addDays,
   addMinutes,
   askScope,
+  askSend,
   firstDay,
   formatWhen,
   instantToWall,
@@ -426,6 +427,9 @@ function CalendarGrid({ route }: { route: Route }) {
       if (!asked) return info.revert();
       scope = asked;
     }
+    // An event you organise with guests: tell them about the move, or not.
+    const notify = summary.hostedWithGuests ? await askSend("change") : false;
+    if (notify === null) return info.revert();
     const allDay = ev.allDay;
     let start: string;
     let end: string;
@@ -437,10 +441,10 @@ function CalendarGrid({ route }: { route: Route }) {
       end = ev.end ? instantToWall(ev.end.getTime(), zone) : addMinutes(start, minutes, zone);
     }
     api
-      .updateEvent(acct.index, summary.id, { allDay, start, end, zone: allDay ? null : zone, occurrence: summary.occurrence, scope }, zone)
-      .then(({ undo }) => {
+      .updateEvent(acct.index, summary.id, { allDay, start, end, zone: allDay ? null : zone, occurrence: summary.occurrence, scope, notify }, zone)
+      .then(({ undo, emailed }) => {
         refresh();
-        toast("Event moved.", { action: undoable(acct.index, refresh)(undo) });
+        toast(emailed ? "Event moved. The guests have been told." : "Event moved.", { action: undoable(acct.index, refresh)(undo) });
       })
       .catch((err: Error) => {
         info.revert();
