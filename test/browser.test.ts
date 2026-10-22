@@ -2,7 +2,8 @@
 // turned on from the command menu) and the ⌘K / Ctrl+K command menu, each pressed and
 // its effect checked, including after clicking into a message or ticking a checkbox,
 // where keys used to go missing. Then the calendar, by mouse and keyboard: clicking and
-// dragging on the grid, Undo, its own keys, and an event made from an email. Needs the dev mail server (`npm run dev:mail`), a
+// dragging on the grid, Undo, its own keys, and an event made from an email. And the admin
+// page, offered only in an admin's mailbox. Needs the dev mail server (`npm run dev:mail`), a
 // build (`npm run build`) and Chromium (`npx playwright-core install
 // chromium-headless-shell`). Skipped unless VIAUNA_BROWSER=1.
 //
@@ -183,18 +184,30 @@ describe.skipIf(!enabled)("in a browser", { timeout: 30_000 }, () => {
       if (groups[0] !== "Go to") throw new Error(`groups: ${groups.join(", ")}`);
     });
 
-    it("scrolls with the mouse wheel when its commands don't fit", async () => {
+    it("opens centred, and scrolls with the mouse wheel when its commands don't fit", async () => {
       // A short window, so the commands can't all fit.
       await page.setViewportSize({ width: 1280, height: 500 });
       try {
         await inbox();
         await press("Control+k");
         await until(menuOpen, "the menu");
+        // Centred from its first frame: the opening animation once replaced the transform
+        // that centred it, so it opened half its width to the right and then jumped.
+        const off = await page.locator("[cmdk-dialog]").evaluate((d) => {
+          const animations = d.getAnimations();
+          for (const a of animations) (a.pause(), (a.currentTime = 0));
+          const r = d.getBoundingClientRect();
+          for (const a of animations) a.finish();
+          return Math.round(r.left + r.width / 2 - innerWidth / 2);
+        });
+        if (Math.abs(off) > 1) throw new Error(`the menu opened ${off}px from the middle`);
         const list = page.locator("[cmdk-list]");
-        const box = (await list.boundingBox())!;
-        await page.mouse.move(box.x + box.width / 2, box.y + Math.min(box.height, 200) / 2);
+        // hover() waits for the menu to stop moving (it slides in as it opens).
+        await list.hover();
         await page.mouse.wheel(0, 300);
-        await until(() => list.evaluate((l) => l.scrollTop > 0), "the wheel to scroll the list");
+        await until(() => list.evaluate((l) => l.scrollTop > 0), "the wheel to scroll the list").catch(async (e) => {
+          throw new Error(`${e.message}: ${await list.evaluate((l) => `scrollTop ${l.scrollTop}, ${l.clientHeight} of ${l.scrollHeight}px shown`)}`);
+        });
         await press("Escape");
       } finally {
         await page.setViewportSize({ width: 1280, height: 900 });
@@ -455,6 +468,50 @@ describe.skipIf(!enabled)("in a browser", { timeout: 30_000 }, () => {
       }
     });
   });
+  describe("the admin page", () => {
+    it("is in the menu only in an admin's mailbox, and acts as that mailbox", async () => {
+      // A second mailbox, the admin, signed in beside the first, which isn't one.
+      const other = `kb2-${crypto.randomBytes(4).toString("hex")}@example.test`;
+      const { COMMAND_LINE, changeSettings } = await import("../server/instance.ts");
+      await changeSettings({ ADMIN_ADDRESSES: other }, COMMAND_LINE);
+      const post = (url: string, body: unknown) =>
+        page.evaluate(
+          async ([url, body]) => (await fetch(url as string, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })).json(),
+          [url, body] as const,
+        );
+      try {
+        await inbox();
+        const added = await post("/api/auth/login", { email: other, password: "pass", add: true });
+        if (added.index !== 1) throw new Error(`signed in as ${JSON.stringify(added)}`);
+        const menuHasAdmin = async (a: number, email: string) => {
+          await page.goto(`${base}/u/${a}/inbox`);
+          await page.getByRole("button", { name: `Account: ${email}` }).click();
+          await page.locator(".account-pop").waitFor();
+          const has = (await page.locator(".account-pop", { hasText: "Admin settings" }).count()) > 0;
+          await press("Escape");
+          return has;
+        };
+        if (await menuHasAdmin(0, user)) throw new Error("Admin settings in the menu of a mailbox that isn't an admin");
+        if (!(await menuHasAdmin(1, other))) throw new Error("no Admin settings in the admin's menu");
+
+        await page.getByRole("button", { name: `Account: ${other}` }).click();
+        await page.locator(".account-pop").getByText("Admin settings").click();
+        await until(() => where() === "/u/1/admin", "the admin page, as the admin's mailbox");
+        await until(() => page.getByText(`Signed in as ${other}`).count(), "the page to say which mailbox it acts as");
+        // /admin alone opens it as the admin signed in, not as the first mailbox.
+        await page.goto(`${base}/admin`);
+        await until(() => where() === "/u/1/admin", "/admin to open as the admin");
+        // As the other mailbox, the page is closed, whoever else is signed in.
+        await page.goto(`${base}/u/0/admin`);
+        await until(() => page.getByText("This page is for admins").count(), "the page to refuse a mailbox that isn't an admin");
+      } finally {
+        await post("/api/auth/logout", { index: 1 }).catch(() => {});
+        await changeSettings({ ADMIN_ADDRESSES: null }, COMMAND_LINE);
+        await inbox();
+      }
+    });
+  });
+
   describe("the calendar", () => {
     beforeAll(shortcutsOn);
     // A week far from today, so the clock doesn't move anything under the test. The page

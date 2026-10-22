@@ -182,9 +182,9 @@ export const api = {
     request<{ label: Label }>("PATCH", `${u(a)}/labels/${encodeURIComponent(keyword)}`, patch),
   deleteLabel: (a: number, keyword: string) => request("DELETE", `${u(a)}/labels/${encodeURIComponent(keyword)}`),
 
-  admin: () => request<AdminData>("GET", "/api/admin"),
-  saveAdmin: (patch: Record<string, SettingValue | null>) =>
-    request<{ changed: string[]; settings: AdminSetting[]; changes: AdminChange[] }>("PUT", "/api/admin/settings", patch),
+  admin: (a: number) => request<AdminData>("GET", `/api/admin/${a}`),
+  saveAdmin: (a: number, patch: Record<string, SettingValue | null>) =>
+    request<{ changed: string[]; settings: AdminSetting[]; changes: AdminChange[] }>("PUT", `/api/admin/${a}/settings`, patch),
 
   attachmentUrl: (a: number, ref: MessageRef, index: number, inline = false) =>
     `${u(a)}/messages/${ref.mailboxId}/${ref.uid}/attachments/${index}${inline ? "?inline=1" : ""}`,

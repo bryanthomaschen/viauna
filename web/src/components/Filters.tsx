@@ -189,7 +189,7 @@ function FilterDialog({ filter, initial, state, onClose }: { filter?: Filter; in
       <span />
     </>
   );
-  const isAdmin = acct.accounts.some((x) => x.admin);
+  const isAdmin = !!acct.accounts[acct.index]?.admin;
 
   return (
     <Modal open onClose={onClose} title={filter ? "Edit filter" : "Create a filter"}>

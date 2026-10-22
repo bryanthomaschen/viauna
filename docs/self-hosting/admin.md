@@ -25,8 +25,12 @@ On a new server nobody is an admin. Make yourself one from the console:
 docker exec viauna viauna admin add you@example.com
 ```
 
-Then sign in as usual and open **Admin settings** from the account menu (your avatar,
-top right), or go to `/admin`.
+Then sign in with that mailbox and open **Admin settings** from the account menu (your
+avatar, top right), or go to `/admin`. The page acts as the mailbox you opened it from and
+says which (*Signed in as*), and changes are recorded under its address. With several
+mailboxes signed in at once, **Admin settings** is in the menu only while you're in an
+admin's, so switch to it first; `/admin` on its own opens the page as the first admin
+signed in.
 
 Or list the admins in the environment, which also stops anyone changing the list from the
 page:

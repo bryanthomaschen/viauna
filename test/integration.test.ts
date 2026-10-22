@@ -157,33 +157,44 @@ describe.skipIf(!enabled)("against a real IMAP server", { timeout: 30_000 }, () 
   });
 
   it("keeps the admin page to admins, and applies their changes at once", async () => {
-    expect((await call("GET", "/api/admin")).status).toBe(403);
+    expect((await call("GET", "/api/admin/0")).status).toBe(403);
     expect((await call("GET", "/api/session")).json.accounts[0].admin).toBe(false);
     const { COMMAND_LINE, changeSettings } = await import("../server/instance.ts");
     await changeSettings({ ADMIN_ADDRESSES: user }, COMMAND_LINE);
     expect((await call("GET", "/api/session")).json.accounts[0].admin).toBe(true);
 
-    const page = await call("GET", "/api/admin");
+    const page = await call("GET", "/api/admin/0");
     expect(page.status).toBe(200);
     expect(page.json.you).toBe(user);
+    // The page acts as the account in its path: one that isn't an admin, signed in
+    // beside one that is, gets nowhere.
+    const other = `it2-${crypto.randomBytes(4).toString("hex")}@example.test`;
+    expect((await call("POST", "/api/auth/login", { email: other, password: "pass", add: true })).json.index).toBe(1);
+    expect((await call("GET", "/api/session")).json.accounts.map((a: any) => a.admin)).toEqual([true, false]);
+    expect((await call("GET", "/api/admin/1")).status).toBe(403);
+    expect((await call("PUT", "/api/admin/1/settings", { appName: "Not yours" })).status).toBe(403);
+    expect((await call("GET", "/api/admin/2")).status).toBe(401);
+    expect((await call("GET", "/api/admin/0")).json.you).toBe(user);
+    await call("POST", "/api/auth/logout", { index: 1 });
+    expect((await call("GET", "/api/session")).json.accounts).toHaveLength(1);
     expect(page.json.settings.find((s: any) => s.env === "APP_NAME")).toMatchObject({ value: "Viauna", source: "default" });
     expect(page.json.server).toMatchObject({ imap: "127.0.0.1:1143, unencrypted", passwordCommand: true, passwordWebhook: false });
     expect(page.json.changes[0]).toMatchObject({ actor: "command line", env: "ADMIN_ADDRESSES", newValue: [user] });
 
-    const saved = await call("PUT", "/api/admin/settings", { appName: "Team Mail" });
+    const saved = await call("PUT", "/api/admin/0/settings", { appName: "Team Mail" });
     expect(saved.status).toBe(200);
     expect(saved.json.changes[0]).toMatchObject({ actor: user, env: "APP_NAME", oldValue: null, newValue: "Team Mail" });
     expect((await call("GET", "/api/config")).json.appName).toBe("Team Mail");
 
-    expect((await call("PUT", "/api/admin/settings", { admins: [] })).json.error).toMatch(/at least one admin/);
-    expect((await call("PUT", "/api/admin/settings", { maxAccounts: 0 })).json.error).toMatch(/whole number from 1/);
-    const forged = await app.request("/api/admin/settings", {
+    expect((await call("PUT", "/api/admin/0/settings", { admins: [] })).json.error).toMatch(/at least one admin/);
+    expect((await call("PUT", "/api/admin/0/settings", { maxAccounts: 0 })).json.error).toMatch(/whole number from 1/);
+    const forged = await app.request("/api/admin/0/settings", {
       method: "PUT",
       headers: { Origin: "https://evil.example", Cookie: cookie, "Content-Type": "application/json" },
       body: JSON.stringify({ appName: "Hijacked" }),
     });
     expect(forged.status).toBe(403);
-    expect((await call("PUT", "/api/admin/settings", { appName: null })).status).toBe(200);
+    expect((await call("PUT", "/api/admin/0/settings", { appName: null })).status).toBe(200);
     expect((await call("GET", "/api/config")).json.appName).toBe("Viauna");
   });
 

@@ -1,5 +1,6 @@
-// The admin page: settings for the whole server, changed without a restart. The server
-// checks that the viewer is an admin on every request. A setting given in the
+// The admin page: settings for the whole server, changed without a restart. It acts as
+// the account in its address (/u/1/admin), and the server checks on every request that
+// that account is an admin. A setting given in the
 // environment shows here but can only be changed there; each says where its value
 // comes from, and the page ends with what changed recently and who changed it.
 import * as Tooltip from "@radix-ui/react-tooltip";
@@ -20,8 +21,8 @@ type Save = (patch: Record<string, SettingValue | null>) => Promise<boolean>;
 
 const noThread = () => {};
 
-export function AdminPage({ accounts, appName }: { accounts: SessionAccount[]; appName: string }) {
-  const query = useQuery({ queryKey: ["admin"], queryFn: api.admin, retry: false });
+export function AdminPage({ account, accounts, appName }: { account: number; accounts: SessionAccount[]; appName: string }) {
+  const query = useQuery({ queryKey: ["admin", account], queryFn: () => api.admin(account), retry: false });
   // Changes made elsewhere (another admin, the command line) show up here too.
   useLiveUpdates(useQueryClient(), accounts.length, noThread);
   useEffect(() => {
@@ -32,7 +33,7 @@ export function AdminPage({ accounts, appName }: { accounts: SessionAccount[]; a
     <Tooltip.Provider>
       <div className="admin-page">
         <header className="admin-bar">
-          <IconButton label="Back to mail" onClick={() => navigate("/u/0/inbox")}><ArrowLeft size={22} /></IconButton>
+          <IconButton label="Back to mail" onClick={() => navigate(`/u/${account}/inbox`)}><ArrowLeft size={22} /></IconButton>
           <div className="brand">
             <img src="/favicon.svg" alt="" />
             <span>{appName} <b>Admin</b></span>
@@ -43,7 +44,7 @@ export function AdminPage({ accounts, appName }: { accounts: SessionAccount[]; a
           {query.isPending ? (
             <div className="empty"><div className="spinner lg" /></div>
           ) : err?.status === 403 ? (
-            <NotAdmin email={accounts[0]?.email ?? "you@example.com"} />
+            <NotAdmin account={account} email={accounts[account]?.email ?? "you@example.com"} />
           ) : query.error ? (
             <div className="empty">
               <h3>The admin page didn't load</h3>
@@ -55,7 +56,7 @@ export function AdminPage({ accounts, appName }: { accounts: SessionAccount[]; a
               )}
             </div>
           ) : (
-            <AdminSettings data={query.data} />
+            <AdminSettings account={account} data={query.data} />
           )}
         </main>
         <Toasts />
@@ -65,7 +66,7 @@ export function AdminPage({ accounts, appName }: { accounts: SessionAccount[]; a
   );
 }
 
-function NotAdmin({ email }: { email: string }) {
+function NotAdmin({ account, email }: { account: number; email: string }) {
   return (
     <div className="empty">
       <ShieldCheck size={48} />
@@ -73,17 +74,17 @@ function NotAdmin({ email }: { email: string }) {
       <p style={{ maxWidth: 520 }}>
         An admin can add <b>{email}</b> here, or someone with access to the server can run <code>viauna admin add {email}</code>.
       </p>
-      <button type="button" className="btn btn-outline" onClick={() => navigate("/u/0/inbox")}>Back to mail</button>
+      <button type="button" className="btn btn-outline" onClick={() => navigate(`/u/${account}/inbox`)}>Back to mail</button>
     </div>
   );
 }
 
-function useSave(): Save {
+function useSave(account: number): Save {
   const client = useQueryClient();
   return async (patch) => {
     try {
-      const r = await api.saveAdmin(patch);
-      client.setQueryData<AdminData>(["admin"], (d) => d && { ...d, settings: r.settings, changes: r.changes });
+      const r = await api.saveAdmin(account, patch);
+      client.setQueryData<AdminData>(["admin", account], (d) => d && { ...d, settings: r.settings, changes: r.changes });
       // Everything else the page shows from settings, in this tab too.
       refreshSettings(client);
       toast(r.changed.length ? "Saved. It applies now." : "That's already the setting.");
@@ -104,8 +105,8 @@ export function show(value: SettingValue | null, unit?: string): string {
   return value === "" ? "None" : value;
 }
 
-function AdminSettings({ data }: { data: AdminData }) {
-  const save = useSave();
+function AdminSettings({ account, data }: { account: number; data: AdminData }) {
+  const save = useSave(account);
   const sections = [...new Set(data.settings.map((s) => s.section))];
   return (
     <>

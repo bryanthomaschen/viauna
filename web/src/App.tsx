@@ -42,6 +42,9 @@ export function App() {
     else if (accounts.length && route.name === "login" && !adding) navigate("/u/0/inbox", { replace: true });
     else if (accounts.length && route.name === "none") navigate("/u/0/inbox", { replace: true });
     else if (accounts.length && route.name !== "login" && route.account >= accounts.length) navigate("/u/0/inbox", { replace: true });
+    else if (accounts.length && route.name === "admin" && route.account < 0) {
+      navigate(`/u/${accounts.find((a) => a.admin)?.index ?? 0}/admin`, { replace: true });
+    }
   }, [session.data, route.name, route.account, accounts.length, adding]);
 
   if (session.isPending || config.isPending) {
@@ -55,9 +58,10 @@ export function App() {
     return <Login config={config.data} adding={adding} accounts={accounts} />;
   }
   if (route.name === "admin") {
+    if (route.account < 0 || route.account >= accounts.length) return null;
     return (
       <Suspense fallback={<div className="login-page"><div className="spinner lg" aria-label="Loading" /></div>}>
-        <AdminPage accounts={accounts} appName={config.data?.appName ?? "Viauna"} />
+        <AdminPage account={route.account} accounts={accounts} appName={config.data?.appName ?? "Viauna"} />
       </Suspense>
     );
   }

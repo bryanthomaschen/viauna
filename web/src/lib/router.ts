@@ -7,7 +7,8 @@
 //   /u/0/contacts              the address book
 //   /u/0/calendar/week/2026-10-21   the calendar, a view of the time around a date
 //   /u/0/calendar/search/lunch      events found
-//   /admin                     the admin page, for the whole server rather than one mailbox
+//   /u/0/admin                 the admin page, for the whole server, as this account (an admin)
+//   /admin                     the same, as the first admin signed in
 import { useSyncExternalStore } from "react";
 
 const listeners = new Set<() => void>();
@@ -70,13 +71,15 @@ export function parseRoute(path: string): Route {
   const parts = pathname.split("/").filter(Boolean);
   const none: Route = { name: "none", account: 0, folder: { kind: "inbox" }, thread: null, page: 0, calendar: null };
   if (parts[0] === "login") return { ...none, name: "login" };
-  if (parts[0] === "admin" && parts.length === 1) return { ...none, name: "admin" };
+  // No account yet: App picks the first admin signed in.
+  if (parts[0] === "admin" && parts.length === 1) return { ...none, name: "admin", account: -1 };
   if (parts[0] !== "u" || parts.length < 2) return none;
   const account = Number(parts[1]);
   if (!Number.isInteger(account)) return none;
   const rest = parts.slice(2);
   if (rest[0] === "settings") return { ...none, name: "settings", account };
   if (rest[0] === "contacts") return { ...none, name: "contacts", account };
+  if (rest[0] === "admin" && rest.length === 1) return { ...none, name: "admin", account };
   if (rest[0] === "calendar") {
     const calendar: CalendarRoute = { view: null, date: null, search: null };
     if (rest[1] === "search" && rest[2] !== undefined) calendar.search = decodeURIComponent(rest[2]);

@@ -388,8 +388,9 @@ a { color: var(--primary); }
 .shortcut-switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0 12px; margin-bottom: 8px; border-bottom: 1px solid var(--border); font-size: 14px; }
 .shortcut-grid.off { opacity: .55; }
 
-/* The command menu (CommandMenu.tsx, cmdk). */
-.cmdk { position: fixed; top: 12vh; left: 50%; transform: translateX(-50%); width: min(640px, calc(100vw - 32px)); max-height: 70vh; display: flex; flex-direction: column; background: var(--surface); color: var(--text); border-radius: 16px; box-shadow: var(--shadow-2); z-index: 91; overflow: hidden; animation: fade .08s ease-out; }
+/* The command menu (CommandMenu.tsx, cmdk). Centred by its margins, not a transform, which the
+   opening animation (fade) would replace: the menu opened half its width to the right. */
+.cmdk { position: fixed; top: 12vh; left: 0; right: 0; margin: 0 auto; width: min(640px, calc(100vw - 32px)); max-height: 70vh; display: flex; flex-direction: column; background: var(--surface); color: var(--text); border-radius: 16px; box-shadow: var(--shadow-2); z-index: 91; overflow: hidden; animation: fade .08s ease-out; }
 /* cmdk puts its root between the dialog and the list: both shrink to the 70vh, so the list scrolls. */
 .cmdk [cmdk-root] { display: flex; flex-direction: column; min-height: 0; }
 .cmdk-input { display: flex; align-items: center; gap: 12px; padding: 0 16px; border-bottom: 1px solid var(--border); color: var(--text-2); }

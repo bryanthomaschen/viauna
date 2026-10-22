@@ -237,8 +237,8 @@ function AccountMenu() {
               <span className="icon-btn sm" aria-hidden><UserPlus size={20} /></span>
               <span className="t">Add another account</span>
             </button>
-            {acct.accounts.some((a) => a.admin) && (
-              <button type="button" className="account-row" onClick={() => navigate("/admin")}>
+            {me.admin && (
+              <button type="button" className="account-row" onClick={() => navigate(`/u/${acct.index}/admin`)}>
                 <span className="icon-btn sm" aria-hidden><ShieldCheck size={20} /></span>
                 <span className="t">Admin settings</span>
               </button>

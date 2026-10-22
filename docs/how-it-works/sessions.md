@@ -43,7 +43,9 @@ Every session proves its own password, and Viauna trusts a proof for 10 minutes:
 - A session whose saved password differs from the one sync uses logs in with its own,
   and if that works, the sync's password is checked at once (at most once a minute).
 - Admin rights are checked the same way, so they end within 10 minutes of the admin's
-  password changing or the mailbox going.
+  password changing or the mailbox going. They belong to the mailbox in the admin page's
+  address (`/u/1/admin`): another signed in beside it, admin or not, adds or takes away
+  nothing.
 - A mail server that can't be reached proves nothing either way: you see an error, and
   aren't signed out.
 

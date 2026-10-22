@@ -75,7 +75,7 @@ function Menu() {
     ...(config?.contacts ? [{ label: "Contacts", icon: BookUser, run: go(`/u/${a}/contacts`) }] : []),
     { label: "Settings", icon: Settings, run: go(`/u/${a}/settings`) },
     ...(config?.filters ? [{ label: "Filters", icon: ListFilter, keywords: ["vacation", "rules"], run: go(`/u/${a}/settings?tab=filters`) }] : []),
-    ...(acct.accounts.some((x) => x.admin) ? [{ label: "Admin", icon: Shield, keywords: ["server"], run: go("/admin") }] : []),
+    ...(acct.accounts[a]?.admin ? [{ label: "Admin", icon: Shield, keywords: ["server"], run: go(`/u/${a}/admin`) }] : []),
     ...acct.accounts
       .map((x, i) => ({ x, i }))
       .filter(({ i }) => i !== a)

@@ -800,24 +800,25 @@ export function createApp() {
 
   // ---------------------------------------------------------------- admin
 
-  // For the first account in the session that isAdmin() accepts. Its password is
+  // As the session's account at /api/admin/:a, which isAdmin() must accept: another
+  // account signed in beside it, admin or not, changes nothing. Its password is
   // re-proven every ten minutes, so admin rights end soon after the password changes or
-  // the mailbox goes away; an unreachable mail server doesn't lock admins out.
+  // the mailbox goes away. Not under /api/u/:a, whose runtime logs in to the mail
+  // server: an unreachable one doesn't lock admins out.
   const admin = new Hono<Env>();
 
   admin.use("*", async (c, next) => {
     const auth = c.get("auth");
-    for (const sa of auth?.accounts ?? []) {
-      if (!isAdmin(sa.account)) continue;
-      const creds = credentialsFor(auth!, sa);
-      if (!creds) continue;
-      if ((await stillProven(sa.account, creds)) === false) {
-        return c.json({ error: "The mail server rejected your saved password. Sign in again.", reauth: true }, 401);
-      }
-      c.set("sa", sa);
-      return next();
+    const sa = auth?.accounts[int(c.req.param("a"))];
+    if (!auth || !sa) return c.json({ error: "Not signed in.", reauth: true }, 401);
+    if (!isAdmin(sa.account)) return c.json({ error: "Only admins can open this page." }, 403);
+    const creds = credentialsFor(auth, sa);
+    if (!creds) return c.json({ error: "Your session has expired. Sign in again.", reauth: true }, 401);
+    if ((await stillProven(sa.account, creds)) === false) {
+      return c.json({ error: "The mail server rejected your saved password. Sign in again.", reauth: true }, 401);
     }
-    return c.json({ error: "Only admins can open this page." }, 403);
+    c.set("sa", sa);
+    return next();
   });
 
   admin.get("/", async (c) =>
@@ -844,7 +845,7 @@ export function createApp() {
     return c.json({ changed: result.changed, settings: await describeSettings(), changes: await recentChanges() });
   });
 
-  app.route("/api/admin", admin);
+  app.route("/api/admin/:a", admin);
 
   // ---------------------------------------------------------------- live updates
 

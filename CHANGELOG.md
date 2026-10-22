@@ -36,7 +36,12 @@ any calendar, with the time zone definitions Outlook needs. See
 
 - Search: `rfc822msgid:` finds a message by its Message-ID.
 - The command menu scrolls with the mouse wheel when its commands don't fit; only the
-  keyboard could reach the ones below.
+  keyboard could reach the ones below. It also opens in the middle of the window, where
+  it used to appear half its width to the right for a moment.
+- **Admin settings** is in the account menu only while you're in an admin's mailbox, and
+  the admin page acts as that mailbox (`/u/1/admin`). Before, one admin signed in put it
+  in every mailbox's menu in that browser, and the page acted as the first admin signed
+  in. `/admin` on its own still opens it, as the first admin.
 
 ### Upgrading from 0.5
 
