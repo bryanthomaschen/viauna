@@ -234,6 +234,9 @@ should say which kind it is.
   are fetched the same way: every address a name has is checked as it's looked up, the
   connection goes to one of them, and redirects are checked again, within limits on time
   and size.
+- **Secret calendar addresses** are 256-bit random tokens, kept only as their SHA-256,
+  served at `/ical/` without a session and outside `/api/`, so none of the session or CSRF
+  machinery is involved; a wrong one is a 404.
 - **Brute force**: sign-in attempts are counted before the login is tried (so
   parallel bursts can't slip under the limit), per IP and per login; with
   `TRUST_PROXY` the client address is the last `X-Forwarded-For` entry, the one your

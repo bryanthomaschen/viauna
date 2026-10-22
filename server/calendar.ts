@@ -4,17 +4,19 @@
 // The first visit to the calendar makes the mailbox's own one, named after it, and its
 // Birthdays calendar, whose events are made from its contacts (birthdays.ts). A calendar
 // from the web is fetched from its address (feeds.ts) and kept like the rest, read-only,
-// and fetched again every few hours.
+// and fetched again every few hours. Any calendar can have a secret address, for another
+// app to show it read-only.
 import crypto from "node:crypto";
 import { EventEmitter } from "node:events";
 import { sql } from "kysely";
 import { birthdayObjects, birthdaysBetween } from "./birthdays.ts";
 import { VERSION, setting } from "./config.ts";
-import { type ParsedFile, buildFile, parseFile } from "./calendar-file.ts";
+import { type ParsedFile, buildFile, busyOnly, parseFile } from "./calendar-file.ts";
 import { FEED_LIMITS, FeedError, feedUrl, fetchFeed } from "./feeds.ts";
 import { log } from "./log.ts";
+import { getSettings } from "./settings.ts";
 import { contains, fold } from "./text.ts";
-import { randomToken } from "./crypto.ts";
+import { randomToken, sha256 } from "./crypto.ts";
 import {
   COLORS,
   DATE,
@@ -96,7 +98,12 @@ export interface CalendarInfo {
   readOnly: boolean;
   /** A calendar from the web: its address, when it last came back and was last tried, and what went wrong. */
   feed: { url: string; fetchedAt: number | null; checkedAt: number | null; error: string | null } | null;
+  /** Its secret address, if it has one: what it shows, when it was made, when an app last fetched it. Never the address. */
+  secret: { mode: SecretMode; createdAt: number; fetchedAt: number | null } | null;
 }
+
+/** What a secret address shows: the whole calendar, or only when you're busy. */
+export type SecretMode = "all" | "busy";
 
 /** What the calendar grid shows of an event, or one occurrence of it. Timed: ISO instants. All-day: dates, end exclusive. */
 export interface EventSummary {
@@ -141,8 +148,12 @@ type EventRow = Omit<EventTable, "id"> & { id: number };
 type CalendarRow = {
   id: number; name: string; color: string; visible: number; primary_of: number | null; kind: CalendarKind;
   source_url: string | null; fetched_at: number | null; checked_at: number | null; fetch_error: string | null;
+  secret_mode: SecretMode | null; secret_created_at: number | null; secret_fetched_at: number | null;
 };
-const CALENDAR_COLUMNS = ["id", "name", "color", "visible", "primary_of", "kind", "source_url", "fetched_at", "checked_at", "fetch_error"] as const;
+const CALENDAR_COLUMNS = [
+  "id", "name", "color", "visible", "primary_of", "kind", "source_url", "fetched_at", "checked_at", "fetch_error",
+  "secret_mode", "secret_created_at", "secret_fetched_at",
+] as const;
 
 const calendarJson = (r: CalendarRow): CalendarInfo => ({
   id: r.id,
@@ -153,6 +164,7 @@ const calendarJson = (r: CalendarRow): CalendarInfo => ({
   kind: r.kind,
   readOnly: r.kind !== "events",
   feed: r.kind === "feed" ? { url: r.source_url ?? "", fetchedAt: r.fetched_at, checkedAt: r.checked_at, error: r.fetch_error } : null,
+  secret: r.secret_mode && r.secret_created_at ? { mode: r.secret_mode, createdAt: r.secret_created_at, fetchedAt: r.secret_fetched_at } : null,
 });
 
 /** Kinds whose calendars are shown: the Birthdays calendar while there are contacts, the web's while they're allowed. */
@@ -740,13 +752,93 @@ export async function importEvents(accountId: number, target: number | "new", te
   return result;
 }
 
+/** A calendar's events as iCalendar objects: those kept, or for the Birthdays calendar, made from the contacts. */
+async function calendarObjects(accountId: number, cal: { id: number; kind: CalendarKind }): Promise<Root[]> {
+  if (cal.kind === "birthdays") return birthdayObjects(accountId, PRODID);
+  const rows = await state().selectFrom("events").select("ics").where("account_id", "=", accountId).where("calendar_id", "=", cal.id).orderBy("start_at").execute();
+  return rows.map((r) => parsed(r.ics)).filter((r): r is Root => r !== null);
+}
+
 /** A calendar as one file (.ics), for any calendar app, with the zones its events use. */
 export async function exportCalendar(accountId: number, calendarId: number, zone: string): Promise<{ name: string; text: string }> {
   checkZone(zone);
   const cal = await ownCalendar(accountId, calendarId);
-  if (cal.kind === "birthdays") return { name: cal.name, text: buildFile(cal.name, await birthdayObjects(accountId, PRODID), PRODID, zone) };
-  const rows = await state().selectFrom("events").select("ics").where("account_id", "=", accountId).where("calendar_id", "=", calendarId).orderBy("start_at").execute();
-  const roots = rows.map((r) => parsed(r.ics)).filter((r): r is Root => r !== null);
+  return { name: cal.name, text: buildFile(cal.name, await calendarObjects(accountId, cal), PRODID, zone) };
+}
+
+// ---------------------------------------------------------------- secret addresses
+
+const secretsOn = () => setting("calendar") && setting("calendarSecrets");
+
+function cleanMode(input: unknown): SecretMode {
+  if (input === "all" || input === "busy") return input;
+  throw new CalendarError("Say whether the address shows the whole calendar or only when you're busy.");
+}
+
+/**
+ * Gives a calendar a secret address, or a new one in place of the old, which stops working
+ * at once. The token is returned this once: only its hash is kept, so it can't be shown
+ * again, nor read from a copy of the database.
+ */
+export async function makeSecret(accountId: number, id: number, mode: unknown): Promise<{ token: string; calendar: CalendarInfo }> {
+  if (!secretsOn()) throw new CalendarError("Secret addresses are turned off on this server.", 404);
+  const m = cleanMode(mode);
+  await ownCalendar(accountId, id);
+  const token = randomToken(32);
+  await state()
+    .updateTable("calendars")
+    .set({ secret_hash: sha256(token), secret_mode: m, secret_created_at: Date.now(), secret_fetched_at: null })
+    .where("account_id", "=", accountId)
+    .where("id", "=", id)
+    .execute();
+  changed(accountId);
+  return { token, calendar: calendarJson(await ownCalendar(accountId, id)) };
+}
+
+/** Changes what a calendar's secret address shows; the address stays the same. */
+export async function setSecretMode(accountId: number, id: number, mode: unknown): Promise<CalendarInfo> {
+  if (!secretsOn()) throw new CalendarError("Secret addresses are turned off on this server.", 404);
+  const m = cleanMode(mode);
+  const cal = await ownCalendar(accountId, id);
+  if (!cal.secret_mode) throw new CalendarError("This calendar has no secret address.");
+  await state().updateTable("calendars").set({ secret_mode: m }).where("account_id", "=", accountId).where("id", "=", id).execute();
+  changed(accountId);
+  return calendarJson(await ownCalendar(accountId, id));
+}
+
+/** Turns a calendar's secret address off: it stops working at once. */
+export async function dropSecret(accountId: number, id: number): Promise<CalendarInfo> {
+  await ownCalendar(accountId, id);
+  await state()
+    .updateTable("calendars")
+    .set({ secret_hash: null, secret_mode: null, secret_created_at: null, secret_fetched_at: null })
+    .where("account_id", "=", accountId)
+    .where("id", "=", id)
+    .execute();
+  changed(accountId);
+  return calendarJson(await ownCalendar(accountId, id));
+}
+
+/**
+ * The calendar a secret address names, as a file: everything, or "Busy" at the times of
+ * the busy events. Null when it names none, the calendar is hidden, or secret addresses
+ * (or the calendar) are off. Notes when it was fetched, at most once a minute.
+ */
+export async function secretCalendar(token: string): Promise<{ name: string; text: string } | null> {
+  if (!secretsOn() || !/^[A-Za-z0-9_-]{20,100}$/.test(token)) return null;
+  const cal = await state()
+    .selectFrom("calendars")
+    .select(["id", "account_id", "name", "kind", "secret_mode", "secret_fetched_at"])
+    .where("secret_hash", "=", sha256(token))
+    .executeTakeFirst();
+  if (!cal || !cal.secret_mode || !shown(cal.kind)) return null;
+  const now = Date.now();
+  if (!cal.secret_fetched_at || now - cal.secret_fetched_at > 60_000) {
+    await state().updateTable("calendars").set({ secret_fetched_at: now }).where("id", "=", cal.id).execute();
+  }
+  const zone = (await getSettings(cal.account_id)).timeZone || "UTC";
+  let roots = await calendarObjects(cal.account_id, cal);
+  if (cal.secret_mode === "busy") roots = roots.map(busyOnly).filter((r): r is Root => r !== null);
   return { name: cal.name, text: buildFile(cal.name, roots, PRODID, zone) };
 }
 

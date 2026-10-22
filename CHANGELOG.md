@@ -37,6 +37,12 @@ from public addresses, and shows it under **Other calendars** as it is there, so
 be changed here; **Duplicate** an event to keep your own copy. **Refresh now** fetches it
 at once, and a failed fetch says why. `CALENDAR_FEEDS` (or the admin page) turns it off.
 
+**A secret address** for any calendar, so another app (your phone, Outlook, another
+calendar) can show it read-only: the whole calendar, or only "Busy" at the times you're
+busy. Viauna keeps only a fingerprint of it; make a new one to stop the old one, and its
+settings say when an app last fetched it. Served at `/ical/`, which a login in front of
+Viauna must let through; `CALENDAR_SECRET_ADDRESSES` (or the admin page) turns them off.
+
 Calendars move in and out as `.ics` files: import Google Calendar's, Outlook's, Apple
 Calendar's or Thunderbird's exports (again, without adding anything twice), and export
 any calendar, with the time zone definitions Outlook needs. See

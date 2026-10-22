@@ -81,6 +81,51 @@ export function parseFile(text: string, prodid: string): ParsedFile {
   return { name, events, skipped };
 }
 
+/** What a busy-only copy of an event keeps: when it is, how it repeats, and nothing about what it is. */
+const BUSY_KEEPS = new Set(["uid", "dtstamp", "dtstart", "dtend", "duration", "rrule", "rdate", "exdate", "recurrence-id", "sequence"]);
+
+const isFree = (e: Component) => String(e.getFirstPropertyValue("transp") ?? "").toUpperCase() === "TRANSPARENT";
+const isCancelled = (e: Component) => String(e.getFirstPropertyValue("status") ?? "").toUpperCase() === "CANCELLED";
+
+/**
+ * An event as a busy-only secret address shows it: "Busy", at its times, with nothing
+ * else of it; or null if it isn't busy (shown as free, or cancelled). An occurrence that's
+ * free or cancelled on its own is left out of the series (EXDATE), so even its time stays
+ * private. Its zones' definitions stay, for its times.
+ */
+export function busyOnly(root: Component): Component | null {
+  const master = masterEvent(root);
+  if (!master || isFree(master) || isCancelled(master)) return null;
+  const out = new ICAL.Component(["vcalendar", [], []]);
+  for (const p of ["version", "prodid", "calscale"]) {
+    const v = root.getFirstPropertyValue(p);
+    if (v) out.updatePropertyWithValue(p, v);
+  }
+  for (const tz of root.getAllSubcomponents("vtimezone")) out.addSubcomponent(clone(tz));
+  const events = root.getAllSubcomponents("vevent");
+  const plain = (e: Component) => {
+    const copy = new ICAL.Component("vevent", out);
+    for (const p of e.getAllProperties()) if (BUSY_KEEPS.has(p.name)) copy.addProperty(new ICAL.Property(JSON.parse(JSON.stringify(p.toJSON()))));
+    copy.updatePropertyWithValue("summary", "Busy");
+    copy.updatePropertyWithValue("class", "PRIVATE");
+    copy.updatePropertyWithValue("transp", "OPAQUE");
+    return copy;
+  };
+  const kept = plain(master);
+  out.addSubcomponent(kept);
+  for (const e of events) {
+    if (e === master || !e.hasProperty("recurrence-id")) continue;
+    if (isFree(e) || isCancelled(e)) {
+      const jcal = JSON.parse(JSON.stringify(e.getFirstProperty("recurrence-id")!.toJSON()));
+      jcal[0] = "exdate";
+      kept.addProperty(new ICAL.Property(jcal));
+    } else {
+      out.addSubcomponent(plain(e));
+    }
+  }
+  return out;
+}
+
 /** The years a component's times in one zone fall in. */
 function yearsIn(c: Component, tzid: string): number[] {
   const out: number[] = [];

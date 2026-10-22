@@ -18,6 +18,12 @@ Give Viauna a hostname of its own (it can't be served under a sub-path yet), and
 `PUBLIC_URL` to exactly that address: requests that change anything are refused from any
 other origin.
 
+If you put a login of your own in front of Viauna (HTTP Basic Auth, a single sign-on
+proxy), leave `/ical/` out of it: that's where other apps fetch calendars by their
+[secret addresses](../how-it-works/calendar.md#secret-addresses), and they can't sign in to
+your proxy. The address itself is the key. With `CALENDAR_SECRET_ADDRESSES=false`, nothing
+is served there.
+
 > [!TIP]
 > If a CDN or another proxy sits in front of yours, have your proxy restore the client's
 > address first (nginx's `realip` module, for example), so the last `X-Forwarded-For`

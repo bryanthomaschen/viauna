@@ -363,8 +363,22 @@ describe.skipIf(!enabled)("against a real IMAP server", { timeout: 30_000 }, () 
     await reader.cancel();
     await pump.catch(() => {});
 
+    // A secret address answers without signing in, and asks for nothing that didn't change.
+    const secret = await call("POST", `/api/u/0/calendar/calendars/${work.id}/secret`, { mode: "busy" });
+    expect(secret.json.calendar.secret).toMatchObject({ mode: "busy" });
+    const feed = await app.request(`/ical/${secret.json.token}.ics`);
+    expect(feed.status).toBe(200);
+    expect(feed.headers.get("content-type")).toBe("text/calendar; charset=utf-8");
+    const published = await feed.text();
+    expect(published).toContain("SUMMARY:Busy");
+    expect(published).not.toContain("Review");
+    expect((await app.request(`/ical/${secret.json.token}.ics`, { headers: { "If-None-Match": feed.headers.get("etag")! } })).status).toBe(304);
+    expect((await app.request("/ical/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.ics")).status).toBe(404);
+    expect((await app.request(`/ical/${secret.json.token}`)).status).not.toBe(200);
+
     const { COMMAND_LINE, changeSettings } = await import("../server/instance.ts");
     await changeSettings({ calendar: false }, COMMAND_LINE);
+    expect((await app.request(`/ical/${secret.json.token}.ics`)).status).toBe(404);
     expect((await call("GET", "/api/config")).json.calendar).toBe(false);
     expect((await call("GET", "/api/u/0/calendar/calendars")).status).toBe(404);
     await changeSettings({ calendar: null }, COMMAND_LINE);

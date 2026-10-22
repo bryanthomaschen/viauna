@@ -169,7 +169,7 @@ interface Common<K extends string, V extends SettingValue> {
 }
 
 export type SettingDef =
-  | (Common<"allowCustomServers" | "contacts" | "contactsSync" | "calendar" | "calendarFeeds" | "filters" | "vacation" | "filterForwarding", boolean> & { type: "boolean" })
+  | (Common<"allowCustomServers" | "contacts" | "contactsSync" | "calendar" | "calendarFeeds" | "calendarSecrets" | "filters" | "vacation" | "filterForwarding", boolean> & { type: "boolean" })
   | (Common<"sessionDays" | "maxAccounts" | "maxUploadMb" | "cacheMb", number> & { type: "integer"; min: number; max: number; unit: string })
   | (Common<"appName", string> & { type: "text"; max: number; required?: boolean })
   | (Common<"admins" | "allowedDomains", string[]> & { type: "list"; item: "address" | "domain" })
@@ -185,6 +185,7 @@ export interface SettingValues {
   contactsSync: boolean;
   calendar: boolean;
   calendarFeeds: boolean;
+  calendarSecrets: boolean;
   filters: boolean;
   vacation: boolean;
   filterForwarding: boolean;
@@ -232,6 +233,11 @@ export const SETTINGS: readonly SettingDef[] = [
     key: "calendarFeeds", env: "CALENDAR_FEEDS", type: "boolean", default: true,
     section: "Features", label: "Calendars from the web",
     help: "Let people add a calendar by its address (public holidays, fixtures, another service's calendar), which this server fetches from the internet every 6 hours.",
+  },
+  {
+    key: "calendarSecrets", env: "CALENDAR_SECRET_ADDRESSES", type: "boolean", default: true,
+    section: "Features", label: "Secret calendar addresses",
+    help: "Let people give a calendar a secret address, so another app can show it read-only: all of it, or only when they're busy. Anyone who has the address can see what it shows, without signing in.",
   },
   {
     key: "filters", env: "FILTERS", type: "boolean", default: true,

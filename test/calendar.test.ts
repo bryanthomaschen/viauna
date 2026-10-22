@@ -12,6 +12,10 @@ import {
   createEvent,
   deleteCalendar,
   deleteEvent,
+  dropSecret,
+  makeSecret,
+  secretCalendar,
+  setSecretMode,
   eventsBetween,
   getEvent,
   listCalendars,
@@ -291,6 +295,62 @@ describe.each(ENGINES)("calendars on $name", ({ url }) => {
       setOverrides(new Map());
     }
     expect((await eventsBetween(7, "2027-03-01", "2027-04-01", SG)).map((e) => e.title)).toEqual(["Kai's birthday"]);
+  });
+
+  it("gives a calendar a secret address, keeping only its hash, and shows it whole or only when busy", async () => {
+    await createEvent(7, primary, lunch({ title: "Lunch with Ann", location: "Chinatown", description: "Her treat" }), SG);
+    await createEvent(7, primary, lunch({ title: "Gym", start: "2026-10-22T07:00", end: "2026-10-22T08:00", busy: false }), SG);
+    const standup = await createEvent(7, primary, lunch({ title: "Standup", start: "2026-10-26T09:00", end: "2026-10-26T09:15", repeat: { freq: "daily", interval: 1, count: 5 } }), SG);
+    // One standup is free that day.
+    await updateEvent(7, standup.id, { occurrence: "20261027T090000", scope: "this", busy: false }, SG);
+
+    const { token, calendar } = await makeSecret(7, primary, "all");
+    expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(calendar.secret).toMatchObject({ mode: "all", fetchedAt: null });
+    const row = await state().selectFrom("calendars").selectAll().where("id", "=", primary).executeTakeFirstOrThrow();
+    expect(JSON.stringify(row)).not.toContain(token);
+
+    const all = await secretCalendar(token);
+    expect(all?.text).toContain("SUMMARY:Lunch with Ann");
+    expect(all?.text).toContain("SUMMARY:Gym");
+    expect(all?.text).toContain("X-WR-CALNAME:Me Myself");
+    expect((await listCalendars(7, "Me Myself"))[0].secret?.fetchedAt).toBeGreaterThan(0);
+
+    expect((await setSecretMode(7, primary, "busy")).secret?.mode).toBe("busy");
+    const busy = (await secretCalendar(token))!.text;
+    expect(busy).not.toMatch(/Lunch|Ann|Chinatown|treat|Gym|Standup/);
+    expect(busy.match(/SUMMARY:Busy/g)).toHaveLength(2);
+    expect(busy).toContain("CLASS:PRIVATE");
+    // The free standup is left out of its series, at its time.
+    expect(busy).toMatch(/EXDATE;TZID=Asia\/Singapore:20261027T090000/);
+
+    // A new address stops the old one at once; turned off, neither works.
+    const again = await makeSecret(7, primary, "all");
+    expect(await secretCalendar(token)).toBeNull();
+    expect(await secretCalendar(again.token)).not.toBeNull();
+    expect((await dropSecret(7, primary)).secret).toBeNull();
+    expect(await secretCalendar(again.token)).toBeNull();
+    expect(await secretCalendar("not-a-token")).toBeNull();
+    await expect(makeSecret(7, primary, "everything")).rejects.toThrow(/whole calendar/);
+    await expect(setSecretMode(7, primary, "busy")).rejects.toThrow(/no secret address/);
+  });
+
+  it("serves no secret address while they're turned off, and gives the Birthdays calendar one too", async () => {
+    const birthdays = (await listCalendars(7, "Me Myself")).find((c) => c.kind === "birthdays")!;
+    await createContact(7, { firstName: "Kai", birthday: "--03-14" });
+    const { token } = await makeSecret(7, birthdays.id, "all");
+    expect((await secretCalendar(token))?.text).toContain("SUMMARY:Kai's birthday");
+    setOverrides(new Map([["calendarSecrets", false]]));
+    try {
+      expect(await secretCalendar(token)).toBeNull();
+      await expect(makeSecret(7, primary, "all")).rejects.toMatchObject({ status: 404 });
+    } finally {
+      setOverrides(new Map());
+    }
+    expect(await secretCalendar(token)).not.toBeNull();
+    // Birthdays are free, so a busy-only address shows nothing of them.
+    await setSecretMode(7, birthdays.id, "busy");
+    expect((await secretCalendar(token))?.text).not.toContain("VEVENT");
   });
 
   it("refuses times it can't use, and calendars that aren't the mailbox's", async () => {

@@ -54,6 +54,30 @@ your calendars to change your copy.
 - Your server's admins can turn this off; then the menu doesn't offer it, and calendars
   added before are hidden until it's on again.
 
+## Sharing a calendar with another app
+
+A calendar can have a secret address, for another app to show it read-only and keep it up
+to date: your phone's calendar, Outlook, another calendar you use. In the calendar's menu
+(the three dots), open **Name and colour** (**Settings** for one from the web), choose
+what the address **Shows**, and **Make a secret address**:
+
+- **The whole calendar**: every event, as it is here.
+- **Only when you're busy**: "Busy" at the times of your busy events, and nothing else
+  about them. Events shown as free aren't included.
+
+**Copy the address there and then.** Viauna keeps only a fingerprint of it, so it can't
+show it again. Paste it where the other app adds a calendar from a URL (Google Calendar:
+**Other calendars → + → From URL**; Outlook: **Add calendar → Subscribe from web**; on an
+iPhone, Calendar's accounts in Settings: **Add Account → Other → Add Subscribed
+Calendar**). Other apps fetch it every few hours, so a change here takes that long to
+show there.
+
+Anyone who has the address can see what it shows, without signing in. The calendar's
+settings say when it was made and when an app last fetched it. **Make a new address** stops
+the old one at once, if it got out; **Turn off** stops it altogether. Changing what it
+shows keeps the address. Your server's admins can turn secret addresses off, and then
+none works until they're on again.
+
 ## Finding your way around
 
 - **Day**, **Week**, **Month**, **Schedule** (the next 30 days as a list) and **4 days**:

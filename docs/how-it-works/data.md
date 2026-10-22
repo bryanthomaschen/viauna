@@ -76,6 +76,9 @@ state store and unaffected.
 - **For a password change**: the login, the address, and the current and new passwords,
   to your command (on its standard input), your webhook (a signed POST) or your LDAP
   directory. See [Password changes](../self-hosting/passwords.md).
+- **From a calendar's secret address**, to whoever fetches it: the calendar, whole or only
+  when its owner is busy, as they chose. See
+  [Secret addresses](./calendar.md#secret-addresses).
 - **Remote images**, once someone allows them: their browser loads them straight from
   the sender's servers, with no `Referer`. Viauna doesn't fetch or proxy them, so the
   sender sees the reader's address. That's why they're blocked until allowed.

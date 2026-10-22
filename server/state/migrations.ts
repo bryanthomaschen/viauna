@@ -292,6 +292,19 @@ export function migrations(dialect: Dialect): MigrationProvider {
         }
       },
     },
+
+    // 0.6: a secret address for a calendar, for another app to show it read-only. Only
+    // its token's hash is kept (unique, to find the calendar by), with whether it shows the
+    // whole calendar or only when you're busy, when it was made and when it was last used.
+    "0009_secret_addresses": {
+      async up(db: Kysely<any>) {
+        await db.schema.alterTable("calendars").addColumn("secret_hash", "varchar(64)").execute();
+        await db.schema.alterTable("calendars").addColumn("secret_mode", "varchar(8)").execute();
+        await db.schema.alterTable("calendars").addColumn("secret_created_at", "bigint").execute();
+        await db.schema.alterTable("calendars").addColumn("secret_fetched_at", "bigint").execute();
+        await db.schema.createIndex("calendars_secret").on("calendars").column("secret_hash").unique().execute();
+      },
+    },
   };
   return { getMigrations: async () => all };
 }

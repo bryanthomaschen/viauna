@@ -28,8 +28,12 @@ import {
   exportCalendar,
   getEvent,
   importEvents,
+  dropSecret,
   listCalendars,
+  makeSecret,
   refreshFeed,
+  secretCalendar,
+  setSecretMode,
   searchEvents,
   subscribe,
   undoChange,
@@ -54,7 +58,7 @@ import {
   tidyContacts,
   updateContact,
 } from "./contacts.ts";
-import type { Credentials } from "./crypto.ts";
+import { type Credentials, sha256 } from "./crypto.ts";
 import { db } from "./db.ts";
 import { contactEvents, syncContacts, syncSoon, syncStatus, syncsContacts } from "./contacts-sync.ts";
 import { FeedError } from "./feeds.ts";
@@ -227,6 +231,7 @@ export function createApp() {
       contacts: setting("contacts"),
       calendar: setting("calendar"),
       calendarFeeds: setting("calendar") && setting("calendarFeeds"),
+      calendarSecrets: setting("calendar") && setting("calendarSecrets"),
       filters: setting("filters") && !!config.managesieve,
       vacation: setting("vacation") && !!config.managesieve,
     }),
@@ -738,6 +743,14 @@ export function createApp() {
 
   calendar.post("/calendars/:id/refresh", async (c) => c.json({ calendar: await refreshFeed(c.get("rt").account.id, int(c.req.param("id"))) }));
 
+  // A secret address: { mode: "all" | "busy" }. POST makes one (or a new one in place of the
+  // old) and answers with its token, this once; PATCH changes what it shows; DELETE ends it.
+  calendar.post("/calendars/:id/secret", async (c) => c.json(await makeSecret(c.get("rt").account.id, int(c.req.param("id")), (await body(c)).mode)));
+  calendar.patch("/calendars/:id/secret", async (c) =>
+    c.json({ calendar: await setSecretMode(c.get("rt").account.id, int(c.req.param("id")), (await body(c)).mode) }),
+  );
+  calendar.delete("/calendars/:id/secret", async (c) => c.json({ calendar: await dropSecret(c.get("rt").account.id, int(c.req.param("id"))) }));
+
   calendar.patch("/calendars/:id", async (c) =>
     c.json({ calendar: await updateCalendar(c.get("rt").account.id, int(c.req.param("id")), await body(c)) }),
   );
@@ -985,6 +998,26 @@ export function createApp() {
   });
 
   app.all("/api/*", (c) => c.json({ error: "Not found." }, 404));
+
+  // ---------------------------------------------------------------- secret addresses
+
+  // A calendar's secret address, /ical/<token>.ics, for another app to fetch without signing
+  // in: the token is the only key. Answers 404 for any address that names nothing.
+  app.get("/ical/:file", async (c) => {
+    const m = /^(.+)\.ics$/.exec(c.req.param("file"));
+    const found = m ? await secretCalendar(m[1]) : null;
+    if (!found) return c.text("Not found.", 404);
+    const etag = `"${sha256(found.text).slice(0, 32)}"`;
+    const headers = {
+      "Content-Type": "text/calendar; charset=utf-8",
+      "Content-Disposition": contentDisposition("inline", `${found.name}.ics`),
+      "Cache-Control": "private, max-age=300",
+      ETag: etag,
+      "X-Robots-Tag": "noindex",
+    };
+    if (c.req.header("if-none-match") === etag) return new Response(null, { status: 304, headers });
+    return new Response(found.text, { headers });
+  });
 
   // ---------------------------------------------------------------- the web app
 

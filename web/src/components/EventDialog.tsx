@@ -6,7 +6,7 @@
 // them or they're set here. Kept apart from Calendar.tsx so that opening it from a
 // message doesn't load the calendar grid.
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, Globe, RefreshCw, Trash2 } from "lucide-react";
+import { Copy, Globe, KeyRound, RefreshCw, Trash2 } from "lucide-react";
 import { type FormEvent, useRef, useState } from "react";
 import { ui, useAccount } from "../lib/account";
 import { api } from "../lib/api";
@@ -29,9 +29,10 @@ import {
   weekdayOf,
   zoneOffset,
 } from "../lib/calendar";
-import { relative } from "../lib/format";
+import { useConfig } from "../lib/config";
+import { longDate, relative } from "../lib/format";
 import { toast } from "../lib/store";
-import type { CalendarInfo, EventInput, RepeatRule, Scope } from "../lib/types";
+import type { CalendarInfo, EventInput, RepeatRule, Scope, SecretMode } from "../lib/types";
 import { Modal } from "./common";
 
 type Draft = EventInput & {
@@ -458,9 +459,11 @@ export function CalendarDialog({ calendar }: { calendar?: CalendarInfo }) {
   const [color, setColor] = useState<string | undefined>(calendar?.color);
   const [busy, setBusy] = useState(false);
   const close = () => ui.set((s) => ({ ...s, calendarDialog: null }));
-  // The list's copy, which a refresh brings up to date.
-  const listed = useQuery({ queryKey: ["calendars", acct.index], queryFn: () => api.calendars(acct.index), enabled: !!calendar?.feed });
-  const feed = listed.data?.calendars.find((c) => c.id === calendar?.id)?.feed ?? calendar?.feed ?? null;
+  // The list's copy, which a refresh or a new secret address brings up to date.
+  const listed = useQuery({ queryKey: ["calendars", acct.index], queryFn: () => api.calendars(acct.index), enabled: !!calendar });
+  const current = listed.data?.calendars.find((c) => c.id === calendar?.id) ?? calendar;
+  const feed = current?.feed ?? null;
+  const secrets = useConfig().data?.calendarSecrets ?? false;
   const save = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
@@ -490,6 +493,8 @@ export function CalendarDialog({ calendar }: { calendar?: CalendarInfo }) {
           <button type="submit" className="btn btn-primary" disabled={!name.trim() || busy}>{calendar ? "Save" : "Create"}</button>
         </div>
       </form>
+      {/* Changes here apply at once, apart from Save. */}
+      {current && (secrets || current.secret) && <SecretAddress calendar={current} on={secrets} />}
     </Modal>
   );
 }
@@ -528,6 +533,97 @@ function FeedStatus({ calendarId, feed }: { calendarId: number; feed: NonNullabl
         <RefreshCw size={16} className={busy ? "spin" : ""} /> Refresh now
       </button>
     </div>
+  );
+}
+
+/**
+ * A calendar's secret address, for another app to show it read-only: made here, shown this
+ * once (only its hash is kept), whole or busy-only, made again to stop the old one, or off.
+ */
+function SecretAddress({ calendar, on }: { calendar: CalendarInfo; on: boolean }) {
+  const acct = useAccount();
+  const client = useQueryClient();
+  const [mode, setMode] = useState<SecretMode>(calendar.secret?.mode ?? "all");
+  const [made, setMade] = useState<string | null>(null);
+  const [renewing, setRenewing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const secret = calendar.secret;
+  const run = async (action: () => Promise<unknown>) => {
+    setBusy(true);
+    try {
+      await action();
+    } catch (err) {
+      toast((err as Error).message, { error: true });
+    } finally {
+      await client.invalidateQueries({ queryKey: ["calendars", acct.index] });
+      setBusy(false);
+    }
+  };
+  const make = () => run(async () => {
+    const r = await api.makeSecret(acct.index, calendar.id, mode);
+    setMade(api.secretUrl(r.token));
+    setRenewing(false);
+  });
+  const copy = (url: string) =>
+    navigator.clipboard.writeText(url).then(() => toast("Address copied."), () => toast("Couldn't copy: select the address and copy it.", { error: true }));
+  return (
+    <section className="secret-address" aria-labelledby={`secret-${calendar.id}`}>
+      <h3 id={`secret-${calendar.id}`}><KeyRound size={16} aria-hidden /> Secret address</h3>
+      {!on ? (
+        <p className="muted">Secret addresses are turned off on this server, so this calendar's doesn't work until they're on again.</p>
+      ) : made ? (
+        <>
+          <div className="secret-url">
+            <input className="text-input" readOnly aria-label="Secret address" value={made} onFocus={(e) => e.currentTarget.select()} />
+            <button type="button" className="btn btn-outline" onClick={() => void copy(made)}><Copy size={16} /> Copy</button>
+          </div>
+          <p className="dialog-text">
+            <strong>Copy it now.</strong> Viauna keeps only a fingerprint of it, so it can't show it again. Paste it into another app's
+            "add calendar from URL". Anyone who has it can see {mode === "busy" ? "when you're busy" : "this calendar"}, without signing in.
+          </p>
+        </>
+      ) : null}
+      {on && (
+        <label className="event-field">
+          <span>Shows</span>
+          <select className="text-input" value={mode} disabled={busy}
+            onChange={(e) => {
+              const next = e.target.value as SecretMode;
+              setMode(next);
+              if (secret) void run(() => api.setSecretMode(acct.index, calendar.id, next));
+            }}>
+            <option value="all">The whole calendar</option>
+            <option value="busy">Only when you're busy</option>
+          </select>
+        </label>
+      )}
+      {on && !secret && !made && (
+        <>
+          <p className="muted">Another app (your phone's calendar, Outlook, another calendar) can show this calendar from a secret address, read-only, and keep it up to date.</p>
+          <button type="button" className="btn btn-outline" disabled={busy} onClick={() => void make()}>Make a secret address</button>
+        </>
+      )}
+      {secret && (
+        <>
+          <p className="muted" title={longDate(secret.createdAt)}>
+            Made {relative(secret.createdAt)}. {secret.fetchedAt ? `Last fetched ${relative(secret.fetchedAt)}.` : "Not fetched yet."}
+          </p>
+          {renewing ? (
+            <div className="secret-confirm" role="group" aria-label="Make a new address">
+              <span>The address in use stops working at once. Apps using it stop updating until they're given the new one.</span>
+              <button type="button" className="btn btn-text" onClick={() => setRenewing(false)}>Keep it</button>
+              <button type="button" className="btn btn-danger" disabled={busy} onClick={() => void make()}>Make a new one</button>
+            </div>
+          ) : (
+            <div className="buttons secret-buttons">
+              {on && <button type="button" className="btn btn-outline" disabled={busy} onClick={() => setRenewing(true)}><RefreshCw size={16} /> Make a new address</button>}
+              <button type="button" className="btn btn-text" disabled={busy}
+                onClick={() => void run(async () => { await api.dropSecret(acct.index, calendar.id); setMade(null); })}>Turn off</button>
+            </div>
+          )}
+        </>
+      )}
+    </section>
   );
 }
 

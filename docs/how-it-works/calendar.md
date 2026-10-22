@@ -210,6 +210,30 @@ fetch on only if no one else has, so instances sharing a database don't both fet
 `CALENDAR`) off, nothing is fetched and these calendars are hidden; they come back as they
 were.
 
+## Secret addresses
+
+A calendar's secret address is `<your Viauna>/ical/<token>.ics`, where the token is 32
+random bytes (256 bits) in base64url. Only its SHA-256 is kept, so the address can't be
+shown again, nor read from a copy of the database; whoever asks with it gets the calendar,
+without signing in. Making a new one replaces the hash, so the old address stops at once.
+
+- **The whole calendar** is the calendar as **Export** makes it, the Birthdays calendar and
+  calendars from the web included, with the time zone of Settings > Calendar (UTC if
+  none) as `X-WR-TIMEZONE`.
+- **Only when you're busy** keeps of each busy event its `UID`, its times (`DTSTART`,
+  `DTEND`, `DURATION`), how it repeats (`RRULE`, `RDATE`, `EXDATE`) and `SEQUENCE`, with
+  `SUMMARY:Busy` and `CLASS:PRIVATE`. An event shown as free (`TRANSP:TRANSPARENT`) or
+  cancelled isn't included; an occurrence that's free or cancelled on its own is left out of
+  its series with an `EXDATE`, so its time isn't shown either.
+- Answers carry an `ETag`, and `If-None-Match` with it gets `304 Not Modified`;
+  `Cache-Control: private, max-age=300`, and `X-Robots-Tag: noindex`. An address that
+  names nothing, or a calendar that's hidden (the Birthdays calendar with Contacts off,
+  one from the web with those off), gets `404`.
+- When it was last fetched is noted, at most once a minute, for the calendar's settings.
+- With `CALENDAR_SECRET_ADDRESSES` (or `CALENDAR`) off, every address answers `404` and
+  none can be made; they work again when it's back on. Make a new one to be sure an old
+  one stays stopped.
+
 ## Undo and other pages
 
 - Moving, changing or deleting an event keeps it as it was, in memory, for 10 minutes;

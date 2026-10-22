@@ -158,6 +158,11 @@ export interface CalendarTable {
   fetched_at: number | null;
   fetch_error: string | null;
   next_fetch_at: number | null;
+  /** Its secret address: the sha256 of its token, whether it shows everything or only when busy, when made and last fetched. */
+  secret_hash: string | null;
+  secret_mode: "all" | "busy" | null;
+  secret_created_at: number | null;
+  secret_fetched_at: number | null;
   created_at: number;
   updated_at: number;
 }

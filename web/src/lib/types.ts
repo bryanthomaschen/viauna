@@ -154,6 +154,8 @@ export interface AppConfig {
   calendar: boolean;
   /** Calendars can be added from the web by their address. */
   calendarFeeds: boolean;
+  /** Calendars can have secret addresses. */
+  calendarSecrets: boolean;
   /** Filters and the vacation responder can be used (the mail server's ManageSieve). */
   filters: boolean;
   vacation: boolean;
@@ -351,7 +353,12 @@ export interface CalendarInfo {
   readOnly: boolean;
   /** From the web: its address, when it last came back and was last tried, and what went wrong. */
   feed: { url: string; fetchedAt: number | null; checkedAt: number | null; error: string | null } | null;
+  /** Its secret address, if it has one (never the address itself, which is shown once). */
+  secret: { mode: SecretMode; createdAt: number; fetchedAt: number | null } | null;
 }
+
+/** What a secret address shows: the whole calendar, or only when you're busy. */
+export type SecretMode = "all" | "busy";
 
 /** An event, or one occurrence of it, as the grid shows it. Timed: ISO instants. All-day: dates, the end exclusive. */
 export interface EventSummary {

@@ -595,6 +595,16 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
 .feed-status { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin: 10px 0; font-size: 13px; }
 .feed-status .feed-url { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 12px; }
 .feed-status .muted { color: var(--text-3); }
+.secret-address { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 13px; }
+.secret-address h3 { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 14px; font-weight: 500; }
+.secret-address .muted { color: var(--text-3); margin: 0; }
+.secret-address .event-field { align-self: stretch; }
+.secret-address .text-input { height: 36px; font-size: 13px; }
+.secret-url { display: flex; gap: 8px; align-self: stretch; }
+.secret-url .text-input { flex: 1; min-width: 0; font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 12px; }
+.secret-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.secret-confirm span { flex: 1 1 100%; color: var(--danger); }
+.secret-buttons { margin: 0; justify-content: flex-start; }
 .event-form .text-input { height: 40px; font-size: 14px; }
 .event-form textarea.text-input { height: auto; padding: 10px 14px; resize: vertical; font: inherit; font-size: 14px; }
 .event-form .event-title { height: 48px; font-size: 18px; }

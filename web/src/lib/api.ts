@@ -5,6 +5,7 @@ import type {
   EventInput,
   EventSummary,
   Scope,
+  SecretMode,
   AdminChange,
   AdminData,
   AdminSetting,
@@ -159,6 +160,12 @@ export const api = {
   deleteCalendar: (a: number, id: number) => request<{ ok: true }>("DELETE", `${u(a)}/calendar/calendars/${id}`),
   subscribeCalendar: (a: number, url: string) => request<{ calendar: CalendarInfo }>("POST", `${u(a)}/calendar/feeds`, { url }),
   refreshCalendar: (a: number, id: number) => request<{ calendar: CalendarInfo }>("POST", `${u(a)}/calendar/calendars/${id}/refresh`),
+  makeSecret: (a: number, id: number, mode: SecretMode) =>
+    request<{ token: string; calendar: CalendarInfo }>("POST", `${u(a)}/calendar/calendars/${id}/secret`, { mode }),
+  setSecretMode: (a: number, id: number, mode: SecretMode) =>
+    request<{ calendar: CalendarInfo }>("PATCH", `${u(a)}/calendar/calendars/${id}/secret`, { mode }),
+  dropSecret: (a: number, id: number) => request<{ calendar: CalendarInfo }>("DELETE", `${u(a)}/calendar/calendars/${id}/secret`),
+  secretUrl: (token: string) => `${location.origin}/ical/${token}.ics`,
   events: (a: number, from: string, to: string, zone: string) =>
     request<{ events: EventSummary[] }>("GET", `${u(a)}/calendar/events?${new URLSearchParams({ from, to, zone })}`),
   searchEvents: (a: number, q: string, zone: string) =>
