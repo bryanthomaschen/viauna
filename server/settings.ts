@@ -1,7 +1,7 @@
 // Per-mailbox settings, shared by every browser signed in to it. Kept in the state
 // store with the account, along with the senders whose images are always shown.
 import { EventEmitter } from "node:events";
-import { isZone } from "./icalendar.ts";
+import { type Reminder, isZone } from "./icalendar.ts";
 import { orIgnore, state } from "./state/db.ts";
 
 /** "changed" with the account id, when a mailbox's settings change (for other open tabs). */
@@ -31,6 +31,11 @@ export interface AccountSettings {
   weekStart: "auto" | "sunday" | "monday" | "saturday";
   /** How long a new event lasts, in minutes. */
   eventMinutes: 15 | 30 | 45 | 60 | 90 | 120;
+  /** The reminders a new event gets: timed, and all-day. */
+  reminders: Reminder[];
+  allDayReminders: Reminder[];
+  /** The zone a page last showed the calendar in, for reminders of all-day events when timeZone is "". Not shown. */
+  seenZone: string;
 }
 
 export const DEFAULT_SETTINGS: AccountSettings = {
@@ -43,7 +48,34 @@ export const DEFAULT_SETTINGS: AccountSettings = {
   secondTimeZone: "",
   weekStart: "auto",
   eventMinutes: 60,
+  reminders: [{ method: "notification", minutes: 10 }],
+  allDayReminders: [],
+  seenZone: "",
 };
+
+/** Fixed limits on reminders (docs/how-it-works/limits.md). */
+export const REMINDER_LIMITS = {
+  perEvent: 5,
+  /** Four weeks and a day before; for an all-day event, up to the end of its day after it starts. */
+  before: 41_760,
+  after: 1_439,
+};
+
+/** Checks reminders the page sent: at most 5, each shown or emailed, within four weeks; each once, earliest first. */
+export function cleanReminders(input: unknown): Reminder[] | { error: string } {
+  if (input === undefined || input === null) return [];
+  if (!Array.isArray(input) || input.length > REMINDER_LIMITS.perEvent) return { error: `An event can have at most ${REMINDER_LIMITS.perEvent} reminders.` };
+  const out: Reminder[] = [];
+  for (const r of input as { method?: unknown; minutes?: unknown }[]) {
+    const minutes = Number(r?.minutes);
+    if (r?.method !== "notification" && r?.method !== "email") return { error: "A reminder is a notification or an email." };
+    if (!Number.isInteger(minutes) || minutes > REMINDER_LIMITS.before || minutes < -REMINDER_LIMITS.after) {
+      return { error: "A reminder can be at most four weeks before the event." };
+    }
+    if (!out.some((x) => x.method === r.method && x.minutes === minutes)) out.push({ method: r.method, minutes });
+  }
+  return out.sort((a, b) => b.minutes - a.minutes || a.method.localeCompare(b.method));
+}
 
 export async function getSettings(accountId: number): Promise<AccountSettings> {
   const row = await state().selectFrom("accounts").select("settings").where("id", "=", accountId).executeTakeFirst();
@@ -100,9 +132,32 @@ export async function updateSettings(accountId: number, patch: Record<string, un
     const minutes = Number(patch.eventMinutes);
     next.eventMinutes = ([15, 30, 45, 60, 90, 120] as const).find((m) => m === minutes) ?? 60;
   }
+  for (const key of ["reminders", "allDayReminders"] as const) {
+    if (!(key in patch)) continue;
+    const reminders = cleanReminders(patch[key]);
+    if ("error" in reminders) return reminders;
+    next[key] = reminders;
+  }
   await state().updateTable("accounts").set({ settings: JSON.stringify(next) }).where("id", "=", accountId).execute();
   accountSettingsEvents.emit("changed", accountId);
   return next;
+}
+
+/**
+ * Notes the zone a page shows the calendar in, for reminders of all-day events when the
+ * mailbox has no zone of its own. Quietly: it isn't a setting anyone changed.
+ */
+export async function noteSeenZone(accountId: number, zone: string): Promise<void> {
+  if (!isZone(zone)) return;
+  const current = await getSettings(accountId);
+  if (current.seenZone === zone) return;
+  await state().updateTable("accounts").set({ settings: JSON.stringify({ ...current, seenZone: zone }) }).where("id", "=", accountId).execute();
+}
+
+/** The zone a mailbox's reminders are worked out in: its own, else the one last seen, else UTC. */
+export async function reminderZone(accountId: number): Promise<string> {
+  const s = await getSettings(accountId);
+  return s.timeZone || s.seenZone || "UTC";
 }
 
 /** Every address that is "me" for this account: the login address plus aliases. */

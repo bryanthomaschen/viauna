@@ -31,6 +31,7 @@ server/                Node (TypeScript, Hono)
   recurrence.ts        repeating events: occurrences, rules, this / following / all events
   calendar-file.ts     calendar files (.ics): split into events to import, built to export
   birthdays.ts         the Birthdays calendar: contacts' dates made into events, never stored
+  reminders.ts         reminders as they fall due: worked out per event, claimed, sent to every channel
   feeds.ts             fetching calendars from the web: public addresses only, limits, conditional requests
   vtimezone.ts         VTIMEZONE definitions for IANA zones, from the zone's own changes
   filters.ts           filters and the vacation responder: checking, loading, saving

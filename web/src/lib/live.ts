@@ -1,12 +1,42 @@
 // Server-sent events: the server pushes "this account's folders changed" and the
 // affected queries refetch. New mail appears within a second of arriving; contacts
 // synced from the CardDAV server appear when the sync ends; a calendar changed in another
-// tab or browser, at once.
+// tab or browser, at once; a reminder when it's due.
 import { type QueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
+import { ui } from "./account";
 import { refreshWhenSettled } from "./actions";
 import { refreshAccountSettings, refreshSettings } from "./config";
+import { calendarPath, navigate } from "./router";
 import { prefs, toast } from "./store";
+import type { ReminderNotice } from "./types";
+
+const HOUR12 = new Intl.DateTimeFormat(undefined, { hour: "numeric" }).resolvedOptions().hour12 ?? true;
+
+/** "Standup at 09:00 (in 10 min)", "Holiday tomorrow": a reminder as a notice says it, in the calendar's zone. */
+export function reminderLine(n: Pick<ReminderNotice, "title" | "allDay" | "start" | "zone">): string {
+  const title = n.title || "(No title)";
+  const zone = n.zone || undefined;
+  if (n.allDay) {
+    // Dates as YYYY-MM-DD in that zone (en-CA writes them so).
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: zone }).format(new Date());
+    const days = Math.round((Date.parse(n.start) - Date.parse(today)) / 86_400_000);
+    const when = days === 0 ? "today" : days === 1 ? "tomorrow"
+      : `on ${new Date(`${n.start}T00:00:00Z`).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" })}`;
+    return `${title} ${when}`;
+  }
+  const start = new Date(n.start);
+  const minutes = Math.round((start.getTime() - Date.now()) / 60_000);
+  const soon = minutes <= 0 ? "now" : minutes < 60 ? `in ${minutes} min` : null;
+  const at = start.toLocaleString(undefined, { ...(minutes < 18 * 60 ? {} : { weekday: "short" }), hour: HOUR12 ? "numeric" : "2-digit", minute: "2-digit", hour12: HOUR12, timeZone: zone });
+  return `${title} at ${at}${soon ? ` (${soon})` : ""}`;
+}
+
+/** Opens the event a reminder is for, on its day. */
+export function openReminder(n: Pick<ReminderNotice, "index" | "eventId" | "occurrence" | "start">) {
+  navigate(calendarPath(n.index, "day", n.start.slice(0, 10)));
+  ui.set((s) => ({ ...s, eventDialog: { id: n.eventId, occurrence: n.occurrence } }));
+}
 
 interface ChangeEvent {
   index: number;
@@ -62,6 +92,19 @@ export function useLiveUpdates(client: QueryClient, accountCount: number, onOpen
       source.addEventListener("calendar", (e) => {
         const { index } = JSON.parse((e as MessageEvent).data) as { index: number };
         for (const key of ["calendars", "events", "event", "calendar-search"]) void client.invalidateQueries({ queryKey: [key, index] });
+      });
+      // A reminder due: a notice here, and a desktop notification if they're on and the tab is in the background.
+      source.addEventListener("reminder", (e) => {
+        const n = JSON.parse((e as MessageEvent).data) as ReminderNotice;
+        toast(reminderLine(n), { action: { label: "Open", run: () => openReminder(n) }, ms: 10 * 60_000 });
+        if (prefs.get().notifications && document.hidden && "Notification" in window && Notification.permission === "granted") {
+          const shown = new Notification(n.title || "Reminder", { body: reminderLine(n), tag: `viauna-reminder-${n.eventId}-${n.occurrence ?? ""}-${n.at}` });
+          shown.onclick = () => {
+            window.focus();
+            openReminder(n);
+            shown.close();
+          };
+        }
       });
       source.addEventListener("contacts", (e) => {
         const { index } = JSON.parse((e as MessageEvent).data) as { index: number };

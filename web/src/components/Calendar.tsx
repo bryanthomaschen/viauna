@@ -29,7 +29,7 @@ import timeGridPlugin from "@fullcalendar/react/timegrid";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Temporal } from "temporal-polyfill";
 import {
-  ArrowLeft, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Copy, Download, EllipsisVertical, Eye, Globe, Link, MapPin, Pencil, Plus, RefreshCw, Repeat,
+  ArrowLeft, Bell, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Copy, Download, EllipsisVertical, Eye, Globe, Link, MapPin, Pencil, Plus, RefreshCw, Repeat,
   Settings, Text, Trash2, TriangleAlert, Upload, UserRound, Video, X,
 } from "lucide-react";
 import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
@@ -45,6 +45,7 @@ import {
   firstDay,
   formatWhen,
   instantToWall,
+  reminderText,
   repeatText,
   textOnColor,
   today,
@@ -725,6 +726,9 @@ function EventCard({ state, calendars, onClose, onChanged }: { state: CardState;
             </div>
           )}
           {d?.description && <div className="event-card-row event-description"><Text size={18} aria-hidden /><div>{linked(d.description)}</div></div>}
+          {!!d?.reminders?.length && (
+            <div className="event-card-row muted"><Bell size={18} aria-hidden /><div>{d.reminders.map((r) => <div key={`${r.method}${r.minutes}`}>{reminderText(r, d.allDay)}</div>)}</div></div>
+          )}
           {calendar && <div className="event-card-row muted"><CalendarDays size={18} aria-hidden /> {calendar.name}</div>}
         </Popover.Content>
       </Popover.Portal>

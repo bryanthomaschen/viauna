@@ -37,6 +37,11 @@ from public addresses, and shows it under **Other calendars** as it is there, so
 be changed here; **Duplicate** an event to keep your own copy. **Refresh now** fetches it
 at once, and a failed fetch says why. `CALENDAR_FEEDS` (or the admin page) turns it off.
 
+**Reminders**: an event can remind you minutes, hours, days or weeks before, or for an
+all-day event, days before at a time of day; new events get your usual ones, set in
+**Settings > Calendar**. A reminder shows in every page you have open, and as a desktop
+notification when they're on. Imported events' reminders are kept, and shown too.
+
 **A secret address** for any calendar, so another app (your phone, Outlook, another
 calendar) can show it read-only: the whole calendar, or only "Busy" at the times you're
 busy. Viauna keeps only a fingerprint of it; make a new one to stop the old one, and its

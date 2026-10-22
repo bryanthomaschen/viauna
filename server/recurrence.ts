@@ -541,8 +541,10 @@ function propagate(root: Component, before: ReturnType<typeof plainFields>, fiel
   for (const ov of overrideComponents(root)) {
     const theirs = plainFields(ov);
     const patch: Partial<ReturnType<typeof plainFields>> = {};
+    // Compared as JSON: reminders are a list.
+    const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
     for (const k of Object.keys(before) as (keyof typeof before)[]) {
-      if (theirs[k] === before[k] && fields[k] !== before[k]) (patch as Record<string, unknown>)[k] = fields[k];
+      if (same(theirs[k], before[k]) && !same(fields[k], before[k])) (patch as Record<string, unknown>)[k] = fields[k];
     }
     if (Object.keys(patch).length) {
       applyPlain(ov, patch);

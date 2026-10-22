@@ -76,7 +76,8 @@ import { attachmentList, editorHtml, render } from "./mail/render.ts";
 import { parseQuery, searchThreads } from "./mail/search.ts";
 import { type View, conversation, listThreads, parseView } from "./mail/views.ts";
 import { passwordChangeFor } from "./password.ts";
-import { accountSettingsEvents, getSettings, isTrustedSender, myAddresses, trustSender, updateSettings } from "./settings.ts";
+import { type Notice, reminderEvents } from "./reminders.ts";
+import { accountSettingsEvents, getSettings, isTrustedSender, myAddresses, noteSeenZone, trustSender, updateSettings } from "./settings.ts";
 
 type Env = {
   Bindings: HttpBindings;
@@ -774,9 +775,13 @@ export function createApp() {
     return c.json({ ok: true });
   });
 
-  calendar.get("/events", async (c) =>
-    c.json({ events: await eventsBetween(c.get("rt").account.id, c.req.query("from") ?? "", c.req.query("to") ?? "", zoneOf(c)) }),
-  );
+  calendar.get("/events", async (c) => {
+    const { account } = c.get("rt");
+    const events = await eventsBetween(account.id, c.req.query("from") ?? "", c.req.query("to") ?? "", zoneOf(c));
+    // The zone the calendar is shown in, for reminders of all-day events when the mailbox has none set.
+    void noteSeenZone(account.id, zoneOf(c)).catch(() => {});
+    return c.json({ events });
+  });
 
   // Before /events/:id, so "search" isn't taken for an id.
   calendar.get("/events/search", async (c) => c.json({ events: await searchEvents(c.get("rt").account.id, c.req.query("q") ?? "", zoneOf(c)) }));
@@ -935,6 +940,12 @@ export function createApp() {
         if (index !== undefined && !stream.aborted) void stream.writeSSE({ event: "calendar", data: JSON.stringify({ index }) });
       };
       calendarEvents.on("changed", onCalendar);
+      // A reminder due: the page shows it.
+      const onReminder = (notice: Notice) => {
+        const index = indexOf.get(notice.accountId);
+        if (index !== undefined && !stream.aborted) void stream.writeSSE({ event: "reminder", data: JSON.stringify({ index, ...notice }) });
+      };
+      reminderEvents.on("reminder", onReminder);
       // A setting changed (the admin page, the command line, another instance), or this
       // session's mailbox settings in another tab: the page refreshes what depends on it.
       const onSettings = () => {
@@ -949,6 +960,7 @@ export function createApp() {
       const closeAll = () => {
         contactEvents.off("changed", onContacts);
         calendarEvents.off("changed", onCalendar);
+        reminderEvents.off("reminder", onReminder);
         settingsEvents.off("changed", onSettings);
         accountSettingsEvents.off("changed", onAccountSettings);
         [...subs.keys()].forEach(unsubscribe);

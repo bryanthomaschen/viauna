@@ -7,11 +7,12 @@ import { browserZone, zoneOffset } from "../lib/calendar";
 import { useConfig } from "../lib/config";
 import { navigate, usePath } from "../lib/router";
 import { type Density, type Theme, prefs, toast } from "../lib/store";
-import type { Identity, Settings } from "../lib/types";
+import type { Identity, Reminder, Settings } from "../lib/types";
 import { IconButton, Modal, confirmDeleteFolder, confirmRemoveLabel } from "./common";
 import { EditorArea, FormatBar, useMailEditor } from "./Editor";
 import { MOD_KEY } from "./CommandMenu";
 import { FiltersTab, VacationSetting } from "./Filters";
+import { RemindersField } from "./Reminders";
 
 type Tab = "general" | "accounts" | "labels" | "folders" | "filters" | "calendar";
 
@@ -80,6 +81,17 @@ const ZONES: string[] = (() => {
   }
 })();
 
+/** Default reminders, saved a moment after the last change rather than at every keystroke. */
+function DefaultReminders({ label, saved, allDay, onSave }: { label: string; saved: Reminder[]; allDay: boolean; onSave: (r: Reminder[]) => Promise<void> }) {
+  const [value, setValue] = useState(saved);
+  useEffect(() => {
+    if (JSON.stringify(value) === JSON.stringify(saved)) return;
+    const t = setTimeout(() => void onSave(value), 800);
+    return () => clearTimeout(t);
+  }, [value]);
+  return <RemindersField label={label} value={value} allDay={allDay} email={false} onChange={setValue} />;
+}
+
 function CalendarSettings() {
   const acct = useAccount();
   const save = useSave();
@@ -125,6 +137,15 @@ function CalendarSettings() {
           <select value={s.eventMinutes} aria-label="Default event length" onChange={(e) => void save({ eventMinutes: Number(e.target.value) as Settings["eventMinutes"] })}>
             {[15, 30, 45, 60, 90, 120].map((m) => <option key={m} value={m}>{m < 60 ? `${m} minutes` : m === 60 ? "1 hour" : `${m / 60} hours`}</option>)}
           </select>
+        </div>
+      </div>
+      <div className="setting">
+        <div className="name">Notifications<small>The reminders a new event starts with. Each event can have its own.</small></div>
+        <div className="options reminder-defaults">
+          <span className="muted">For events at a time</span>
+          <DefaultReminders label="Notifications for events at a time" saved={s.reminders} allDay={false} onSave={(reminders) => save({ reminders })} />
+          <span className="muted">For all-day events</span>
+          <DefaultReminders label="Notifications for all-day events" saved={s.allDayReminders} allDay onSave={(allDayReminders) => save({ allDayReminders })} />
         </div>
       </div>
       <div className="setting">
@@ -194,7 +215,7 @@ function General() {
         </div>
       </div>
       <div className="setting">
-        <div className="name">Desktop notifications<small>Shown for new mail while this tab is in the background.</small></div>
+        <div className="name">Desktop notifications<small>Shown for new mail and calendar reminders while this tab is in the background.</small></div>
         <div className="options">
           <label>
             <input type="checkbox" checked={p.notifications} onChange={async (e) => {
@@ -203,7 +224,7 @@ function General() {
                 if (result !== "granted") return toast("Notifications are blocked for this site in your browser.", { error: true });
               }
               setPref("notifications", e.target.checked);
-            }} /> New mail notifications on
+            }} /> Desktop notifications on
           </label>
         </div>
       </div>

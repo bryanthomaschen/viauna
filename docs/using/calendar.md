@@ -106,6 +106,25 @@ repeats; which calendar; where; a video call link (Zoom, Google Meet, Teams, Jit
 other); a description; **Show as** busy or free; and a colour, which is the calendar's
 unless you pick another.
 
+## Reminders
+
+An event can remind you before it starts: under **Notifications** in the editor, so many
+minutes, hours, days or weeks before (up to four), or for an all-day event, so many days
+before at a time of day ("1 day before at 09:00", or 0 days for the morning of). An event
+can have up to 5. Its card lists them.
+
+A new event starts with your usual reminders, which you set in **Settings > Calendar >
+Notifications**, one list for events at a time and another for all-day events; out of the
+box, 10 minutes before for events at a time, and none for all-day ones. Ticking **All
+day** in the editor swaps one list for the other.
+
+When a reminder is due, every page you have open on the mailbox shows it at the bottom,
+with **Open**; with **Desktop notifications** on (**Settings > General**) and the tab in
+the background, your computer shows it too. Times are in your calendar's time zone.
+
+Reminders that came with an imported event are kept; those that show something are sent
+the same way. Calendars from the web and the Birthdays calendar don't remind.
+
 ## Repeating events
 
 **Repeats** offers the usual choices for the event's start date: daily; weekly on

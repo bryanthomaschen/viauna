@@ -74,7 +74,8 @@ Some settings follow your mailbox to every browser; others apply to this browser
 
 - **Send mail as** adds addresses you can send from, such as aliases your mail server
   lets you use.
-- **Desktop notifications** appear for new mail while the tab is in the background.
+- **Desktop notifications** appear for new mail and [calendar reminders](./calendar.md#reminders)
+  while the tab is in the background.
 - **Theme** follows your device by default; choose Light or Dark to fix it.
 - **Change password** (Settings > Accounts) appears if your server has set it up. It
   either opens your mail server's own page, or asks for your current and new password

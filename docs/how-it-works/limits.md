@@ -71,6 +71,9 @@ Limits built into Viauna. The ones you can change are settings: see
 | Events asked for at once | 400 days |
 | Search results | The newest 200 |
 | Undo | 10 minutes, and not after a restart |
+| Reminders on an event | 5, from four weeks before it (four weeks and a day for an all-day event) to the end of an all-day event's day |
+| A reminder that's late (Viauna was down) | Sent if at most 15 minutes late, else skipped |
+| Reminders looked for | Every 30 s |
 
 ## Calendars from the web
 

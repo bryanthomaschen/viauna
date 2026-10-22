@@ -305,6 +305,18 @@ export function migrations(dialect: Dialect): MigrationProvider {
         await db.schema.createIndex("calendars_secret").on("calendars").column("secret_hash").unique().execute();
       },
     },
+
+    // 0.6: reminders. Each event keeps when its next reminder is due, for the scheduler to
+    // find, and when it last looked, so a reminder is sent once. Events that may have one
+    // are due at once, for the first round to work out when (and send nothing past).
+    "0010_reminders": {
+      async up(db: Kysely<any>) {
+        await db.schema.alterTable("events").addColumn("alarm_at", "bigint").execute();
+        await db.schema.alterTable("events").addColumn("alarm_checked_at", "bigint").execute();
+        await db.schema.createIndex("events_alarm").on("events").column("alarm_at").execute();
+        await db.updateTable("events").set({ alarm_at: 0 }).where("ics", "like", "%BEGIN:VALARM%").execute();
+      },
+    },
   };
   return { getMigrations: async () => all };
 }

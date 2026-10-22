@@ -14,7 +14,7 @@ import { VERSION, setting } from "./config.ts";
 import { type ParsedFile, buildFile, busyOnly, parseFile } from "./calendar-file.ts";
 import { FEED_LIMITS, FeedError, feedUrl, fetchFeed } from "./feeds.ts";
 import { log } from "./log.ts";
-import { getSettings } from "./settings.ts";
+import { cleanReminders, getSettings } from "./settings.ts";
 import { contains, fold } from "./text.ts";
 import { randomToken, sha256 } from "./crypto.ts";
 import {
@@ -25,6 +25,7 @@ import {
   eventTimes,
   eventUid,
   fieldsOf,
+  hasReminders,
   instantIn,
   isZone,
   masterEvent,
@@ -352,6 +353,8 @@ export function cleanFields(input: unknown): EventFields {
   const video = str(o.video, LIMITS.video, "A video call link").trim();
   if (video && !/^https?:\/\/[^\s]+$/i.test(video)) throw new CalendarError("A video call link must start with https://.");
   const color = o.color === null || o.color === undefined || o.color === "" ? null : cleanColor(o.color);
+  const reminders = cleanReminders(o.reminders);
+  if ("error" in reminders) throw new CalendarError(reminders.error);
   return {
     title: str(o.title, LIMITS.title, "The title").replace(/\n/g, " ").trim(),
     allDay,
@@ -364,6 +367,7 @@ export function cleanFields(input: unknown): EventFields {
     busy: o.busy !== false,
     color,
     video: video || null,
+    reminders,
   };
 }
 
@@ -393,7 +397,19 @@ function indexed(root: Root) {
     start_at: span.start,
     end_at: span.end,
     all_day: times.start.kind === "date" ? 1 : 0,
+    // Due at once, for the scheduler to work out when (reminders.ts), from now on.
+    alarm_at: hasReminders(root) ? 0 : null,
+    alarm_checked_at: Date.now(),
   };
+}
+
+/** An email reminder goes to the mailbox's own address, which RFC 5545 has it name (ATTENDEE). */
+async function addressEmailReminders(accountId: number, root: Root): Promise<void> {
+  const alarms = root.getAllSubcomponents("vevent").flatMap((e) => e.getAllSubcomponents("valarm"))
+    .filter((a) => String(a.getFirstPropertyValue("action") ?? "").toUpperCase() === "EMAIL" && !a.hasProperty("attendee"));
+  if (!alarms.length) return;
+  const account = await state().selectFrom("accounts").select("email").where("id", "=", accountId).executeTakeFirst();
+  if (account) for (const a of alarms) a.addPropertyWithValue("attendee", `mailto:${account.email}`);
 }
 
 function parsed(ics: string): Root | null {
@@ -531,10 +547,17 @@ export async function getEvent(accountId: number, id: number, zone: string, occu
 export async function createEvent(accountId: number, calendarId: number, input: unknown, zone: string): Promise<EventDetail> {
   checkZone(zone);
   await eventsCalendar(accountId, calendarId);
+  const given = (input ?? {}) as Record<string, unknown>;
+  // Without reminders of its own, an event gets the mailbox's usual ones.
+  if (given.reminders === undefined) {
+    const s = await getSettings(accountId);
+    input = { ...given, reminders: given.allDay === true ? s.allDayReminders : s.reminders };
+  }
   const fields = cleanFields(input);
   const repeat = cleanRule((input as Record<string, unknown> | null)?.repeat, fields.start.slice(0, 10));
   const root = newEvent(fields, crypto.randomUUID(), PRODID);
   if (repeat) writeRule(masterEvent(root)!, root, repeat);
+  await addressEmailReminders(accountId, root);
   const now = Date.now();
   const uid = eventUid(root)!;
   await state()
@@ -579,9 +602,11 @@ export async function undoChange(accountId: number, token: string): Promise<bool
     await state().transaction().execute(async (trx) => {
       if (entry.remove.length) await trx.deleteFrom("events").where("account_id", "=", accountId).where("id", "in", entry.remove).execute();
       for (const row of entry.restore) {
-        const { id, account_id, ...rest } = row;
+        // Its reminders are worked out again from now, so none is sent twice.
+        const { id, account_id, ...was } = row;
+        const rest = { ...was, alarm_at: was.alarm_at === null ? null : 0, alarm_checked_at: Date.now() };
         const done = await trx.updateTable("events").set(rest).where("account_id", "=", account_id).where("id", "=", id).executeTakeFirst();
-        if (!Number(done.numUpdatedRows)) await trx.insertInto("events").values(row).execute();
+        if (!Number(done.numUpdatedRows)) await trx.insertInto("events").values({ ...row, ...rest }).execute();
       }
     });
   } catch (err) {
@@ -634,6 +659,8 @@ export async function updateEvent(accountId: number, id: number, input: Record<s
     if (err instanceof CalendarError) throw err;
     throw new CalendarError((err as Error).message);
   }
+  await addressEmailReminders(accountId, edited.root);
+  if (edited.split) await addressEmailReminders(accountId, edited.split);
   const now = Date.now();
   // A split leaves the event before the occurrence where it was; what follows is new,
   // and goes to the calendar asked for.
@@ -872,6 +899,8 @@ async function storeFeed(accountId: number, calendarId: number, file: ParsedFile
         continue;
       }
       kept.add(uid);
+      // A calendar from the web sends no reminders: they're its owner's, not yours.
+      Object.assign(columns, { alarm_at: null });
       const old = existing.get(uid);
       if (old?.ics === ics) continue;
       changes++;

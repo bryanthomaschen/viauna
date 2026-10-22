@@ -1,6 +1,7 @@
 import { serve } from "@hono/node-server";
 import { createApp } from "./app.ts";
 import { startFeedRefresher } from "./calendar.ts";
+import { startReminders } from "./reminders.ts";
 import { config } from "./config.ts";
 import { getServerSecret } from "./crypto.ts";
 import { stopAll } from "./imap/pool.ts";
@@ -18,8 +19,9 @@ if (!config.imap && !config.allowCustomServers) {
   log.warn("no mail server configured: set IMAP_HOST and SMTP_HOST (or ALLOW_CUSTOM_SERVERS=true)");
 }
 
-// Calendars from the web are fetched again when they're due.
+// Calendars from the web are fetched again when they're due, and reminders sent.
 const stopFeeds = startFeedRefresher();
+const stopReminders = startReminders();
 
 const server = serve({ fetch: createApp().fetch, port: config.port, hostname: config.host }, (info) => {
   log.info("listening", { host: info.address, port: info.port, imap: config.imap?.host ?? null });
@@ -29,6 +31,7 @@ async function shutdown(signal: string) {
   log.info("shutting down", { signal });
   server.close();
   stopFeeds();
+  stopReminders();
   await Promise.race([stopAll(), new Promise((r) => setTimeout(r, 5000))]);
   await stopListening().catch(() => {});
   await closeStorage().catch(() => {});

@@ -139,6 +139,32 @@ export interface Settings {
   weekStart: "auto" | "sunday" | "monday" | "saturday";
   /** How long a new event lasts, in minutes. */
   eventMinutes: 15 | 30 | 45 | 60 | 90 | 120;
+  /** The reminders a new event gets: timed, and all-day. */
+  reminders: Reminder[];
+  allDayReminders: Reminder[];
+}
+
+/** A notification or an email, so many minutes before an event starts (an all-day one's day starts at midnight; negative: after). */
+export interface Reminder {
+  method: "notification" | "email";
+  minutes: number;
+}
+
+/** A reminder that's due, as the live-update stream brings it. */
+export interface ReminderNotice {
+  index: number;
+  eventId: number;
+  occurrence: string | null;
+  method: Reminder["method"];
+  minutes: number;
+  at: number;
+  title: string;
+  allDay: boolean;
+  start: string;
+  end: string;
+  location: string;
+  video: string | null;
+  zone: string;
 }
 
 /** How this mailbox's password is changed here: the mail server's own page, or a form. */
@@ -411,6 +437,8 @@ export interface EventInput {
   busy: boolean;
   color: string | null;
   video: string | null;
+  /** Left out: the mailbox's usual ones. */
+  reminders?: Reminder[];
 }
 
 export interface EventDetail extends EventInput {

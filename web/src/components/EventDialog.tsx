@@ -34,6 +34,7 @@ import { longDate, relative } from "../lib/format";
 import { toast } from "../lib/store";
 import type { CalendarInfo, EventInput, RepeatRule, Scope, SecretMode } from "../lib/types";
 import { Modal } from "./common";
+import { RemindersField } from "./Reminders";
 
 type Draft = EventInput & {
   calendarId: number | null;
@@ -102,7 +103,9 @@ export function EventDialog({ id, occurrence, initial }: { id?: number; occurren
     if (id !== undefined) return null;
     const start = initial?.start ?? nextHalfHour(zone);
     const end = initial?.end ?? (initial?.allDay ? addDays(start, 1) : addMinutes(start, minutes, zone));
-    return { ...blank(start, end, zone), ...initial, start, end, zone: initial?.allDay ? null : zone, calendarId: initial?.calendarId ?? null };
+    // A new event starts with the mailbox's usual reminders, unless it's a copy.
+    const reminders = initial?.reminders ?? (initial?.allDay ? acct.settings?.allDayReminders : acct.settings?.reminders) ?? [];
+    return { ...blank(start, end, zone), ...initial, start, end, zone: initial?.allDay ? null : zone, calendarId: initial?.calendarId ?? null, reminders };
   });
   const [customOpen, setCustomOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -148,10 +151,13 @@ export function EventDialog({ id, occurrence, initial }: { id?: number; occurren
     }
   };
   const setAllDay = (allDay: boolean) => {
-    if (allDay) set({ allDay, start: date(d.start), end: addDays(date(d.end) < date(d.start) ? date(d.start) : date(d.end), 1) });
+    // A reminder so long before a time means nothing for a whole day, and the other way
+    // round: the event gets the usual ones for its new kind.
+    const reminders = (allDay ? acct.settings?.allDayReminders : acct.settings?.reminders) ?? [];
+    if (allDay) set({ allDay, start: date(d.start), end: addDays(date(d.end) < date(d.start) ? date(d.start) : date(d.end), 1), reminders });
     else {
       const start = `${date(d.start)}T09:00`;
-      set({ allDay, zone: startZone, start, end: addMinutes(start, minutes, startZone) });
+      set({ allDay, zone: startZone, start, end: addMinutes(start, minutes, startZone), reminders });
     }
   };
 
@@ -161,6 +167,7 @@ export function EventDialog({ id, occurrence, initial }: { id?: number; occurren
     const input: EventInput = {
       title: d.title, allDay: d.allDay, start: d.start, end: d.end, zone: d.allDay ? null : startZone, endZone: d.allDay || endZone === startZone ? null : endZone,
       location: d.location, description: d.description, busy: d.busy, color: d.color, video: d.video?.trim() || null, repeat: d.repeat,
+      reminders: d.reminders ?? [],
     };
     let scope: Scope | undefined;
     if (loaded?.recurring) {
@@ -261,6 +268,10 @@ export function EventDialog({ id, occurrence, initial }: { id?: number; occurren
           onChange={(e) => set({ video: e.target.value })} />
         <textarea className="text-input" aria-label="Description" placeholder="Add description" rows={4} value={d.description} maxLength={20000}
           onChange={(e) => set({ description: e.target.value })} />
+        <div className="event-field event-reminders">
+          <span id="event-reminders">Notifications</span>
+          <RemindersField value={d.reminders ?? []} onChange={(reminders) => set({ reminders })} allDay={d.allDay} email={false} />
+        </div>
         <label className="event-field">
           <span>Show as</span>
           <select className="text-input" value={d.busy ? "busy" : "free"} onChange={(e) => set({ busy: e.target.value === "busy" })}>

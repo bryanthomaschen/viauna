@@ -182,6 +182,9 @@ export interface EventTable {
   all_day: number;
   created_at: number;
   updated_at: number;
+  /** When its next reminder is due (0: work it out now), and when they were last looked at; null: none. */
+  alarm_at: number | null;
+  alarm_checked_at: number | null;
 }
 
 export interface StateSchema {

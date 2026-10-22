@@ -28,6 +28,7 @@ const fields = (over: Partial<EventFields> = {}): EventFields => ({
   color: null,
   video: null,
   endZone: null,
+  reminders: [],
   ...over,
 });
 
@@ -202,5 +203,47 @@ describe("iCalendar events", () => {
     const root = parseCalendar(event("DTSTART;TZID=Asia/Singapore:20261021T090000", "DTEND;TZID=Asia/Singapore:20261021T100000"));
     const times = eventTimes(masterEvent(root)!, root)!;
     expect(times.start).toEqual({ kind: "instant", ms: Date.parse("2026-10-21T01:00:00Z"), zone: "Asia/Singapore" });
+  });
+});
+
+describe("reminders", () => {
+  // As Google exports them, with an alarm of a kind Viauna doesn't edit (after the end).
+  const GOOGLE = ics(
+    "BEGIN:VEVENT", "UID:r1", "DTSTAMP:20261001T000000Z", "DTSTART;TZID=Asia/Singapore:20261021T120000", "DTEND;TZID=Asia/Singapore:20261021T130000", "SUMMARY:Lunch",
+    "BEGIN:VALARM", "ACTION:DISPLAY", "DESCRIPTION:This is an event reminder", "TRIGGER:-P0DT0H30M0S", "END:VALARM",
+    "BEGIN:VALARM", "ACTION:EMAIL", "DESCRIPTION:This is an event reminder", "SUMMARY:Alarm notification", "ATTENDEE:mailto:me@example.test", "TRIGGER:-P1D", "END:VALARM",
+    "BEGIN:VALARM", "ACTION:DISPLAY", "DESCRIPTION:After", "TRIGGER;RELATED=END:PT5M", "END:VALARM",
+    "END:VEVENT",
+  );
+
+  it("reads the reminders before an event starts, shown or emailed, earliest first", () => {
+    expect(readFields(parseCalendar(GOOGLE), "Asia/Singapore")?.reminders).toEqual([
+      { method: "email", minutes: 1440 },
+      { method: "notification", minutes: 30 },
+    ]);
+  });
+
+  it("writes them as alarms, and leaves the kinds it doesn't edit alone", () => {
+    const root = parseCalendar(GOOGLE);
+    applyFields(root, fields({ reminders: [{ method: "notification", minutes: 10 }] }));
+    const out = serialize(root);
+    expect(out).toContain("BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER:-PT10M\r\nDESCRIPTION:Reminder\r\nEND:VALARM");
+    expect(out).toContain("TRIGGER;RELATED=END:PT5M");
+    expect(out).not.toContain("-P1D");
+    expect(readFields(parseCalendar(out), "Asia/Singapore")?.reminders).toEqual([{ method: "notification", minutes: 10 }]);
+  });
+
+  it("leaves reminders that didn't change exactly as they were written", () => {
+    const root = parseCalendar(GOOGLE);
+    applyFields(root, fields({ title: "Lunch!", reminders: [{ method: "notification", minutes: 30 }, { method: "email", minutes: 1440 }] }));
+    const out = serialize(root);
+    expect(out).toContain("TRIGGER:-P0DT0H30M0S");
+    expect(out).toContain("SUMMARY:Alarm notification");
+  });
+
+  it("writes an all-day event's reminder from the start of its day", () => {
+    const root = newEvent(fields({ allDay: true, start: "2026-10-21", end: "2026-10-22", zone: null, reminders: [{ method: "email", minutes: 900 }] }), "r2", "-//Test//EN");
+    const out = serialize(root);
+    expect(out).toContain("ACTION:EMAIL\r\nTRIGGER:-PT15H\r\nSUMMARY:Reminder\r\nDESCRIPTION:Reminder");
   });
 });

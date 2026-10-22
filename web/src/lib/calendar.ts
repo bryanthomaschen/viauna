@@ -5,7 +5,7 @@
 import { Temporal } from "temporal-polyfill";
 import { ui, useAccount } from "./account";
 import type { CalendarView } from "./router";
-import type { RepeatRule, Scope, Settings, Weekday } from "./types";
+import type { Reminder, RepeatRule, Scope, Settings, Weekday } from "./types";
 
 export const browserZone = (): string => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 
@@ -194,4 +194,52 @@ export function sameRule(a: RepeatRule | null, b: RepeatRule | null): boolean {
  */
 export function askScope(action: "change" | "delete", ruleChanged = false): Promise<Scope | null> {
   return new Promise((resolve) => ui.set((s) => ({ ...s, scopeDialog: { action, ruleChanged, resolve } })));
+}
+
+// ---------------------------------------------------------------- reminders
+
+export type ReminderUnit = "minutes" | "hours" | "days" | "weeks";
+const UNIT_MINUTES: Record<ReminderUnit, number> = { minutes: 1, hours: 60, days: 1440, weeks: 10080 };
+
+/** A timed event's reminder as the editor shows it: so many of the largest unit that fits. */
+export function splitTimed(minutes: number): { amount: number; unit: ReminderUnit } {
+  for (const unit of ["weeks", "days", "hours"] as const) {
+    if (minutes > 0 && minutes % UNIT_MINUTES[unit] === 0) return { amount: minutes / UNIT_MINUTES[unit], unit };
+  }
+  return { amount: minutes, unit: "minutes" };
+}
+
+export const joinTimed = (amount: number, unit: ReminderUnit) => amount * UNIT_MINUTES[unit];
+
+/** An all-day event's reminder: so many days (or weeks) before, at a time of day (minutes after midnight). */
+export function splitAllDay(minutes: number): { amount: number; unit: "days" | "weeks"; time: number } {
+  const days = Math.max(0, Math.ceil(minutes / 1440));
+  const time = days * 1440 - minutes;
+  return days > 0 && days % 7 === 0 ? { amount: days / 7, unit: "weeks", time } : { amount: days, unit: "days", time };
+}
+
+export const joinAllDay = (amount: number, unit: "days" | "weeks", time: number) => amount * (unit === "weeks" ? 7 : 1) * 1440 - time;
+
+const HOUR12 = new Intl.DateTimeFormat(undefined, { hour: "numeric" }).resolvedOptions().hour12 ?? true;
+/** "09:00" or "9:00 AM", as the browser writes a time of day given in minutes after midnight. */
+export const timeOfDay = (minutes: number) =>
+  new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit", hour12: HOUR12, timeZone: "UTC" }).format(Date.UTC(2000, 0, 1, 0, minutes));
+
+const plural = (n: number, word: string) => `${n} ${n === 1 ? word.replace(/s$/, "") : word}`;
+
+/** "10 minutes before", "1 day before at 09:00", "On the day at 09:00"; "Email, …" for an email. */
+export function reminderText(r: Reminder, allDay: boolean): string {
+  let when: string;
+  if (allDay) {
+    const { amount, unit, time } = splitAllDay(r.minutes);
+    when = amount === 0 ? `On the day at ${timeOfDay(time)}` : `${plural(amount, unit)} before at ${timeOfDay(time)}`;
+  } else if (r.minutes === 0) {
+    when = "As it starts";
+  } else if (r.minutes < 0) {
+    when = `${plural(-r.minutes, "minutes")} after it starts`;
+  } else {
+    const { amount, unit } = splitTimed(r.minutes);
+    when = `${plural(amount, unit)} before`;
+  }
+  return r.method === "email" ? `Email, ${when[0].toLowerCase()}${when.slice(1)}` : when;
 }

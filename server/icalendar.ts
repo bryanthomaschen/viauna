@@ -1,8 +1,8 @@
 // Events as iCalendar (RFC 5545), read and written through ical.js without losing
 // anything. An event is the iCalendar object for its UID, kept as it came; Viauna edits
 // only the fields it shows (title, times, place, description, busy or free, colour, video
-// link, how it repeats) and leaves the rest (another app's own properties, guests,
-// alarms) as they were. Times stay the iCalendar way, a wall-clock time and the time zone
+// link, reminders, how it repeats) and leaves the rest (another app's own properties,
+// guests, alarms of kinds it doesn't edit) as they were. Times stay the iCalendar way, a wall-clock time and the time zone
 // it's in, and Temporal works out the instant. How an event repeats is recurrence.ts.
 //
 // A time zone is written as its IANA name (TZID=Europe/London) with no VTIMEZONE, as
@@ -21,6 +21,12 @@ export const COLORS = [
   "dodgerblue", "royalblue", "slateblue", "darkorchid", "sienna", "dimgray",
 ] as const;
 
+/** A reminder: shown as a notification or sent by email, so many minutes before the event starts (negative: after). */
+export interface Reminder {
+  method: "notification" | "email";
+  minutes: number;
+}
+
 /** The fields Viauna shows and edits, but for how it repeats (recurrence.ts). */
 export interface EventFields {
   title: string;
@@ -38,6 +44,8 @@ export interface EventFields {
   busy: boolean;
   color: string | null;
   video: string | null;
+  /** Earliest first. */
+  reminders: Reminder[];
 }
 
 /** When something happens, as the event says it. */
@@ -247,7 +255,7 @@ const text = (event: Component, name: string): string => {
 // The video link: RFC 7986's CONFERENCE first, then what Google and Teams write instead.
 const VIDEO_PROPS = ["conference", "x-google-conference", "x-microsoft-skypeteamsmeetingurl", "x-microsoft-onlinemeetingconflink"];
 
-function videoProperty(event: Component): Property | null {
+export function videoProperty(event: Component): Property | null {
   for (const name of VIDEO_PROPS) {
     const found = event.getAllProperties(name).find((p) => /^https?:\/\//i.test(String(p.getFirstValue() ?? "")));
     if (found) return found;
@@ -271,6 +279,7 @@ export function fieldsOf(event: Component, times: EventTimes, zone: string): Eve
     busy: text(event, "transp").toUpperCase() !== "TRANSPARENT",
     color: color || null,
     video: (videoProperty(event)?.getFirstValue() as string | undefined) ?? null,
+    reminders: readReminders(event),
   };
 }
 
@@ -376,6 +385,59 @@ function applyVideo(event: Component, url: string | null) {
   event.addProperty(p);
 }
 
+// ---------------------------------------------------------------- reminders
+
+/**
+ * An alarm as a reminder Viauna edits: one shown (DISPLAY, or AUDIO, which a page can't
+ * play) or emailed (EMAIL), so long before or after the event starts. Others (after its
+ * end, at a set time, a program to run) are kept as they are, and not sent.
+ */
+function reminderOf(alarm: Component): Reminder | null {
+  const action = String(alarm.getFirstPropertyValue("action") ?? "").toUpperCase();
+  const method = action === "EMAIL" ? "email" : action === "DISPLAY" || action === "AUDIO" ? "notification" : null;
+  const trigger = alarm.getFirstProperty("trigger");
+  const value = trigger?.getFirstValue();
+  if (!method || !trigger || !(value instanceof ICAL.Duration)) return null;
+  if (String(trigger.getParameter("related") ?? "START").toUpperCase() !== "START") return null;
+  return { method, minutes: Math.round(-value.toSeconds() / 60) };
+}
+
+const byTime = (a: Reminder, b: Reminder) => b.minutes - a.minutes || a.method.localeCompare(b.method);
+
+/** An event's reminders, earliest first, each once. */
+export function readReminders(event: Component): Reminder[] {
+  const out: Reminder[] = [];
+  for (const alarm of event.getAllSubcomponents("valarm")) {
+    const r = reminderOf(alarm);
+    if (r && !out.some((x) => x.method === r.method && x.minutes === r.minutes)) out.push(r);
+  }
+  return out.sort(byTime);
+}
+
+/** Whether any of an object's events has a reminder Viauna sends. */
+export function hasReminders(root: Component): boolean {
+  return root.getAllSubcomponents("vevent").some((e) => e.getAllSubcomponents("valarm").some((a) => reminderOf(a) !== null));
+}
+
+/**
+ * Sets an event's reminders: those Viauna edits replaced, if they changed, by alarms as
+ * RFC 5545 has them (DISPLAY with a DESCRIPTION; EMAIL with a SUMMARY and DESCRIPTION, and
+ * the address it goes to added when it's saved); the rest left alone.
+ */
+function applyReminders(event: Component, reminders: Reminder[]) {
+  const same = (a: Reminder[]) => JSON.stringify([...a].sort(byTime));
+  if (same(readReminders(event)) === same(reminders)) return;
+  for (const alarm of event.getAllSubcomponents("valarm")) if (reminderOf(alarm)) event.removeSubcomponent(alarm);
+  for (const r of reminders) {
+    const alarm = new ICAL.Component("valarm");
+    alarm.addPropertyWithValue("action", r.method === "email" ? "EMAIL" : "DISPLAY");
+    alarm.addPropertyWithValue("trigger", ICAL.Duration.fromSeconds(-r.minutes * 60));
+    if (r.method === "email") alarm.addPropertyWithValue("summary", "Reminder");
+    alarm.addPropertyWithValue("description", "Reminder");
+    event.addSubcomponent(alarm);
+  }
+}
+
 /** The fields other than times, as they are in an event. */
 export function plainFields(event: Component) {
   return {
@@ -385,6 +447,7 @@ export function plainFields(event: Component) {
     busy: text(event, "transp").toUpperCase() !== "TRANSPARENT",
     color: text(event, "color").toLowerCase() || null,
     video: (videoProperty(event)?.getFirstValue() as string | undefined) ?? null,
+    reminders: readReminders(event),
   };
 }
 
@@ -396,6 +459,7 @@ export function applyPlain(event: Component, fields: Partial<ReturnType<typeof p
   if (fields.busy !== undefined) event.updatePropertyWithValue("transp", fields.busy ? "OPAQUE" : "TRANSPARENT");
   if (fields.color !== undefined) setText(event, "color", fields.color ?? "");
   if (fields.video !== undefined) applyVideo(event, fields.video);
+  if (fields.reminders !== undefined) applyReminders(event, fields.reminders);
 }
 
 /** Marks an event as changed now, and as a new version if its time changed (RFC 5546). */

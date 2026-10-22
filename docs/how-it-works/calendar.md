@@ -105,6 +105,35 @@ Deleting: **this event** adds it to the dates left out (and removes its own `VEV
 left, deletes the event. A new rule can't be for one occurrence, and one occurrence can't
 move to another calendar: those are for this and following events, or all of them.
 
+## Reminders
+
+A reminder is an alarm (`VALARM`) in its event, as RFC 5545 has it: `ACTION:DISPLAY`
+with a `DESCRIPTION`, and a `TRIGGER` some time before (`-PT10M`) or after the start. An
+all-day event's starts at midnight, so "1 day before at 09:00" is `-PT15H`. Viauna reads
+and edits the alarms that fire relative to the start and show something (`DISPLAY`, or
+`AUDIO`, which a page can't play, so it's shown) or send an email (`EMAIL`). Others (after
+the end, at a set time, or running a program) are kept as they are, and not sent;
+`REPEAT` isn't followed. An occurrence changed on its own has its own alarms. Alarms
+nobody changed stay exactly as written.
+
+**Sending.** Each event keeps when its next reminder is due. Saving an event sets that to
+"now", for the scheduler to work out; every 30 seconds it takes the events whose time has
+come, claiming each first (as calendars from the web are claimed, so instances sharing a
+database don't both send), sends the reminders that came due since it last looked, and
+works out the next, looking up to 62 days ahead and again after that. A reminder that came
+due while Viauna wasn't running is sent if it's at most 15 minutes late, and skipped after
+that. Events in calendars from the web don't remind (their alarms are their owner's), and
+the Birthdays calendar has none.
+
+Times are worked out in the mailbox's time zone, from **Settings > Calendar**, or if that's
+the device's, the zone the calendar was last shown in, or UTC until it has been. That
+matters for all-day and floating events; an event in a zone of its own reminds at its
+time there.
+
+**On the page**: a due reminder goes to every page open on the mailbox over the
+[live-update stream](./live-updates.md), as `reminder`. Upgrading from 0.5, events that
+already had alarms are looked at on the first round, and nothing past is sent.
+
 ## Calendar files
 
 **Importing** a file splits it into events: every `VEVENT` with the same `UID` (the event
