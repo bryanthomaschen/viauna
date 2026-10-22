@@ -183,6 +183,24 @@ describe.skipIf(!enabled)("in a browser", { timeout: 30_000 }, () => {
       if (groups[0] !== "Go to") throw new Error(`groups: ${groups.join(", ")}`);
     });
 
+    it("scrolls with the mouse wheel when its commands don't fit", async () => {
+      // A short window, so the commands can't all fit.
+      await page.setViewportSize({ width: 1280, height: 500 });
+      try {
+        await inbox();
+        await press("Control+k");
+        await until(menuOpen, "the menu");
+        const list = page.locator("[cmdk-list]");
+        const box = (await list.boundingBox())!;
+        await page.mouse.move(box.x + box.width / 2, box.y + Math.min(box.height, 200) / 2);
+        await page.mouse.wheel(0, 300);
+        await until(() => list.evaluate((l) => l.scrollTop > 0), "the wheel to scroll the list");
+        await press("Escape");
+      } finally {
+        await page.setViewportSize({ width: 1280, height: 900 });
+      }
+    });
+
     it("acts on the selection, and z undoes it", async () => {
       await inbox();
       const before = (await rows()).length;

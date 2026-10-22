@@ -390,9 +390,11 @@ a { color: var(--primary); }
 
 /* The command menu (CommandMenu.tsx, cmdk). */
 .cmdk { position: fixed; top: 12vh; left: 50%; transform: translateX(-50%); width: min(640px, calc(100vw - 32px)); max-height: 70vh; display: flex; flex-direction: column; background: var(--surface); color: var(--text); border-radius: 16px; box-shadow: var(--shadow-2); z-index: 91; overflow: hidden; animation: fade .08s ease-out; }
+/* cmdk puts its root between the dialog and the list: both shrink to the 70vh, so the list scrolls. */
+.cmdk [cmdk-root] { display: flex; flex-direction: column; min-height: 0; }
 .cmdk-input { display: flex; align-items: center; gap: 12px; padding: 0 16px; border-bottom: 1px solid var(--border); color: var(--text-2); }
 .cmdk-input input { flex: 1; min-width: 0; height: 52px; border: 0; outline: none; background: transparent; color: var(--text); font: inherit; font-size: 16px; }
-.cmdk [cmdk-list] { overflow-y: auto; overscroll-behavior: contain; padding: 6px 0 8px; }
+.cmdk [cmdk-list] { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 6px 0 8px; }
 .cmdk [cmdk-group-heading] { padding: 10px 16px 4px; font-size: 12px; font-weight: 500; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cmdk [cmdk-item] { display: flex; align-items: center; gap: 12px; min-height: 36px; padding: 0 16px; margin: 0 6px; border-radius: 8px; cursor: pointer; font-size: 14px; user-select: none; }
 .cmdk [cmdk-item] svg { color: var(--text-2); flex-shrink: 0; }

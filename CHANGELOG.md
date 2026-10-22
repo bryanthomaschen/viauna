@@ -35,6 +35,8 @@ any calendar, with the time zone definitions Outlook needs. See
 ### Also
 
 - Search: `rfc822msgid:` finds a message by its Message-ID.
+- The command menu scrolls with the mouse wheel when its commands don't fit; only the
+  keyboard could reach the ones below.
 
 ### Upgrading from 0.5
 
