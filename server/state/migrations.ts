@@ -5,6 +5,7 @@
 // Timestamps are milliseconds since the epoch, so they need 64 bits.
 import { type ColumnDefinitionBuilder, type Kysely, sql } from "kysely";
 import type { Migration, MigrationProvider } from "kysely/migration";
+import { cardIndex, parseVCards } from "../vcard.ts";
 import type { Dialect } from "./db.ts";
 
 export function migrations(dialect: Dialect): MigrationProvider {
@@ -205,6 +206,63 @@ export function migrations(dialect: Dialect): MigrationProvider {
           .addForeignKeyConstraint("events_account", ["account_id"], "accounts", ["id"], (fk) => fk.onDelete("cascade"))
           .execute();
         await db.schema.createIndex("events_range").on("events").columns(["account_id", "start_at"]).execute();
+      },
+    },
+
+    // 0.6: contacts' labels (CATEGORIES) and dates (birthdays, anniversaries and others),
+    // kept beside each card like its addresses: labels to filter by and suggest, dates for
+    // the Birthdays calendar. Filled from the cards already here, whose search text is
+    // made again too, now with nicknames in it.
+    "0006_contact_details": {
+      async up(db: Kysely<any>) {
+        await table(db, "contact_labels")
+          .addColumn("contact_id", "integer", (c) => c.notNull())
+          .addColumn("account_id", "integer", (c) => c.notNull())
+          .addColumn("position", "integer", (c) => c.notNull())
+          .addColumn("label", "varchar(100)", (c) => c.notNull())
+          .addColumn("label_key", "varchar(100)", (c) => c.notNull()) // folded, so "church" and "Church" are one label
+          .addPrimaryKeyConstraint("contact_labels_pk", ["contact_id", "position"])
+          .addForeignKeyConstraint("contact_labels_contact", ["contact_id"], "contacts", ["id"], (fk) => fk.onDelete("cascade"))
+          .execute();
+        await db.schema.createIndex("contact_labels_key").on("contact_labels").columns(["account_id", "label_key"]).execute();
+
+        await table(db, "contact_dates")
+          .addColumn("contact_id", "integer", (c) => c.notNull())
+          .addColumn("account_id", "integer", (c) => c.notNull())
+          .addColumn("position", "integer", (c) => c.notNull())
+          .addColumn("kind", "varchar(16)", (c) => c.notNull()) // birthday, anniversary or other
+          .addColumn("label", "varchar(100)", (c) => c.notNull()) // an other date's own words
+          .addColumn("year", "integer") // null: not known
+          .addColumn("month", "integer", (c) => c.notNull())
+          .addColumn("day", "integer", (c) => c.notNull())
+          .addPrimaryKeyConstraint("contact_dates_pk", ["contact_id", "position"])
+          .addForeignKeyConstraint("contact_dates_contact", ["contact_id"], "contacts", ["id"], (fk) => fk.onDelete("cascade"))
+          .execute();
+        await db.schema.createIndex("contact_dates_account").on("contact_dates").column("account_id").execute();
+
+        for (let after = 0; ; ) {
+          const rows = await db.selectFrom("contacts").select(["id", "account_id", "vcard"]).where("id", ">", after).orderBy("id").limit(500).execute();
+          if (!rows.length) break;
+          after = rows[rows.length - 1].id;
+          for (const row of rows) {
+            const card = parseVCards(row.vcard)[0];
+            if (!card) continue;
+            const index = cardIndex(card);
+            await db.updateTable("contacts").set({ search: index.search }).where("id", "=", row.id).execute();
+            if (index.labels.length) {
+              await db
+                .insertInto("contact_labels")
+                .values(index.labels.map((l, position) => ({ contact_id: row.id, account_id: row.account_id, position, label: l.label, label_key: l.key })))
+                .execute();
+            }
+            if (index.dates.length) {
+              await db
+                .insertInto("contact_dates")
+                .values(index.dates.map((d, position) => ({ contact_id: row.id, account_id: row.account_id, position, ...d })))
+                .execute();
+            }
+          }
+        }
       },
     },
   };

@@ -114,7 +114,7 @@ function ShellInner({ route, appName }: { route: Route; appName: string }) {
         <main className="main">
           {route.name === "settings" || route.name === "contacts" || route.name === "calendar" ? (
             <Suspense fallback={loading}>
-              {route.name === "settings" ? <SettingsView /> : route.name === "contacts" ? <ContactsView /> : <CalendarMain route={route} />}
+              {route.name === "settings" ? <SettingsView /> : route.name === "contacts" ? <ContactsView label={route.contactsLabel} /> : <CalendarMain route={route} />}
             </Suspense>
           ) : route.thread !== null ? (
             <ConversationView key={`${route.account}:${route.thread}`} route={route} />

@@ -1,9 +1,11 @@
 // vCard (RFC 6350 for 4.0, RFC 2426 for 3.0, and 2.1 as Outlook and old phones still
 // write it), read and written without losing anything. A card is its list of
-// properties, kept as they came; Viauna edits only the fields it shows (names,
-// addresses, phones, organisation, title, birthday, notes) and leaves the rest (photos,
-// postal addresses, other apps' own fields) for whichever app wrote them. 2.1 cards are
-// brought up to 3.0 on the way in, since nothing reads 2.1's quoted-printable well.
+// properties, kept as they came; Viauna edits only the fields it shows (names, nickname,
+// addresses, phones, organisation, title, birthday and other dates, labels, notes) and
+// leaves the rest (photos, postal addresses, other apps' own fields) for whichever app
+// wrote them. 2.1 cards are brought up to 3.0 on the way in, since nothing reads 2.1's
+// quoted-printable well.
+import { fold } from "./text.ts";
 
 export interface Param {
   name: string;
@@ -28,11 +30,18 @@ export interface VCard {
 export interface ContactFields {
   firstName: string;
   lastName: string;
+  /** NICKNAME's names, joined with ", ": matched while writing, never sent. */
+  nickname: string;
   emails: { address: string; label: string }[];
   phones: { number: string; label: string }[];
   organization: string;
   title: string;
+  /** "1990-05-12", or "--05-12" when the year isn't known; another app's own wording, as it wrote it. */
   birthday: string;
+  /** Anniversaries and other dates, labelled "anniversary", "other" or in the person's own words. */
+  dates: { date: string; label: string }[];
+  /** What the person is to you (CATEGORIES): shown only in Viauna, never sent. */
+  labels: string[];
   notes: string;
 }
 
@@ -214,6 +223,96 @@ const text = (card: VCard, name: string) => {
   return prop ? unescapeText(prop.value).trim() : "";
 };
 
+/** A text list's values (NICKNAME, CATEGORIES): split at commas that aren't escaped. */
+function listValues(card: VCard, name: string): string[] {
+  return card.props
+    .filter((p) => p.name === name)
+    .flatMap((p) => p.value.split(/(?<!\\),/))
+    .map((v) => unescapeText(v).trim())
+    .filter(Boolean);
+}
+
+// ------------------------------------------------------------ dates
+
+/** A date in a card, with its year or without (a day that comes round every year). */
+export interface CardDate {
+  year: number | null;
+  month: number;
+  day: number;
+}
+
+const DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+const leap = (year: number) => year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+export const daysInMonth = (year: number | null, month: number) => (month === 2 && (year === null || leap(year)) ? 29 : DAYS[month - 1]);
+
+/**
+ * Reads a date as apps write it: 1990-05-12 or 19900512 (sometimes with a time after it);
+ * --05-12 or --0512 without the year (RFC 6350 and Google); or Apple's year 1604 marked
+ * X-APPLE-OMIT-YEAR=1604, which means none.
+ */
+export function parseCardDate(value: string, omitYear?: string): CardDate | null {
+  const v = value.trim();
+  let m = /^(\d{4})-?(\d{2})-?(\d{2})(T[\d:.]*(Z|[+-]\d{2}(:?\d{2})?)?)?$/.exec(v);
+  let date: CardDate;
+  if (m) date = { year: m[1] === omitYear ? null : Number(m[1]), month: Number(m[2]), day: Number(m[3]) };
+  else if ((m = /^--(\d{2})-?(\d{2})$/.exec(v))) date = { year: null, month: Number(m[1]), day: Number(m[2]) };
+  else return null;
+  if (date.month < 1 || date.month > 12 || date.day < 1 || date.day > daysInMonth(date.year, date.month)) return null;
+  return date;
+}
+
+const pad = (n: number, width = 2) => String(n).padStart(width, "0");
+
+/** How Viauna's page and API say a date: "1990-05-12", or "--05-12" without the year. */
+export function cardDateText(d: CardDate): string {
+  return `${d.year === null ? "-" : pad(d.year, 4)}-${pad(d.month)}-${pad(d.day)}`;
+}
+
+/** As a card of this version writes it: 4.0 has no hyphens in a date (RFC 6350 4.3.1). */
+function writeDate(version: string, date: string): string {
+  const d = parseCardDate(date);
+  if (!d) return escapeText(date);
+  if (version !== "4.0") return cardDateText(d);
+  return `${d.year === null ? "--" : pad(d.year, 4)}${pad(d.month)}${pad(d.day)}`;
+}
+
+/** A date property's value as the page shows it: the date if it is one, else its text. */
+function readDate(prop: Prop): string {
+  const value = unescapeText(prop.value).trim();
+  if (param(prop, "VALUE").some((v) => v.toLowerCase() === "text")) return value;
+  const d = parseCardDate(value, param(prop, "X-APPLE-OMIT-YEAR")[0]);
+  return d ? cardDateText(d) : value;
+}
+
+/** Anniversaries and other dates: vCard 4.0's ANNIVERSARY, KDE's, and Apple's labelled X-ABDATE (which Google writes too). */
+const DATE_PROPS = new Set(["ANNIVERSARY", "X-ANNIVERSARY", "X-ABDATE"]);
+
+/** A date's label: "anniversary", "other", or the words its app gave it. */
+function dateLabel(card: VCard, prop: Prop): string {
+  if (prop.name !== "X-ABDATE") return "anniversary";
+  const custom = prop.group ? card.props.find((p) => p.group === prop.group && p.name === "X-ABLABEL") : undefined;
+  const words = custom ? unescapeText(custom.value).trim().replace(/^_\$!<(.*)>!\$_$/, "$1") : "";
+  return cleanDateLabel(words);
+}
+
+/** "Anniversary" and "Other" in any case are the usual two; anything else is the person's own. */
+export function cleanDateLabel(label: string): string {
+  const lower = label.trim().toLowerCase();
+  return lower === "" || lower === "other" ? "other" : lower === "anniversary" ? "anniversary" : label.trim();
+}
+
+/** Google's own groups, which its export lists among the categories: kept in the card, not shown as labels. */
+const HIDDEN_CATEGORY = /^(\* )?(myContacts|starred)$/;
+
+/** Labels, each once, whatever its case or accents. */
+export function uniqueLabels(labels: string[]): string[] {
+  const seen = new Set<string>();
+  return labels.filter((l) => {
+    const key = fold(l);
+    return !seen.has(key) && seen.add(key);
+  });
+}
+
 export function readFields(card: VCard): ContactFields {
   const n = card.props.find((p) => p.name === "N");
   const [family = "", given = ""] = n ? components(n.value) : [];
@@ -221,9 +320,11 @@ export function readFields(card: VCard): ContactFields {
   let firstName = given.trim();
   const lastName = family.trim();
   if (!firstName && !lastName) firstName = text(card, "FN");
+  const bday = card.props.find((p) => p.name === "BDAY");
   return {
     firstName,
     lastName,
+    nickname: listValues(card, "NICKNAME").join(", "),
     emails: ordered("EMAIL")
       .map((p) => ({ address: unescapeText(p.value).trim().replace(/^mailto:/i, ""), label: labelOf(card, p) }))
       .filter((e) => e.address),
@@ -235,7 +336,12 @@ export function readFields(card: VCard): ContactFields {
       return org ? (components(org.value)[0] ?? "").trim() : "";
     })(),
     title: text(card, "TITLE"),
-    birthday: text(card, "BDAY"),
+    birthday: bday ? readDate(bday) : "",
+    dates: card.props
+      .filter((p) => DATE_PROPS.has(p.name))
+      .map((p) => ({ date: readDate(p), label: dateLabel(card, p) }))
+      .filter((d) => d.date),
+    labels: uniqueLabels(listValues(card, "CATEGORIES").filter((c) => !HIDDEN_CATEGORY.test(c))),
     notes: text(card, "NOTE"),
   };
 }
@@ -264,7 +370,7 @@ function propLine(prop: Prop): string {
 }
 
 /** Folds at 75 octets, never inside a UTF-8 character. */
-function fold(line: string): string {
+function foldLine(line: string): string {
   const bytes = Buffer.from(line, "utf8");
   if (bytes.length <= 75) return line;
   const out: string[] = [];
@@ -282,7 +388,7 @@ function fold(line: string): string {
 
 export function serializeVCard(card: VCard): string {
   const lines = ["BEGIN:VCARD", `VERSION:${card.version}`, ...card.props.map(propLine), "END:VCARD"];
-  return lines.map(fold).join("\r\n") + "\r\n";
+  return lines.map(foldLine).join("\r\n") + "\r\n";
 }
 
 const LABEL_TYPES: Record<string, string> = { home: "HOME", work: "WORK", mobile: "CELL", cell: "CELL", fax: "FAX", main: "MAIN", other: "OTHER" };
@@ -319,11 +425,57 @@ function revision(): string {
   return new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 }
 
+/** A date with the X-ABLABEL its group gives it, so the two move together. */
+function withLabel(card: VCard, prop: Prop): Prop[] {
+  return [prop, ...(prop.group ? card.props.filter((p) => p.group === prop.group && p.name === "X-ABLABEL") : [])];
+}
+
+/** Apple's custom labels tie a property to an X-ABLABEL by a group, "item1": the next free one. */
+function nextGroups(card: VCard): () => string {
+  let n = Math.max(0, ...card.props.map((p) => Number(/^item(\d+)$/i.exec(p.group ?? "")?.[1] ?? 0)));
+  return () => `item${++n}`;
+}
+
+/**
+ * Replaces the anniversaries and other dates with those given. One that was there already,
+ * the same date with the same label, keeps its property as it was; a new one is
+ * ANNIVERSARY in a 4.0 card, else Apple's X-ABDATE with its X-ABLABEL, which Apple and
+ * Google read.
+ */
+function replaceDates(card: VCard, wanted: { date: string; label: string }[]): Prop[] {
+  const existing = card.props.filter((p) => DATE_PROPS.has(p.name));
+  const used = new Set<Prop>();
+  const group = nextGroups(card);
+  const result: Prop[] = [];
+  for (const w of wanted) {
+    const label = cleanDateLabel(w.label);
+    const match = existing.find((p) => !used.has(p) && readDate(p) === w.date && dateLabel(card, p) === label);
+    if (match) {
+      used.add(match);
+      result.push(...withLabel(card, match));
+      continue;
+    }
+    const value = writeDate(card.version, w.date);
+    if (label === "anniversary" && card.version === "4.0") {
+      result.push({ group: null, name: "ANNIVERSARY", params: [], value });
+    } else {
+      const g = group();
+      const words = label === "anniversary" ? "_$!<Anniversary>!$_" : label === "other" ? "_$!<Other>!$_" : escapeText(label);
+      result.push({ group: g, name: "X-ABDATE", params: [], value }, { group: g, name: "X-ABLABEL", params: [], value: words });
+    }
+  }
+  return result;
+}
+
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
 /**
  * The card with Viauna's fields set to these, everything else as it was. Properties
- * keep their order; replaced kinds take the place of the first of their kind.
+ * keep their order; replaced kinds take the place of the first of their kind. A field
+ * that didn't change keeps its properties exactly as they were written.
  */
 export function applyFields(card: VCard, fields: ContactFields): VCard {
+  const was = readFields(card);
   const name = [fields.firstName, fields.lastName].map((s) => s.trim()).filter(Boolean).join(" ") || fields.organization.trim() || fields.emails[0]?.address || "";
   const oldN = card.props.find((p) => p.name === "N");
   const nParts = oldN ? oldN.value.split(/(?<!\\);/) : [];
@@ -336,26 +488,47 @@ export function applyFields(card: VCard, fields: ContactFields): VCard {
 
   const single = (prop: string, value: string, old?: Prop): Prop[] =>
     value.trim() ? [{ ...(old ?? { group: null, params: [] }), name: prop, value: prop === "N" || prop === "ORG" ? value : escapeText(value.trim()) } as Prop] : [];
+  const unchanged = (prop: string) => card.props.filter((p) => p.name === prop);
+  const textList = (prop: string, values: string[]): Prop[] =>
+    values.length ? [{ group: null, name: prop, params: [], value: values.map(escapeText).join(",") }] : [];
+  const nicknames = fields.nickname.split(",").map((n) => n.trim()).filter(Boolean);
+  // Google's own groups stay among the categories, ahead of the labels.
+  const hidden = listValues(card, "CATEGORIES").filter((c) => HIDDEN_CATEGORY.test(c));
 
   const replacements: Record<string, Prop[]> = {
     FN: [{ group: null, name: "FN", params: [], value: escapeText(name) }],
     N: [{ group: oldN?.group ?? null, name: "N", params: oldN?.params ?? [], value: nParts.join(";") }],
+    NICKNAME: nicknames.join(", ") === was.nickname ? unchanged("NICKNAME") : textList("NICKNAME", nicknames),
     EMAIL: replaceList(card, "EMAIL", fields.emails.map((e) => ({ value: e.address.trim(), label: e.label })), card.version === "3.0" ? ["INTERNET"] : []),
     TEL: replaceList(card, "TEL", fields.phones.map((t) => ({ value: t.number.trim(), label: t.label })), []),
     ORG: fields.organization.trim() || orgParts.slice(1).some(Boolean) ? single("ORG", orgParts.join(";"), oldOrg) : [],
     TITLE: single("TITLE", fields.title, card.props.find((p) => p.name === "TITLE")),
-    BDAY: single("BDAY", fields.birthday, card.props.find((p) => p.name === "BDAY")),
+    BDAY:
+      fields.birthday.trim() === was.birthday
+        ? unchanged("BDAY")
+        : fields.birthday.trim()
+          ? [{ group: null, name: "BDAY", params: [], value: writeDate(card.version, fields.birthday.trim()) }]
+          : [],
+    DATES: same(fields.dates.map((d) => [d.date, cleanDateLabel(d.label)]), was.dates.map((d) => [d.date, d.label]))
+      ? card.props.filter((p) => DATE_PROPS.has(p.name)).flatMap((p) => withLabel(card, p))
+      : replaceDates(card, fields.dates),
+    CATEGORIES: same(fields.labels, was.labels) ? unchanged("CATEGORIES") : textList("CATEGORIES", [...hidden, ...uniqueLabels(fields.labels)]),
     NOTE: single("NOTE", fields.notes, card.props.find((p) => p.name === "NOTE")),
     REV: [{ group: null, name: "REV", params: [], value: revision() }],
   };
+  const kindOf = (prop: string) => (DATE_PROPS.has(prop) ? "DATES" : prop);
+  // The dates' labels are placed with them.
+  const carried = new Set(replacements.DATES.filter((p) => p.name === "X-ABLABEL"));
   const props: Prop[] = [];
   const placed = new Set<string>();
   for (const p of card.props) {
-    const r = replacements[p.name];
+    if (carried.has(p)) continue;
+    const kind = kindOf(p.name);
+    const r = replacements[kind];
     if (!r) props.push(p);
-    else if (!placed.has(p.name)) {
+    else if (!placed.has(kind)) {
       props.push(...r);
-      placed.add(p.name);
+      placed.add(kind);
     }
   }
   for (const [kind, r] of Object.entries(replacements)) if (!placed.has(kind)) props.push(...r);
@@ -380,4 +553,44 @@ export function checkCard(card: VCard): string | null {
   if (serializeVCard(card).length > MAX_CARD) return "That contact is too large (over 1 MB).";
   if (!displayName(card)) return "A contact needs a name, a company, an email address or a phone number.";
   return null;
+}
+
+// ------------------------------------------------------------ what's kept beside a card
+
+const ADDRESS = /^[^\s@]+@[^\s@]+$/;
+
+export interface CardIndex {
+  name: string;
+  sortKey: string;
+  /** Folded names, nickname, company, addresses and phone digits, to search. */
+  search: string;
+  /** Lower-cased, for suggestions and "is this a contact". */
+  emails: string[];
+  /** As written, and folded to group spellings. */
+  labels: { label: string; key: string }[];
+  /** The dates that are dates (another app's wording isn't), for the Birthdays calendar. */
+  dates: { kind: "birthday" | "anniversary" | "other"; label: string; year: number | null; month: number; day: number }[];
+}
+
+/** What the state store keeps beside a card, to list, search, filter and suggest without reading it. */
+export function cardIndex(card: VCard): CardIndex {
+  const name = displayName(card).slice(0, 500);
+  const f = readFields(card);
+  const emails = [...new Set(f.emails.map((e) => e.address.toLowerCase()).filter((a) => ADDRESS.test(a) && a.length <= 320))];
+  const search = fold([name, f.nickname, f.organization, ...emails, ...f.phones.map((p) => p.number.replace(/[^\d+]/g, ""))].join(" "));
+  const dates: CardIndex["dates"] = [];
+  const birthday = parseCardDate(f.birthday);
+  if (birthday) dates.push({ kind: "birthday", label: "", ...birthday });
+  for (const d of f.dates) {
+    const date = parseCardDate(d.date);
+    if (date) dates.push({ kind: d.label === "anniversary" ? "anniversary" : "other", label: d.label === "anniversary" || d.label === "other" ? "" : d.label.slice(0, 100), ...date });
+  }
+  return {
+    name,
+    sortKey: fold(name).slice(0, 500),
+    search,
+    emails,
+    labels: f.labels.map((l) => ({ label: l.slice(0, 100), key: fold(l).slice(0, 100) })),
+    dates,
+  };
 }

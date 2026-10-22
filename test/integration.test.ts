@@ -295,11 +295,14 @@ describe.skipIf(!enabled)("against a real IMAP server", { timeout: 30_000 }, () 
 
   it("keeps an address book: create, suggest, import, export, and turn it off", async () => {
     expect((await call("GET", "/api/config")).json.contacts).toBe(true);
-    const created = await call("POST", "/api/u/0/contacts", { firstName: "Ann", lastName: "Ong", emails: [{ address: "ann@example.org", label: "work" }] });
-    expect(created.json.contact).toMatchObject({ name: "Ann Ong", fields: { emails: [{ address: "ann@example.org", label: "work" }] } });
-    // The saved name wins over the one in her mail ("Ann"), and she isn't listed twice.
+    const created = await call("POST", "/api/u/0/contacts", { firstName: "Ann", lastName: "Ong", emails: [{ address: "ann@example.org", label: "work" }], labels: ["Work"] });
+    expect(created.json.contact).toMatchObject({ name: "Ann Ong", fields: { emails: [{ address: "ann@example.org", label: "work" }], labels: ["Work"] } });
+    // The saved name wins over the one in her mail ("Ann"), and she isn't listed twice. Her
+    // label comes along to show, apart from the name.
     const s = (await call("GET", "/api/u/0/suggestions?q=ann")).json.contacts;
-    expect(s[0]).toEqual({ address: "ann@example.org", name: "Ann Ong" });
+    expect(s[0]).toEqual({ address: "ann@example.org", name: "Ann Ong", labels: ["Work"] });
+    expect((await call("GET", "/api/u/0/contacts/labels")).json.labels).toEqual([{ label: "Work", count: 1 }]);
+    expect((await call("GET", "/api/u/0/contacts?label=work")).json.total).toBe(1);
     expect(s.filter((x: any) => x.address === "ann@example.org")).toHaveLength(1);
     expect((await call("GET", "/api/u/0/contacts/lookup?address=ANN@example.org")).json.id).toBe(created.json.contact.id);
 

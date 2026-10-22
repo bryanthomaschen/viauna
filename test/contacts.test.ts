@@ -3,20 +3,30 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { Kysely, SqliteDialect } from "kysely";
+import { Migrator } from "kysely/migration";
+import { DatabaseSync } from "node:sqlite";
 import {
   ContactError,
+  contactLabels,
+  contactsToTidy,
   createContact,
   deleteContacts,
   exportVCards,
   getContact,
   importVCards,
   listContacts,
+  removeLabel,
+  renameLabel,
   suggest,
+  tidyContacts,
   updateContact,
 } from "../server/contacts.ts";
 import { sha256 } from "../server/crypto.ts";
 import { Database, db, setDatabase } from "../server/db.ts";
 import { ensureIndexAccount } from "../server/imap/store.ts";
+import { migrations } from "../server/state/migrations.ts";
+import { nodeSqlite } from "../server/state/node-sqlite.ts";
 import { type StateStore, openState, setState, state } from "../server/state/db.ts";
 import { parseVCards, readFields } from "../server/vcard.ts";
 import { ENGINES, emptyDatabase } from "./databases.ts";
@@ -33,8 +43,8 @@ const GOOGLE_EXPORT = [
 ].join("\r\n");
 
 const fields = (over: Record<string, unknown> = {}) => ({
-  firstName: "Bob", lastName: "Tan", emails: [{ address: "bob@work.example", label: "work" }], phones: [],
-  organization: "", title: "", birthday: "", notes: "", ...over,
+  firstName: "Bob", lastName: "Tan", nickname: "", emails: [{ address: "bob@work.example", label: "work" }], phones: [],
+  organization: "", title: "", birthday: "", dates: [], labels: [], notes: "", ...over,
 });
 
 describe.each(ENGINES)("the address book on $name", ({ url }) => {
@@ -135,10 +145,89 @@ describe.each(ENGINES)("the address book on $name", ({ url }) => {
     await createContact(7, fields());
     const s = await suggest(7, "bob", true);
     expect(s).toEqual([
-      { address: "bob@work.example", name: "Bob Tan" },
-      { address: "bob.personal@example.com", name: "Bobby" },
+      { address: "bob@work.example", name: "Bob Tan", labels: [] },
+      { address: "bob.personal@example.com", name: "Bobby", labels: [] },
     ]);
     // With contacts turned off, only the index suggests.
     expect((await suggest(7, "bob", false)).map((x) => x.name)).toEqual(["Bobby", "B. Tan"]);
+  });
+  it("labels contacts, lists by label, and renames or removes a label everywhere", async () => {
+    const bob = await createContact(7, fields({ labels: ["Church", "Work"] }));
+    const ann = await createContact(7, fields({ firstName: "Ann", lastName: "Lee", emails: [{ address: "ann@example.com", label: "" }], labels: ["church"] }));
+    await createContact(7, fields({ firstName: "Cy", lastName: "", emails: [] }));
+    expect(bob?.fields.labels).toEqual(["Church", "Work"]);
+    expect(await contactLabels(7)).toEqual([{ label: "Church", count: 2 }, { label: "Work", count: 1 }]);
+    expect((await listContacts(7, "", 0, 200, "CHURCH")).contacts.map((c) => [c.name, c.labels])).toEqual([["Ann Lee", ["church"]], ["Bob Tan", ["Church", "Work"]]]);
+    expect((await listContacts(7, "ann", 0, 200, "church")).total).toBe(1);
+    await expect(createContact(7, fields({ labels: ["x".repeat(61)] }))).rejects.toThrow(/at most 60/);
+
+    // Renaming into a label the contact has already leaves it once.
+    expect(await renameLabel(7, "church", "Work")).toBe(2);
+    expect((await getContact(7, bob!.id))?.fields.labels).toEqual(["Work"]);
+    expect((await getContact(7, ann!.id))?.fields.labels).toEqual(["Work"]);
+    expect(await removeLabel(7, "work")).toBe(2);
+    expect(await contactLabels(7)).toEqual([]);
+    expect((await listContacts(7, "")).total).toBe(3);
+  });
+
+  it("keeps birthdays and other dates, and refuses ones that aren't dates", async () => {
+    const kai = await createContact(7, fields({ firstName: "Kai", birthday: "--02-29", dates: [{ date: "2015-06-20", label: "Anniversary" }, { date: "2020-01-06", label: "First day" }] }));
+    expect(kai?.fields).toMatchObject({ birthday: "--02-29", dates: [{ date: "2015-06-20", label: "anniversary" }, { date: "2020-01-06", label: "First day" }] });
+    const rows = await state().selectFrom("contact_dates").select(["kind", "label", "year", "month", "day"]).where("contact_id", "=", kai!.id).orderBy("position").execute();
+    expect(rows).toEqual([
+      { kind: "birthday", label: "", year: null, month: 2, day: 29 },
+      { kind: "anniversary", label: "", year: 2015, month: 6, day: 20 },
+      { kind: "other", label: "First day", year: 2020, month: 1, day: 6 },
+    ]);
+    await expect(createContact(7, fields({ birthday: "12 May" }))).rejects.toThrow(/day and a month/);
+    await expect(createContact(7, fields({ birthday: "1990-02-29" }))).rejects.toThrow(/day and a month/);
+    // Another app's own wording can stay as it is, but not be typed in.
+    await importVCards(7, "BEGIN:VCARD\r\nVERSION:4.0\r\nUID:old-1\r\nFN:Old Friend\r\nN:Friend;Old;;;\r\nBDAY;VALUE=text:circa 1950\r\nEND:VCARD\r\n");
+    const old = (await listContacts(7, "old friend")).contacts[0];
+    const got = await getContact(7, old.id);
+    expect(got?.fields.birthday).toBe("circa 1950");
+    expect((await updateContact(7, old.id, { ...got!.fields, title: "Neighbour" }))?.fields.birthday).toBe("circa 1950");
+    await expect(updateContact(7, old.id, { ...got!.fields, birthday: "circa 1951" })).rejects.toThrow(/day and a month/);
+  });
+
+  it("matches nicknames while writing, and brings the labels along, but not into the name", async () => {
+    await createContact(7, fields({ nickname: "Bobby, Rob", labels: ["Church"] }));
+    expect(await suggest(7, "rob", true)).toEqual([{ address: "bob@work.example", name: "Bob Tan", labels: ["Church"] }]);
+    expect((await listContacts(7, "bobby")).total).toBe(1);
+  });
+
+  it("finds names with context after them, and moves it into a label when asked", async () => {
+    const bryan = await createContact(7, fields({ firstName: "Bryan", lastName: "- church", emails: [{ address: "bryan@example.com", label: "" }] }));
+    const mei = await createContact(7, fields({ firstName: "Mei", lastName: "Ling (Work)", emails: [{ address: "mei@example.com", label: "" }] }));
+    await createContact(7, fields({ firstName: "Jo", lastName: "Smith (Jr.)", emails: [] }));
+    await createContact(7, fields({ firstName: "Mary-Jane", lastName: "Watson", emails: [] }));
+    await createContact(7, fields({ firstName: "Old", lastName: "Mate", labels: ["Church"], emails: [] }));
+    expect(await contactsToTidy(7)).toEqual([
+      { id: bryan!.id, name: "Bryan - church", firstName: "Bryan", lastName: "", label: "Church" },
+      { id: mei!.id, name: "Mei Ling (Work)", firstName: "Mei", lastName: "Ling", label: "Work" },
+    ]);
+    expect(await tidyContacts(7, [{ id: bryan!.id, label: "Church" }, { id: 99999, label: "X" }])).toBe(1);
+    expect(await getContact(7, bryan!.id)).toMatchObject({ name: "Bryan", fields: { firstName: "Bryan", lastName: "", labels: ["Church"] } });
+    // A second time, it's done.
+    expect(await tidyContacts(7, [{ id: bryan!.id, label: "Church" }])).toBe(0);
+    expect((await suggest(7, "bryan", true))[0]).toMatchObject({ name: "Bryan", labels: ["Church"] });
+  });
+});
+
+describe("upgrading to labels and dates", () => {
+  it("fills them in from the contacts already kept", async () => {
+    const raw = new DatabaseSync(":memory:");
+    raw.exec("PRAGMA foreign_keys = ON;");
+    const old = new Kysely<any>({ dialect: new SqliteDialect({ database: nodeSqlite(raw) }) });
+    const migrator = new Migrator({ db: old, provider: migrations("sqlite"), migrationTableName: "viauna_migrations", migrationLockTableName: "viauna_migration_lock" });
+    expect((await migrator.migrateTo("0005_calendars")).error).toBeUndefined();
+    await old.insertInto("accounts").values({ id: 7, login: "a", email: "a", imap: "{}", imap_hash: "h", smtp: "{}", settings: "{}", created_at: 1 }).execute();
+    const vcard = "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Kai Lim\r\nNICKNAME:KL\r\nBDAY:--05-12\r\nCATEGORIES:Family\r\nEND:VCARD\r\n";
+    await old.insertInto("contacts").values({ id: 3, account_id: 7, uid: "u", name: "Kai Lim", sort_key: "kai lim", search: "kai lim", vcard, created_at: 1, updated_at: 1 }).execute();
+    expect((await migrator.migrateToLatest()).error).toBeUndefined();
+    expect(await old.selectFrom("contact_labels").select(["contact_id", "label", "label_key"]).execute()).toEqual([{ contact_id: 3, label: "Family", label_key: "family" }]);
+    expect(await old.selectFrom("contact_dates").select(["kind", "year", "month", "day"]).execute()).toEqual([{ kind: "birthday", year: null, month: 5, day: 12 }]);
+    expect((await old.selectFrom("contacts").select("search").executeTakeFirstOrThrow()).search).toContain("kl");
+    await old.destroy();
   });
 });

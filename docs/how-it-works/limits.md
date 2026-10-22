@@ -44,6 +44,10 @@ Limits built into Viauna. The ones you can change are settings: see
 |---|---|
 | One import | 20 MB and 10,000 contacts |
 | One contact | 1 MB as a vCard |
+| Labels on a contact | 30, each 1 to 60 characters |
+| Dates on a contact | A birthday and 20 others |
+| A date's label | 60 characters |
+| Nickname | 200 characters |
 | Deleted at once | 10,000 |
 | Listed at a time | 200, then 200 more with **Show more** |
 | Suggestions while you write | 8 |

@@ -11,8 +11,11 @@ import type {
   AppConfig,
   Contact,
   ContactFields,
+  ContactLabel,
   ContactSummary,
   ContactSync,
+  Suggestion,
+  TidyProposal,
   Filter,
   FiltersState,
   Vacation,
@@ -124,15 +127,22 @@ export const api = {
       "X-Filename": encodeURIComponent(file.name),
     }),
 
-  suggestions: (a: number, q: string) =>
-    request<{ contacts: { address: string; name: string | null }[] }>("GET", `${u(a)}/suggestions?q=${encodeURIComponent(q)}`),
+  suggestions: (a: number, q: string) => request<{ contacts: Suggestion[] }>("GET", `${u(a)}/suggestions?q=${encodeURIComponent(q)}`),
 
   filters: (a: number) => request<FiltersState>("GET", `${u(a)}/filters`),
   saveFilters: (a: number, filters: Filter[]) => request<FiltersState>("PUT", `${u(a)}/filters`, { filters }),
   saveVacation: (a: number, vacation: Vacation) => request<FiltersState>("PUT", `${u(a)}/vacation`, { vacation }),
 
-  contacts: (a: number, q: string, offset = 0) =>
-    request<{ contacts: ContactSummary[]; total: number; sync: ContactSync }>("GET", `${u(a)}/contacts?q=${encodeURIComponent(q)}&offset=${offset}`),
+  contacts: (a: number, q: string, offset = 0, label = "") =>
+    request<{ contacts: ContactSummary[]; total: number; sync: ContactSync }>(
+      "GET", `${u(a)}/contacts?${new URLSearchParams({ q, offset: String(offset), ...(label ? { label } : {}) })}`,
+    ),
+  contactLabels: (a: number) => request<{ labels: ContactLabel[] }>("GET", `${u(a)}/contacts/labels`),
+  renameContactLabel: (a: number, label: string, to: string) =>
+    request<{ changed: number }>("PATCH", `${u(a)}/contacts/labels?label=${encodeURIComponent(label)}`, { to }),
+  removeContactLabel: (a: number, label: string) => request<{ changed: number }>("DELETE", `${u(a)}/contacts/labels?label=${encodeURIComponent(label)}`),
+  contactsToTidy: (a: number) => request<{ contacts: TidyProposal[] }>("GET", `${u(a)}/contacts/tidy`),
+  tidyContacts: (a: number, contacts: { id: number; label: string }[]) => request<{ changed: number }>("POST", `${u(a)}/contacts/tidy`, { contacts }),
   syncContacts: (a: number) => request<{ sync: ContactSync }>("POST", `${u(a)}/contacts/sync`),
   contact: (a: number, id: number) => request<{ contact: Contact }>("GET", `${u(a)}/contacts/${id}`),
   contactWithAddress: (a: number, address: string) => request<{ id: number | null }>("GET", `${u(a)}/contacts/lookup?address=${encodeURIComponent(address)}`),

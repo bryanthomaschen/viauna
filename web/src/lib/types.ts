@@ -209,11 +209,18 @@ export interface FiltersState {
 export interface ContactFields {
   firstName: string;
   lastName: string;
+  /** Names that match while writing, comma-separated; never sent. */
+  nickname: string;
   emails: { address: string; label: string }[];
   phones: { number: string; label: string }[];
   organization: string;
   title: string;
+  /** "1990-05-12", "--05-12" without the year, or another app's own wording. */
   birthday: string;
+  /** Labelled "anniversary", "other", or in the person's own words. */
+  dates: { date: string; label: string }[];
+  /** What the person is to you; shown only here. */
+  labels: string[];
   notes: string;
 }
 
@@ -223,6 +230,27 @@ export interface ContactSummary {
   emails: string[];
   phone: string | null;
   organization: string;
+  labels: string[];
+}
+
+export interface ContactLabel {
+  label: string;
+  count: number;
+}
+
+/** A name with context after it, and what tidying it would make. */
+export interface TidyProposal {
+  id: number;
+  name: string;
+  firstName: string;
+  lastName: string;
+  label: string;
+}
+
+export interface Suggestion {
+  address: string;
+  name: string | null;
+  labels: string[];
 }
 
 export interface Contact {

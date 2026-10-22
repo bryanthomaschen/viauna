@@ -37,14 +37,19 @@ import {
 import { VERSION, config, parseSetting, setting, settingDef } from "./config.ts";
 import {
   ContactError,
+  contactLabels,
   contactWithAddress,
+  contactsToTidy,
   createContact,
   deleteContacts,
   exportVCards,
   getContact,
   importVCards,
   listContacts,
+  removeLabel,
+  renameLabel,
   suggest,
+  tidyContacts,
   updateContact,
 } from "./contacts.ts";
 import type { Credentials } from "./crypto.ts";
@@ -601,7 +606,7 @@ export function createApp() {
 
   contacts.get("/", async (c) => {
     const { account } = c.get("rt");
-    const list = await listContacts(account.id, c.req.query("q") ?? "", Math.max(0, int(c.req.query("offset"), 0)));
+    const list = await listContacts(account.id, c.req.query("q") ?? "", Math.max(0, int(c.req.query("offset"), 0)), 200, c.req.query("label") ?? "");
     const sync = await syncStatus(account);
     // Opening the list fetches what changed on the server, if it's been a minute.
     if (sync.server && !sync.syncing && (!sync.at || Date.now() - sync.at > 60_000)) void syncContacts(account, c.get("creds"), { join: true });
@@ -621,8 +626,34 @@ export function createApp() {
     return c.json({ contact });
   });
 
-  // Before /:id, so "lookup" and "export" aren't taken for ids.
+  // Before /:id, so "lookup", "export", "labels" and "tidy" aren't taken for ids.
   contacts.get("/lookup", async (c) => c.json({ id: await contactWithAddress(c.get("rt").account.id, c.req.query("address") ?? "") }));
+
+  contacts.get("/labels", async (c) => c.json({ labels: await contactLabels(c.get("rt").account.id) }));
+
+  // ?label=Church, with { to: "Church friends" }: renames it on every contact that has it.
+  contacts.patch("/labels", async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    const n = await renameLabel(c.get("rt").account.id, c.req.query("label") ?? "", body.to);
+    if (n) changed(c);
+    return c.json({ changed: n });
+  });
+
+  contacts.delete("/labels", async (c) => {
+    const n = await removeLabel(c.get("rt").account.id, c.req.query("label") ?? "");
+    if (n) changed(c);
+    return c.json({ changed: n });
+  });
+
+  // Names with context after them ("Bryan - church"), and moving it into labels. Only when asked.
+  contacts.get("/tidy", async (c) => c.json({ contacts: await contactsToTidy(c.get("rt").account.id) }));
+
+  contacts.post("/tidy", async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    const n = await tidyContacts(c.get("rt").account.id, body.contacts);
+    if (n) changed(c);
+    return c.json({ changed: n });
+  });
 
   contacts.get("/export", async (c) => {
     const ids = (c.req.query("ids") ?? "").split(",").filter(Boolean).map((s) => int(s)).filter(Number.isInteger);

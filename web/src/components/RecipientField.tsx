@@ -1,7 +1,7 @@
 import { X } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
-import type { Address } from "../lib/types";
+import type { Address, Suggestion } from "../lib/types";
 import { Avatar, useDebounced } from "./common";
 
 const EMAIL = /^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/;
@@ -37,7 +37,7 @@ export function RecipientField({
   const [text, setText] = useState("");
   const [active, setActive] = useState(0);
   const [focused, setFocused] = useState(false);
-  const [suggestions, setSuggestions] = useState<{ address: string; name: string | null }[]>([]);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const q = useDebounced(text.trim(), 120);
   const input = useRef<HTMLInputElement>(null);
 
@@ -144,7 +144,8 @@ export function RecipientField({
               >
                 <Avatar person={{ address: s.address, name: s.name ?? undefined }} size={32} />
                 <div>
-                  <div className="n">{s.name || s.address}</div>
+                  {/* A contact's labels show here, and are never part of the name sent. */}
+                  <div className="n">{s.name || s.address}{s.labels.length > 0 && <span className="suggest-labels"> · {s.labels.join(", ")}</span>}</div>
                   {s.name && <div className="e">{s.address}</div>}
                 </div>
               </div>

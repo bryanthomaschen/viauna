@@ -83,7 +83,8 @@ export interface UiState {
   commandsOpen: boolean;
   labelDialog: null | { label?: Label };
   /** A contact being edited (id) or added (initial). */
-  contactDialog: null | { id?: number; initial?: Partial<ContactFields> };
+  /** `birthday`: only a name and a birthday, for someone whose other details you don't have. */
+  contactDialog: null | { id?: number; initial?: Partial<ContactFields>; birthday?: boolean };
   /** A filter being added from a message (Filter messages like these). */
   filterDialog: null | { criteria: Partial<FilterCriteria> };
   /** An event being edited (id, and which occurrence of one that repeats) or made (initial: from the calendar, or from an email). */

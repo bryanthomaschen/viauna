@@ -7,7 +7,7 @@ import { EventEmitter } from "node:events";
 import { sql } from "kysely";
 import { VERSION } from "./config.ts";
 import { buildFile, parseFile } from "./calendar-file.ts";
-import { contains, fold } from "./contacts.ts";
+import { contains, fold } from "./text.ts";
 import { randomToken } from "./crypto.ts";
 import {
   COLORS,

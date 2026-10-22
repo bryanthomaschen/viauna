@@ -32,6 +32,26 @@ Calendar's or Thunderbird's exports (again, without adding anything twice), and 
 any calendar, with the time zone definitions Outlook needs. See
 [Calendar](https://bryanthomaschen.github.io/viauna/using/calendar).
 
+### Contacts
+
+**Labels** say what someone is to you (Family, Church, Work): pick one from the menu
+beside **Contacts** to see only those people, and rename or remove one for everyone at
+once. They show next to the name, also when Viauna suggests people while you write, and
+are never sent: the person you write to sees only the name. **Tidy up names** finds names
+that carry context ("Bryan - church", "Mei (work)"), which goes out with every message to
+them, and moves it into a label; it shows what it would do, and changes only the people
+you leave ticked.
+
+**Birthdays and other dates**: a birthday, with or without its year, an anniversary, and
+dates of your own ("First day at work"). **Add a birthday** adds someone with only a name
+and a birthday. And a **nickname**, which suggestions match while you write and which is
+never sent either.
+
+Labels are the vCard's categories, and dates are written as Apple's and Google's apps
+write them, so they travel with an export and sync with your CardDAV server; a field you
+didn't change stays exactly as another app wrote it. See
+[Contacts](https://bryanthomaschen.github.io/viauna/using/contacts).
+
 ### Also
 
 - Search: `rfc822msgid:` finds a message by its Message-ID.
@@ -45,7 +65,8 @@ any calendar, with the time zone definitions Outlook needs. See
 
 ### Upgrading from 0.5
 
-Nothing to do: the calendar's tables are made on the first start, and it's on. Calendars
+Nothing to do: the calendar's tables are made on the first start, and it's on. The same
+start finds the labels, nicknames and dates in the contacts already kept. Calendars
 are kept in the state store and nowhere else, so back up `state.db` (or your
 `DATABASE_URL` database) as the
 [upgrading page](https://bryanthomaschen.github.io/viauna/self-hosting/upgrading#backing-up)

@@ -25,6 +25,7 @@ server/                Node (TypeScript, Hono)
   contacts-sync.ts     keeping contacts in step with a CardDAV server
   carddav.ts           a small CardDAV client: discovery, sync-collection, multiget, If-Match
   vcard.ts             reading and writing vCard (2.1, 3.0, 4.0) without losing anything
+  text.ts              text as the state store searches it: folded, and LIKE patterns
   calendar.ts          calendars and events: storage, ranges in the reader's zone, search, undo
   icalendar.ts         events as iCalendar (ical.js) without losing anything; times and zones (Temporal)
   recurrence.ts        repeating events: occurrences, rules, this / following / all events
@@ -68,8 +69,9 @@ Two stores, split by whether the data can be fetched again:
   colours, trusted senders, the settings admins changed with a record of each
   change, and contacts. A contact is kept whole, as its vCard, and Viauna rewrites only
   the fields it edits, so whatever another app stored in it (a photo, a postal address,
-  its own fields) survives; its name, a search text and its addresses sit beside it,
-  lower-cased by Viauna, since the engines compare and sort text differently. Calendars
+  its own fields) survives; its name, a search text, its addresses, its labels and its
+  dates sit beside it, lower-cased by Viauna where they're compared, since the engines
+  compare and sort text differently. Calendars
   are kept the same way: each event whole, as its iCalendar object, with its title, a
   search text and its start and end in UTC beside it. SQLite in `DATA_DIR/state.db` by default, or PostgreSQL or
   MySQL/MariaDB through `DATABASE_URL`, with one schema and one set of queries

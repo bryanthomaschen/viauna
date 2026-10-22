@@ -40,6 +40,14 @@ describe("merging a card changed on both sides", () => {
     expect(readFields(merge(theirs, mine, base)).title).toBe("Manager");
     expect(readFields(merge(edit(base, { notes: "theirs" }), mine, null))).toMatchObject({ title: "Manager", notes: "old" });
   });
+
+  it("merges labels, nicknames and dates like any other field", () => {
+    const theirs = edit(base, { birthday: "--05-12", nickname: "Annie" });
+    const mine = edit(base, { labels: ["Church"], dates: [{ date: "2015-06-20", label: "anniversary" }] });
+    expect(readFields(merge(theirs, mine, base))).toMatchObject({
+      birthday: "--05-12", nickname: "Annie", labels: ["Church"], dates: [{ date: "2015-06-20", label: "anniversary" }],
+    });
+  });
 });
 
 describe.skipIf(!SERVER)("the CardDAV client", () => {

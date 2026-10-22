@@ -113,6 +113,27 @@ export interface ContactEmailTable {
   address: string;
 }
 
+export interface ContactLabelTable {
+  contact_id: number;
+  account_id: number;
+  position: number;
+  label: string;
+  /** Folded, so one label whatever its case or accents. */
+  label_key: string;
+}
+
+export interface ContactDateTable {
+  contact_id: number;
+  account_id: number;
+  position: number;
+  kind: "birthday" | "anniversary" | "other";
+  /** An other date's own words; empty for the rest. */
+  label: string;
+  year: number | null;
+  month: number;
+  day: number;
+}
+
 export interface CalendarTable {
   id: Generated<number>;
   account_id: number;
@@ -155,6 +176,8 @@ export interface StateSchema {
   contact_emails: ContactEmailTable;
   contact_books: ContactBookTable;
   contact_deletions: ContactDeletionTable;
+  contact_labels: ContactLabelTable;
+  contact_dates: ContactDateTable;
   calendars: CalendarTable;
   events: EventTable;
 }
@@ -162,7 +185,7 @@ export interface StateSchema {
 /** In dependency order, for copying from one store to another. */
 export const STATE_TABLES = [
   "accounts", "sessions", "session_accounts", "labels", "trusted_senders", "instance_settings", "admin_log",
-  "contact_books", "contacts", "contact_emails", "contact_deletions", "calendars", "events",
+  "contact_books", "contacts", "contact_emails", "contact_deletions", "contact_labels", "contact_dates", "calendars", "events",
 ] as const;
 
 export type Dialect = "sqlite" | "postgres" | "mysql";

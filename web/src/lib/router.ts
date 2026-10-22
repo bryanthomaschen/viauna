@@ -5,6 +5,7 @@
 //   /u/0/label/work            a label          /u/0/folder/12   a folder
 //   /u/0/search/from%3Aann     search results   /u/0/settings    settings
 //   /u/0/contacts              the address book
+//   /u/0/contacts/label/Church the contacts with a label
 //   /u/0/calendar/week/2026-10-21   the calendar, a view of the time around a date
 //   /u/0/calendar/search/lunch      events found
 //   /u/0/admin                 the admin page, for the whole server, as this account (an admin)
@@ -61,6 +62,8 @@ export interface Route {
   thread: number | null;
   page: number;
   calendar: CalendarRoute | null;
+  /** The contacts with this label; null: all of them. */
+  contactsLabel: string | null;
 }
 
 const SIMPLE = new Set(["inbox", "starred", "sent", "drafts", "all", "spam", "trash", "archive"]);
@@ -69,7 +72,7 @@ export function parseRoute(path: string): Route {
   const [pathname, search] = path.split("?");
   const page = Math.max(0, Number(new URLSearchParams(search ?? "").get("p") ?? 1) - 1) || 0;
   const parts = pathname.split("/").filter(Boolean);
-  const none: Route = { name: "none", account: 0, folder: { kind: "inbox" }, thread: null, page: 0, calendar: null };
+  const none: Route = { name: "none", account: 0, folder: { kind: "inbox" }, thread: null, page: 0, calendar: null, contactsLabel: null };
   if (parts[0] === "login") return { ...none, name: "login" };
   // No account yet: App picks the first admin signed in.
   if (parts[0] === "admin" && parts.length === 1) return { ...none, name: "admin", account: -1 };
@@ -78,7 +81,9 @@ export function parseRoute(path: string): Route {
   if (!Number.isInteger(account)) return none;
   const rest = parts.slice(2);
   if (rest[0] === "settings") return { ...none, name: "settings", account };
-  if (rest[0] === "contacts") return { ...none, name: "contacts", account };
+  if (rest[0] === "contacts") {
+    return { ...none, name: "contacts", account, contactsLabel: rest[1] === "label" && rest[2] ? decodeURIComponent(rest[2]) : null };
+  }
   if (rest[0] === "admin" && rest.length === 1) return { ...none, name: "admin", account };
   if (rest[0] === "calendar") {
     const calendar: CalendarRoute = { view: null, date: null, search: null };
@@ -106,7 +111,7 @@ export function parseRoute(path: string): Route {
     threadPart = rest[2];
   }
   const thread = threadPart && /^\d+$/.test(threadPart) ? Number(threadPart) : null;
-  return { name: "mail", account, folder, thread, page, calendar: null };
+  return { name: "mail", account, folder, thread, page, calendar: null, contactsLabel: null };
 }
 
 export function folderPath(account: number, folder: Folder): string {
@@ -143,6 +148,10 @@ export function viewParam(folder: Folder): string {
 
 export function sameFolder(a: Folder, b: Folder): boolean {
   return folderPath(0, a) === folderPath(0, b);
+}
+
+export function contactsPath(account: number, label?: string | null): string {
+  return label ? `/u/${account}/contacts/label/${encodeURIComponent(label)}` : `/u/${account}/contacts`;
 }
 
 export function calendarPath(account: number, view?: CalendarView, date?: string): string {
