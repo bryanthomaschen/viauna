@@ -123,8 +123,9 @@ says so.
   people you know (in your contacts, or you've written to them; the choice out of the
   box), or nobody (only when you answer). When it arrives, an update to one in your
   calendar is made there, a cancellation removes it, and a guest's answer to an event you
-  organise is counted, as long as each comes from the organiser (or that guest) itself.
-  Mail in Spam is left alone.
+  organise is counted, as long as each comes from the organiser (or that guest) and your
+  mail server confirms it does. When it can't, nothing happens by itself: the card in the
+  message offers it, for you to decide. Mail in Spam is left alone.
 - Change your answer on the card, or in the calendar: click the event and choose again
   under **Going?**. The organiser is told each time.
 - When the organiser changes it, the new invitation's card offers **Update your calendar**.

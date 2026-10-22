@@ -228,17 +228,26 @@ calendar part, and Viauna reads it as soon as it's indexed, one at a time, while
 mailbox's [connection](./sync.md) runs: mail that arrived while nobody had Viauna open is
 read when someone next does. Only new arrivals: mail indexed again (after a rebuild) and
 other folders, Spam among them, aren't acted on. A message acts on its own only when it
-comes from whoever it speaks for (its `From` address is the organiser's, or for an answer,
-that guest's), so nobody can add, change or remove an event by sending someone its `UID`:
+comes from whoever it speaks for, so nobody can add, change or remove an event by sending
+someone its `UID`. Its `From` address has to be the organiser's (for an answer, that
+guest's), and since anyone can write any `From`, the receiving mail server has to vouch
+for it: the topmost `Authentication-Results` header (RFC 8601), which that server adds
+above whatever the message came with, has to show `dmarc=pass` for that address's domain,
+or `dkim=pass` for it or a domain it's part of (`spf` alone doesn't count: it's about the
+envelope, not `From`). Mailu's Rspamd adds this header; so do most mail servers.
 
 - an invitation not in the calendar goes in, unanswered (`NEEDS-ACTION`), into the
-  invitations calendar with the usual reminders, if the mailbox adds invitations from
-  everyone, or from people it knows and the organiser is one: in its contacts, or someone
-  it has sent mail to (the index's count);
-- a newer version of one in the calendar, from the same organiser, updates it as above;
-- a cancellation of one in the calendar, from its organiser, removes it (or the
-  occurrence);
-- a guest's answer to an event the mailbox organises is counted.
+  invitations calendar with the usual reminders: if the mailbox adds invitations from
+  everyone (its `From` is the organiser's), or from people it knows and the organiser is
+  one, vouched for: in its contacts, or someone it has sent mail to (the index's count);
+- a newer version of one in the calendar, from the same organiser, vouched for, updates
+  it as above;
+- a cancellation of one in the calendar, from its organiser, vouched for, removes it (or
+  the occurrence);
+- a guest's answer to an event the mailbox organises, from that guest, vouched for, is
+  counted.
+
+Anything else is left for its card, where you decide.
 
 Nobody is emailed by any of this: an answer goes only when you give one.
 
