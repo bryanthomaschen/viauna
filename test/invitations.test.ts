@@ -13,10 +13,8 @@ import { createEvent, deleteEvent, eventObject, eventsBetween, getEvent, listCal
 import { type Endpoint, config, endpointKey } from "../server/config.ts";
 import { sha256 } from "../server/crypto.ts";
 import type { AccountRuntime } from "../server/imap/runtime.ts";
-import { createContact } from "../server/contacts.ts";
 import { Database, setDatabase } from "../server/db.ts";
-import { actOnInvitation, answerEvent, calendarPart, notifyGuests, processArrival, viewInvitation, vouchedFor } from "../server/invitations.ts";
-import { updateSettings } from "../server/settings.ts";
+import { actOnInvitation, answerEvent, calendarPart, notifyGuests, viewInvitation } from "../server/invitations.ts";
 import { parseMessage } from "../server/mail/render.ts";
 import { type StateStore, openState, setState, state } from "../server/state/db.ts";
 import { ENGINES, emptyDatabase } from "./databases.ts";
@@ -40,14 +38,9 @@ const ics = (method: string, over: { seq?: number; start?: string; partstat?: st
   ].join("\r\n");
 
 /** A message as calendar apps send one (RFC 6047): text, HTML, and the object with its method, and as invite.ics. */
-/** What the receiving mail server adds on top, as Rspamd (in Mailu) writes it: DKIM and DMARC passing for the sender's domain. */
-const vouching = (domain: string) =>
-  `Authentication-Results: mail.example.test;\r\n dkim=pass header.d=${domain} header.s=s1 header.b=AbCd;\r\n spf=pass (mail.example.test: domain of x@${domain} designates 192.0.2.1 as permitted sender) smtp.mailfrom=x@${domain};\r\n dmarc=pass (policy=reject) header.from=${domain}`;
-
-const message = (calendar: string, method: string, from = "Ann Lee <ann@elsewhere.test>", headers: string[] = []) =>
+const message = (calendar: string, method: string) =>
   [
-    ...headers,
-    `From: ${from}`, "To: me@example.test", "Subject: Invitation: Planning", "MIME-Version: 1.0",
+    "From: Ann Lee <ann@elsewhere.test>", "To: me@example.test", "Subject: Invitation: Planning", "MIME-Version: 1.0",
     'Content-Type: multipart/mixed; boundary="m"', "", "--m", 'Content-Type: multipart/alternative; boundary="a"', "",
     "--a", "Content-Type: text/plain; charset=UTF-8", "", "You have been invited to Planning.", "",
     "--a", `Content-Type: text/calendar; charset=UTF-8; method=${method}`, "Content-Transfer-Encoding: 7bit", "", calendar,
@@ -208,70 +201,6 @@ describe.each(ENGINES)("invitations on $name", ({ url }) => {
     const view = (await viewInvitation(7, part, SG))!;
     expect(view.replyApplied).toBe(true);
     expect((await getEvent(7, view.stored!.id, SG)).attendees).toEqual([{ address: "ann@elsewhere.test", name: "", response: "accepted", optional: false }]);
-  });
-
-  describe("as they arrive", () => {
-    const arrive = async (calendar: string, method: string, from = "Ann Lee <ann@elsewhere.test>", vouched = true) =>
-      processArrival(7, await parseMessage(Buffer.from(message(calendar, method, from, vouched ? [vouching(from.replace(/^.*@|>$/g, ""))] : []))));
-
-    it("trusts the From line only as far as the receiving server vouches for it", async () => {
-      const parsed = async (headers: string[]) => parseMessage(Buffer.from(message(ics("CANCEL"), "CANCEL", undefined, headers)));
-      expect(vouchedFor(await parsed([vouching("elsewhere.test")]), "ann@elsewhere.test")).toBe(true);
-      expect(vouchedFor(await parsed([vouching("elsewhere.test")]), "ann@other.test")).toBe(false);
-      expect(vouchedFor(await parsed([vouching("mail.other.test")]), "ann@other.test")).toBe(false);
-      expect(vouchedFor(await parsed(["Authentication-Results: mx.example.test; dkim=pass header.d=elsewhere.test"]), "ann@sub.elsewhere.test")).toBe(true);
-      expect(vouchedFor(await parsed(["Authentication-Results: mx.example.test; spf=pass smtp.mailfrom=ann@elsewhere.test; dkim=none; dmarc=fail header.from=elsewhere.test"]), "ann@elsewhere.test")).toBe(false);
-      expect(vouchedFor(await parsed([]), "ann@elsewhere.test")).toBe(false);
-      // Only the topmost counts: what a forger wrote below it, the receiving server's own results don't back.
-      expect(vouchedFor(await parsed(["Authentication-Results: mx.example.test; dkim=none; dmarc=none", vouching("elsewhere.test")]), "ann@elsewhere.test")).toBe(false);
-    });
-
-    it("adds an invitation from someone known, not yet answered, as the setting says", async () => {
-      expect(await arrive(ics("REQUEST"), "REQUEST")).toBeNull(); // Ann isn't known yet
-      await createContact(7, { firstName: "Ann", emails: [{ address: "ann@elsewhere.test" }] });
-      // Known, but the From line isn't vouched for: anyone could have written it.
-      expect(await arrive(ics("REQUEST"), "REQUEST", undefined, false)).toBeNull();
-      expect(await arrive(ics("REQUEST"), "REQUEST")).toBe("added");
-      const [event] = await eventsBetween(7, "2027-03-01", "2027-03-02", SG);
-      expect(event).toMatchObject({ title: "Planning", response: "needs-action" });
-      expect(await arrive(ics("REQUEST"), "REQUEST")).toBeNull(); // nothing new
-      expect(sent).toEqual([]); // nobody's told until you answer
-
-      await state().deleteFrom("events").execute();
-      await updateSettings(7, { invitationsAdded: "answered" });
-      expect(await arrive(ics("REQUEST"), "REQUEST")).toBeNull();
-      // From everyone means from anyone: no vouching needed to add one.
-      await updateSettings(7, { invitationsAdded: "everyone" });
-      expect(await arrive(ics("REQUEST").replace(/ann@elsewhere/g, "zed@elsewhere"), "REQUEST", "zed@elsewhere.test", false)).toBe("added");
-    });
-
-    it("changes or removes an event, or counts an answer, only for vouched-for mail from whoever it speaks for", async () => {
-      await updateSettings(7, { invitationsAdded: "everyone" });
-      // Someone else sending Ann's invitation adds nothing.
-      expect(await arrive(ics("REQUEST"), "REQUEST", "Mallory <mallory@elsewhere.test>")).toBeNull();
-      expect(await arrive(ics("REQUEST"), "REQUEST")).toBe("added");
-      const moved = ics("REQUEST", { seq: 1, start: "20270302T010000Z" });
-      expect(await arrive(moved, "REQUEST", "mallory@elsewhere.test")).toBeNull();
-      expect(await arrive(moved, "REQUEST", undefined, false)).toBeNull(); // Ann's address, forged
-      expect(await arrive(moved, "REQUEST")).toBe("updated");
-      expect((await eventsBetween(7, "2027-03-02", "2027-03-03", SG)).map((e) => e.title)).toEqual(["Planning"]);
-      expect(await arrive(ics("CANCEL", { seq: 2 }), "CANCEL", "mallory@elsewhere.test")).toBeNull();
-      expect(await arrive(ics("CANCEL", { seq: 2 }), "CANCEL", undefined, false)).toBeNull();
-      expect(await state().selectFrom("events").select("id").execute()).toHaveLength(1);
-      expect(await arrive(ics("CANCEL", { seq: 2 }), "CANCEL")).toBe("removed");
-      expect(await state().selectFrom("events").select("id").execute()).toEqual([]);
-
-      // An event this mailbox organises: Ann's own answer is counted, someone else's isn't.
-      const mine = ics("PUBLISH", { attendees: ["ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:ann@elsewhere.test"] })
-        .replace("ORGANIZER;CN=Ann Lee:mailto:ann@elsewhere.test", "ORGANIZER:mailto:me@example.test");
-      await actOnInvitation(rt, creds, await partOf(mine, "PUBLISH"), "add", primary);
-      const reply = ics("REPLY", { attendees: ["ATTENDEE;PARTSTAT=DECLINED:mailto:ann@elsewhere.test"] }).replace("ORGANIZER;CN=Ann Lee:mailto:ann@elsewhere.test", "ORGANIZER:mailto:me@example.test");
-      expect(await arrive(reply, "REPLY", "mallory@elsewhere.test")).toBeNull();
-      expect(await arrive(reply, "REPLY", undefined, false)).toBeNull();
-      expect(await arrive(reply, "REPLY")).toBe("counted");
-      const [event] = await eventsBetween(7, "2027-03-01", "2027-03-02", SG);
-      expect((await getEvent(7, event.id, SG)).attendees[0]).toMatchObject({ address: "ann@elsewhere.test", response: "declined" });
-    });
   });
 
   describe("sending them", () => {

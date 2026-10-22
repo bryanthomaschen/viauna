@@ -15,7 +15,7 @@ import { type Credentials, credentialFingerprint } from "../crypto.ts";
 import { db, placeholders } from "../db.ts";
 import { log } from "../log.ts";
 import { buildSnippet } from "../mail/snippet.ts";
-import { type TextPart, hasCalendarPart } from "../mail/structure.ts";
+import type { TextPart } from "../mail/structure.ts";
 import { Connection, resolvedOptions } from "./connection.ts";
 import {
   type MailboxRow,
@@ -324,8 +324,6 @@ export class AccountRuntime extends EventEmitter {
     const lock = await this.freshLock(client, mb.path);
     let changed = false;
     const arrived: NonNullable<ChangeEvent["arrived"]> = [];
-    // New mail in the Inbox with a calendar object: invitations, for invitations.ts to handle.
-    const withCalendar: number[] = [];
     try {
       const box = client.mailbox as MailboxObject;
       let state = db().get<MailboxRow>("SELECT * FROM mailboxes WHERE id = ?", mb.id)!;
@@ -357,7 +355,7 @@ export class AccountRuntime extends EventEmitter {
         const floor = state.backfill_uid ?? 1;
         // 1. New messages.
         if (box.uidNext > state.synced_uidnext) {
-          const added = await this.fetchInto(client, state, `${state.synced_uidnext}:*`, state.synced_uidnext, isInbox ? withCalendar : undefined);
+          const added = await this.fetchInto(client, state, `${state.synced_uidnext}:*`, state.synced_uidnext);
           if (added.length) changed = true;
           if (isInbox) {
             for (const row of added) {
@@ -405,7 +403,6 @@ export class AccountRuntime extends EventEmitter {
       this.notify([mb.id], arrived.length ? arrived : undefined);
       this.schedule("snippets");
     }
-    if (withCalendar.length) this.emit("invitations", mb, withCalendar);
   }
 
   private async refreshUnseen(mb: MailboxRow) {
@@ -424,8 +421,7 @@ export class AccountRuntime extends EventEmitter {
     return (Array.isArray(result) ? result : []).filter((u) => u >= min).sort((a, b) => a - b);
   }
 
-  /** Fetches and indexes messages; with `calendar`, notes there the ones that carry a calendar object. */
-  private async fetchInto(client: ImapFlow, mb: MailboxRow, range: string, min = 1, calendar?: number[]) {
+  private async fetchInto(client: ImapFlow, mb: MailboxRow, range: string, min = 1) {
     const rows: ReturnType<typeof insertFetched>[] = [];
     const seen = new Set<number>();
     try {
@@ -433,7 +429,6 @@ export class AccountRuntime extends EventEmitter {
         if ((msg as FetchMessageObject).uid < min) continue;
         seen.add(msg.uid);
         rows.push(insertFetched(this.account.id, mb, msg as FetchMessageObject));
-        if (calendar && hasCalendarPart((msg as FetchMessageObject).bodyStructure)) calendar.push(msg.uid);
       }
     } catch (err) {
       if (!isServerRefusal(err)) throw err;

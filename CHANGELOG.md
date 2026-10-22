@@ -54,13 +54,11 @@ calendar and emails the organiser your answer the standard way; change it later 
 event. Cards also bring your calendar up to date with a newer version, remove a cancelled
 event, add an `.ics` file's events, and, for events you organise, count a guest's answer.
 The calendar shows your answer: outlined until you answer, striped for maybe, struck
-through for no. As invitations arrive, they can go into your calendar before you answer:
-from everyone, from people you know (the choice out of the box), or only when you answer
-(**Settings > Calendar**). Updates, cancellations and guests' answers are applied as they
-arrive, when they come from the organiser (or that guest) itself. **Invite people** to
+through for no. Nothing in an email changes your calendar until you press its card's
+button. **Invite people** to
 your events: add guests in the editor, and Viauna emails them standard invitations (it
 asks first), updates when you change or move the event, and cancellations when you take
-someone off or delete it. Their answers are counted as they arrive; a guest on the same
+someone off or delete it. Their answers are counted from their cards; a guest on the same
 Viauna server answers your event at once.
 
 **A secret address** for any calendar, so another app (your phone, Outlook, another

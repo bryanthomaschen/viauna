@@ -40,16 +40,12 @@ import {
   text,
   videoProperty,
 } from "./icalendar.ts";
-import { contactWithAddress } from "./contacts.ts";
-import { db } from "./db.ts";
 import type { AccountRuntime } from "./imap/runtime.ts";
-import type { MailboxRow } from "./imap/store.ts";
 import { log } from "./log.ts";
-import { getParsed } from "./mail/fetch.ts";
 import { sendCalendarMail } from "./mail/compose.ts";
 import { type RepeatRule, readRule, representative } from "./recurrence.ts";
 import { whenText } from "./sender.ts";
-import { type Endpoint, onOwnServer, setting } from "./config.ts";
+import { type Endpoint, onOwnServer } from "./config.ts";
 import { state } from "./state/db.ts";
 import { getSettings, reminderZone } from "./settings.ts";
 
@@ -557,119 +553,4 @@ export async function notifyGuests(rt: AccountRuntime, creds: Credentials, befor
     sent += await mail([...was.values()], cancellation(b, null), "CANCEL", "cancelled");
   }
   return sent;
-}
-
-// ---------------------------------------------------------------- as they arrive
-
-/**
- * Whether the mail server that received a message vouches that it comes from this
- * address's domain. Anyone can write any From line, so it proves nothing on its own; the
- * receiving server checks the sender (RFC 8601) and puts its results on top of whatever
- * the message came with. Its topmost Authentication-Results has to show DMARC passing for
- * that domain, or DKIM passing for it (or a domain it's part of). SPF alone says nothing
- * about the From line.
- */
-export function vouchedFor(parsed: ParsedMail, address: string): boolean {
-  const line = parsed.headerLines.find((h) => h.key === "authentication-results")?.line;
-  const domain = address.split("@")[1]?.toLowerCase();
-  if (!line || !domain) return false;
-  // Unfolded, without its comments (in brackets), lower-cased; the first part names the server.
-  const value = line.replace(/^[^:]*:/, "").replace(/\r?\n[ \t]+/g, " ").replace(/\([^)]*\)/g, " ").toLowerCase();
-  return value.split(";").slice(1).some((part) => {
-    const m = /^\s*(dmarc|dkim)\s*=\s*pass\b(.*)$/.exec(part);
-    if (!m) return false;
-    const props = new Map([...m[2].matchAll(/([\w.]+)\s*=\s*"?([^\s";]+)"?/g)].map((x) => [x[1], x[2]]));
-    if (m[1] === "dmarc") return props.get("header.from") === domain;
-    const signer = props.get("header.d") ?? props.get("header.i")?.replace(/^.*@/, "");
-    return !!signer && (domain === signer || domain.endsWith(`.${signer}`));
-  });
-}
-
-/** Someone the mailbox knows: in its contacts, or someone it has written to. */
-async function known(accountId: number, address: string): Promise<boolean> {
-  if ((await contactWithAddress(accountId, address)) !== null) return true;
-  const row = db().get<{ sent: number }>("SELECT sent FROM contacts WHERE account_id = ? AND address = ?", accountId, address);
-  return !!row && row.sent > 0;
-}
-
-/**
- * What a newly arrived message's invitation does by itself, before anyone opens it. Only
- * the organiser's own mail acts on an invitation, and only a guest's own on their answer,
- * so nobody can add, change or remove an event by sending someone its UID. Its From line
- * has to be theirs, and for anything but adding an invitation from anyone, the receiving
- * mail server has to vouch for it (vouchedFor); otherwise the card offers it, for you to
- * decide:
- *
- * - a new invitation goes into the calendar if the mailbox's setting says so (from
- *   everyone, or from people it knows), not yet answered;
- * - a newer version of one already there updates it, as Update your calendar does;
- * - a cancellation of one already there, from its organiser, removes it;
- * - a guest's answer to an event the mailbox organises is counted.
- *
- * Returns what it did ("added", "updated", "removed", "counted"), or null.
- */
-export async function processArrival(accountId: number, parsed: ParsedMail): Promise<string | null> {
-  const part = calendarPart(parsed);
-  const itip = part && readItip(part);
-  if (!itip || itip.method === "PUBLISH") return null;
-  const from = parsed.from?.value[0]?.address?.toLowerCase() ?? "";
-  const me = await meOf(accountId);
-  const master = masterEvent(itip.root)!;
-  const { organizer, attendees } = peopleOf(master);
-  if (!organizer) return null;
-  const row = await eventByUid(accountId, itip.uid);
-  const kept = row ? parseCalendar(row.ics) : null;
-  const keptOrganizer = kept ? peopleOf(masterEvent(kept)!).organizer?.address : null;
-
-  const fromOrganizer = from === organizer.address;
-  const vouched = fromOrganizer && vouchedFor(parsed, organizer.address);
-  if (itip.method === "REQUEST") {
-    if (me.has(organizer.address) || !fromOrganizer) return null;
-    if (kept && row) {
-      if (keptOrganizer !== organizer.address || !vouched) return null;
-      if (!isNewer(itip.root, kept)) return null;
-      await keepEvent(accountId, occurrenceOf(itip.root) ? withOccurrence(kept, itip.root) : merged(itip.root, kept, me), { id: row.id });
-      return "updated";
-    }
-    if (!myAttendee(master, me)) return null;
-    const settings = await getSettings(accountId);
-    if (settings.invitationsAdded === "answered") return null;
-    if (settings.invitationsAdded === "known" && !(vouched && (await known(accountId, organizer.address)))) return null;
-    await keepEvent(accountId, withUsualReminders(clone(itip.root), settings), { calendarId: settings.invitationCalendar });
-    return "added";
-  }
-  if (itip.method === "CANCEL") {
-    if (!row || keptOrganizer !== organizer.address || !vouched) return null;
-    const occurrence = occurrenceOf(itip.root);
-    await deleteEvent(accountId, row.id, occurrence ?? undefined, occurrence ? "this" : undefined);
-    return "removed";
-  }
-  // A REPLY: the guest's own answer, to an event the mailbox organises.
-  const guest = attendees[0];
-  if (!kept || !row || !guest || from !== guest.address || !vouchedFor(parsed, guest.address) || !keptOrganizer || !me.has(keptOrganizer)) return null;
-  try {
-    await keepEvent(accountId, applyReply(kept, itip.root, me), { id: row.id });
-  } catch {
-    return null;
-  }
-  return "counted";
-}
-
-/** Handles the invitations in a runtime's newly arrived Inbox mail, one message at a time. */
-export function attachInvitations(rt: AccountRuntime) {
-  let queue = Promise.resolve();
-  rt.on("invitations", (mb: MailboxRow, uids: number[]) => {
-    queue = queue.then(async () => {
-      if (!setting("calendar")) return;
-      for (const uid of uids) {
-        try {
-          const parsed = await getParsed(rt, mb, uid);
-          const done = parsed && (await processArrival(rt.account.id, parsed));
-          if (done) log.info("an invitation was handled as it arrived", { account: rt.account.id, mailbox: mb.id, uid, done });
-        } catch (err) {
-          log.warn("couldn't handle an invitation as it arrived", { account: rt.account.id, uid, error: (err as Error).message });
-        }
-      }
-    });
-  });
 }

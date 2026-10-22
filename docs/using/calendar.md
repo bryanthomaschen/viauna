@@ -118,14 +118,6 @@ says so.
   organiser your answer, from your address, as calendar apps expect. It goes into the
   calendar chosen in **Settings > Calendar > Invitations** (your own, out of the box), or
   the one you pick on the card. It keeps your usual reminders.
-- An invitation can also go into your calendar as it arrives, before you've opened it,
-  outlined until you answer. **Settings > Calendar > Invitations** says from whom: everyone,
-  people you know (in your contacts, or you've written to them; the choice out of the
-  box), or nobody (only when you answer). When it arrives, an update to one in your
-  calendar is made there, a cancellation removes it, and a guest's answer to an event you
-  organise is counted, as long as each comes from the organiser (or that guest) and your
-  mail server confirms it does. When it can't, nothing happens by itself: the card in the
-  message offers it, for you to decide. Mail in Spam is left alone.
 - Change your answer on the card, or in the calendar: click the event and choose again
   under **Going?**. The organiser is told each time.
 - When the organiser changes it, the new invitation's card offers **Update your calendar**.
@@ -139,6 +131,9 @@ says so.
 - When you organise an event and a guest's answer arrives, its card offers **Count it in
   your event**, to show their answer on the event's guest list.
 
+Nothing in an email changes your calendar by itself: an invitation, an update, a
+cancellation or an answer does something only when you press its button on the card.
+
 In the calendar, an invitation you haven't answered is outlined, a maybe is striped, and
 one you've said no to is faded and struck through. An event's card lists its guests and
 their answers.
@@ -150,9 +145,8 @@ from the suggestions. When you save, Viauna asks **Send invitations?**: **Send**
 guest a standard invitation, which they can answer from whatever calendar or mail app they
 use; **Don't send** saves without emailing anyone. You're the event's organiser.
 
-Their answers come back by email. Each one is counted on the event as it arrives (or from
-its card, **Count it in your event**), and the event's card and editor list who's said
-yes, maybe or no. A guest whose mailbox is on your Viauna server too gets the same email as
+Their answers come back by email: **Count it in your event** on each one's card adds it to
+the event, whose card and editor list who's said yes, maybe or no. A guest whose mailbox is on your Viauna server too gets the same email as
 anyone else, and their answer reaches your event at once.
 
 When you change, move or delete an event you organise with guests, Viauna asks whether to

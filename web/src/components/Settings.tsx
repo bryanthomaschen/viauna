@@ -202,32 +202,17 @@ function CalendarSettings() {
           <DefaultReminders label="Notifications for all-day events" saved={s.allDayReminders} allDay onSave={(allDayReminders) => save({ allDayReminders })} />
         </div>
       </div>
-      <div className="setting">
-        <div className="name">
-          Invitations
-          <small>Whether an invitation goes into your calendar as it arrives, before you answer it, and which calendar invitations go into.</small>
+      {own.length > 1 && (
+        <div className="setting">
+          <div className="name">Invitations<small>The calendar an invitation goes into when you answer it, unless you pick another on it.</small></div>
+          <div className="options">
+            <select aria-label="Calendar for invitations" value={s.invitationCalendar ?? own.find((c) => c.primary)?.id ?? ""}
+              onChange={(e) => void save({ invitationCalendar: Number(e.target.value) })}>
+              {own.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
         </div>
-        <div className="options">
-          {([
-            ["everyone", "Add invitations from everyone"],
-            ["known", "Add invitations from people I know (in my contacts, or I've written to them)"],
-            ["answered", "Only when I answer them"],
-          ] as const).map(([value, label]) => (
-            <label key={value}>
-              <input type="radio" name="invitations-added" checked={s.invitationsAdded === value} onChange={() => void save({ invitationsAdded: value })} /> {label}
-            </label>
-          ))}
-          {own.length > 1 && (
-            <label>
-              Into
-              <select aria-label="Calendar for invitations" value={s.invitationCalendar ?? own.find((c) => c.primary)?.id ?? ""}
-                onChange={(e) => void save({ invitationCalendar: Number(e.target.value) })}>
-                {own.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </label>
-          )}
-        </div>
-      </div>
+      )}
       <div className="setting">
         <div className="name">View<small>In this browser.</small></div>
         <div className="options">
