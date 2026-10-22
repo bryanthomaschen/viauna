@@ -158,6 +158,16 @@ desktop notification of its own.
 - With `BROWSER_NOTIFICATIONS` (or `CALENDAR`) off, the page doesn't offer them and
   nothing is pushed.
 
+**By email**: an `EMAIL` alarm is sent from [Viauna's own sender](../self-hosting/configuration.md#viauna-s-own-sender)
+(`SENDER_ADDRESS`), signed in as it, to the mailbox's own address, and only for mailboxes
+on `IMAP_HOST`, so the sender can't be made to mail anyone else; the alarm's `ATTENDEE`
+is set to that address when it's saved, as RFC 5545 asks, but not followed. The email has
+the title, times (in the zone above), place and video link, and a link to the day in the
+calendar if `PUBLIC_URL` is set, in plain text and HTML, with `Auto-Submitted:
+auto-generated` so no out-of-office reply comes back. A sending that fails is logged, not
+tried again. Without a sender, email reminders aren't offered, and those imported events
+bring are kept but not sent.
+
 ## Calendar files
 
 **Importing** a file splits it into events: every `VEVENT` with the same `UID` (the event

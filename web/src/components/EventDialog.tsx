@@ -270,7 +270,8 @@ export function EventDialog({ id, occurrence, initial }: { id?: number; occurren
           onChange={(e) => set({ description: e.target.value })} />
         <div className="event-field event-reminders">
           <span id="event-reminders">Notifications</span>
-          <RemindersField value={d.reminders ?? []} onChange={(reminders) => set({ reminders })} allDay={d.allDay} email={false} />
+          <RemindersField value={d.reminders ?? []} onChange={(reminders) => set({ reminders })} allDay={d.allDay}
+            email={!!acct.accounts[acct.index]?.emailReminders} />
         </div>
         <label className="event-field">
           <span>Show as</span>

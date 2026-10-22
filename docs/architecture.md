@@ -33,6 +33,7 @@ server/                Node (TypeScript, Hono)
   birthdays.ts         the Birthdays calendar: contacts' dates made into events, never stored
   reminders.ts         reminders as they fall due: worked out per event, claimed, sent to every channel
   push.ts              browser notifications with Viauna closed: Web Push (RFC 8291), VAPID, subscriptions
+  sender.ts            Viauna's own sender (SENDER_*): reminders by email, to the mailbox's own address
   feeds.ts             fetching calendars from the web: public addresses only, limits, conditional requests
   vtimezone.ts         VTIMEZONE definitions for IANA zones, from the zone's own changes
   filters.ts           filters and the vacation responder: checking, loading, saving

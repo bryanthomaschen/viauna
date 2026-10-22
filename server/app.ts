@@ -78,6 +78,7 @@ import { type View, conversation, listThreads, parseView } from "./mail/views.ts
 import { passwordChangeFor } from "./password.ts";
 import { PushError, addSubscription, pushTo, removeSubscription, vapidPublicKey } from "./push.ts";
 import { type Notice, reminderEvents } from "./reminders.ts";
+import { emailReminders } from "./sender.ts";
 import { accountSettingsEvents, getSettings, isTrustedSender, myAddresses, noteSeenZone, trustSender, updateSettings } from "./settings.ts";
 
 type Env = {
@@ -251,6 +252,8 @@ export function createApp() {
           email: sa.account.email,
           name: (await getSettings(sa.account.id)).name,
           admin: isAdmin(sa.account),
+          // Reminders can be emailed to this mailbox, from the server's own sender.
+          emailReminders: emailReminders(sa.account),
         })),
       ),
     });

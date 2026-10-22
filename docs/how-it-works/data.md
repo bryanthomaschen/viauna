@@ -76,6 +76,8 @@ state store and unaffected.
 - **For a password change**: the login, the address, and the current and new passwords,
   to your command (on its standard input), your webhook (a signed POST) or your LDAP
   directory. See [Password changes](../self-hosting/passwords.md).
+- **To your SMTP server, as Viauna's own sender** (`SENDER_ADDRESS`), if set: each email
+  reminder, addressed to the mailbox's own address.
 - **To a browser's push service**, for each reminder due, if that browser has turned on
   reminders with Viauna closed: a message encrypted for the browser alone (the event's
   title, times and place), which the service (Google's, Mozilla's or Apple's) passes on

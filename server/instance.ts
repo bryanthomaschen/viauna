@@ -250,5 +250,6 @@ export function serverFacts() {
     passwordWebhook: !!config.passwordWebhook,
     passwordLdap: describeLdap(config.passwordLdap),
     carddav: config.carddavUrl ?? null,
+    sender: config.sender && `${config.sender.address}, via ${describeEndpoint(config.sender.smtp)}${config.sender.password ? `, as ${config.sender.login}` : ", without signing in"}`,
   };
 }

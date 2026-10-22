@@ -43,8 +43,10 @@ all-day event, days before at a time of day; new events get your usual ones, set
 notification when they're on. **Reminders with Viauna closed** (Settings > General): your
 browser shows them even with no Viauna tab open, sent through its push service, encrypted
 for it alone; on an iPhone, from Viauna added to the Home Screen. Imported events'
-reminders are kept, and shown too. `BROWSER_NOTIFICATIONS` (or the admin page) turns the
-pushing off.
+reminders are kept, and sent too. `BROWSER_NOTIFICATIONS` (or the admin page) turns the
+pushing off. **Reminders by email**, to your own address, once the server has a sender of
+its own: set `SENDER_ADDRESS` and `SENDER_PASSWORD` for a mailbox such as
+`noreply@example.com`.
 
 **A secret address** for any calendar, so another app (your phone, Outlook, another
 calendar) can show it read-only: the whole calendar, or only "Busy" at the times you're
@@ -90,8 +92,13 @@ didn't change stays exactly as another app wrote it. See
 
 ### Upgrading from 0.5
 
-Nothing to do: the calendar's tables are made on the first start, and it's on. The same
-start finds the labels, nicknames and dates in the contacts already kept. Calendars
+Nothing you have to do: the calendar's tables are made on the first start, and it's on. The same
+start finds the labels, nicknames and dates in the contacts already kept. For reminders by
+email, give Viauna a mailbox to send from: see
+[Viauna's own sender](https://bryanthomaschen.github.io/viauna/self-hosting/configuration#viauna-s-own-sender).
+If you put a login of your own in front of Viauna, leave `/ical/`, `/sw.js`, the manifest
+and the icons out of it: see
+[Reverse proxy](https://bryanthomaschen.github.io/viauna/self-hosting/reverse-proxy). Calendars
 are kept in the state store and nowhere else, so back up `state.db` (or your
 `DATABASE_URL` database) as the
 [upgrading page](https://bryanthomaschen.github.io/viauna/self-hosting/upgrading#backing-up)

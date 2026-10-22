@@ -33,6 +33,7 @@ describe("the docs", () => {
       { PASSWORD_CHANGE: "webhook", PASSWORD_CHANGE_WEBHOOK: "https://hook.test/", PASSWORD_CHANGE_WEBHOOK_SECRET: "s".repeat(32) },
       { PASSWORD_CHANGE_LDAP_URL: "ldap://directory.test", PASSWORD_CHANGE_LDAP_SEARCH_BASE: "dc=test", PASSWORD_CHANGE_LDAP_BIND_DN: "cn=a", PASSWORD_CHANGE_LDAP_BIND_PASSWORD: "b" },
       { MANAGESIEVE_HOST: "sieve.test" },
+      { SENDER_ADDRESS: "noreply@example.test", SMTP_HOST: "smtp.test" },
     ];
     for (const extra of variants) {
       const values: Record<string, string | undefined> = { ...original, ...extra };

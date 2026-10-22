@@ -139,6 +139,43 @@ function sieveEndpoint(imap: Endpoint | null): Endpoint | null {
   };
 }
 
+/** Viauna's own sender (sender.ts): a mailbox the server sends from itself, with its SMTP server. */
+export interface Sender {
+  address: string;
+  /** The From name; unset: APP_NAME at the time. */
+  name: string | undefined;
+  login: string;
+  password: string | undefined;
+  smtp: Endpoint;
+}
+
+/**
+ * The sender, if SENDER_ADDRESS names one: by default it logs in as that address to the
+ * SMTP server people send through (SMTP_HOST), unless SENDER_SMTP_* say otherwise.
+ */
+function senderConfig(smtp: Endpoint | null): Sender | null {
+  const address = env("SENDER_ADDRESS");
+  if (address === undefined) return null;
+  if (!/^[^\s@<>",]+@[^\s@<>",]+$/.test(address)) throw new Error(`SENDER_ADDRESS must be an email address, got "${address}"`);
+  const own = env("SENDER_SMTP_HOST");
+  const sameHost = !own || own === smtp?.host;
+  const host = own ?? smtp?.host;
+  if (!host) throw new Error("SENDER_ADDRESS needs an SMTP server: set SMTP_HOST, or SENDER_SMTP_HOST");
+  return {
+    address,
+    name: env("SENDER_NAME"),
+    login: env("SENDER_LOGIN", address)!,
+    password: env("SENDER_PASSWORD"),
+    smtp: {
+      host,
+      port: int("SENDER_SMTP_PORT", sameHost && smtp ? smtp.port : 465),
+      security: env("SENDER_SMTP_SECURITY") ? security("SENDER_SMTP_SECURITY", "tls") : sameHost && smtp ? smtp.security : "tls",
+      servername: env("SENDER_SMTP_TLS_SERVERNAME") ?? (sameHost ? smtp?.servername : undefined),
+      verify: env("SENDER_SMTP_TLS_VERIFY") !== undefined ? bool("SENDER_SMTP_TLS_VERIFY", true) : sameHost && smtp ? smtp.verify : true,
+    },
+  };
+}
+
 /** Stable JSON for an endpoint: part of an account's identity, so key order is fixed. */
 export function endpointKey(e: Endpoint): string {
   return JSON.stringify({ host: e.host.toLowerCase(), port: e.port, security: e.security, servername: e.servername ?? null, verify: e.verify, ...(e.custom ? { custom: true } : {}) });
@@ -410,6 +447,11 @@ export const config = {
   imap: endpoint("IMAP", 993),
   smtp: endpoint("SMTP", 465),
   managesieve: sieveEndpoint(endpoint("IMAP", 993)),
+  /**
+   * Viauna's own sender, for reminders by email (sender.ts); null if SENDER_ADDRESS isn't
+   * set. Environment only: it holds a password.
+   */
+  sender: senderConfig(endpoint("SMTP", 465)),
   /** Custom servers and calendar feeds may not resolve to private/loopback addresses unless this is on. */
   allowPrivateServers: bool("ALLOW_PRIVATE_SERVERS", false),
 

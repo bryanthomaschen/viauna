@@ -134,13 +134,14 @@ function ClosedNotifications() {
 
 /** Default reminders, saved a moment after the last change rather than at every keystroke. */
 function DefaultReminders({ label, saved, allDay, onSave }: { label: string; saved: Reminder[]; allDay: boolean; onSave: (r: Reminder[]) => Promise<void> }) {
+  const acct = useAccount();
   const [value, setValue] = useState(saved);
   useEffect(() => {
     if (JSON.stringify(value) === JSON.stringify(saved)) return;
     const t = setTimeout(() => void onSave(value), 800);
     return () => clearTimeout(t);
   }, [value]);
-  return <RemindersField label={label} value={value} allDay={allDay} email={false} onChange={setValue} />;
+  return <RemindersField label={label} value={value} allDay={allDay} email={!!acct.accounts[acct.index]?.emailReminders} onChange={setValue} />;
 }
 
 function CalendarSettings() {

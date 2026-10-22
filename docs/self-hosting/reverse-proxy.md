@@ -22,7 +22,10 @@ If you put a login of your own in front of Viauna (HTTP Basic Auth, a single sig
 proxy), leave `/ical/` out of it: that's where other apps fetch calendars by their
 [secret addresses](../how-it-works/calendar.md#secret-addresses), and they can't sign in to
 your proxy. The address itself is the key. With `CALENDAR_SECRET_ADDRESSES=false`, nothing
-is served there.
+is served there. Leave out `/sw.js`, `/manifest.webmanifest` and the icons
+(`/icon-192.png`, `/icon-512.png`, `/apple-touch-icon.png`, `/favicon.svg`) too: browsers
+may fetch them without your login's credentials, to run the service worker that shows
+reminders and to add Viauna to a home screen. They're the same for everyone.
 
 > [!TIP]
 > If a CDN or another proxy sits in front of yours, have your proxy restore the client's

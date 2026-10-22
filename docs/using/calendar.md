@@ -111,7 +111,8 @@ unless you pick another.
 An event can remind you before it starts: under **Notifications** in the editor, so many
 minutes, hours, days or weeks before (up to four), or for an all-day event, so many days
 before at a time of day ("1 day before at 09:00", or 0 days for the morning of). An event
-can have up to 5. Its card lists them.
+can have up to 5. Its card lists them. If your server sends them, a reminder can be an
+**Email** to your own address instead: choose it where it says **Notification**.
 
 A new event starts with your usual reminders, which you set in **Settings > Calendar >
 Notifications**, one list for events at a time and another for all-day events; out of the
@@ -139,8 +140,8 @@ Screen (in Safari, the Share button, then **Add to Home Screen**), open it from 
 turn them on in its Settings. On a computer or Android phone you can do the same, to have
 Viauna in a window of its own.
 
-Reminders that came with an imported event are kept; those that show something are sent
-the same way. Calendars from the web and the Birthdays calendar don't remind.
+Reminders that came with an imported event are kept, and sent the same way. Calendars from
+the web and the Birthdays calendar don't remind.
 
 ## Repeating events
 

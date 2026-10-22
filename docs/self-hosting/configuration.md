@@ -69,6 +69,22 @@ Settings that are on or off take `true` or `false`, `1` or `0`, `yes` or `no`, `
 | `MAX_UPLOAD_MB` | `25` | **Live.** Largest single attachment. Your proxy and mail server must accept messages at least this big. 1 to 10240. |
 | `CACHE_MB` | `1024` | **Live.** Disk cache for downloaded messages. 0 to 10,000,000. It's trimmed after every 50 downloads, least recently opened first, so it can run over in between; `0` still writes each message, then removes it at the next trim. |
 
+## Viauna's own sender
+
+A mailbox that Viauna sends from itself, for [reminders by email](../using/calendar.md#reminders).
+They're due when nobody may be signed in, and a person's own password can be used only
+while they are, so the server needs a mailbox of its own: create one on your mail server,
+such as `noreply@example.com`. Email reminders go only to each mailbox's own address, and
+only for mailboxes on `IMAP_HOST`. Without `SENDER_ADDRESS`, reminders aren't offered by
+email. All environment only.
+
+| Variable | Default | |
+|---|---|---|
+| `SENDER_ADDRESS` | — | The address reminders come from. Setting it turns email reminders on. |
+| `SENDER_NAME` | `APP_NAME` | The name they come from. |
+| `SENDER_LOGIN`, `SENDER_PASSWORD` | `SENDER_ADDRESS`, — | How Viauna signs in to the SMTP server as the sender. Without a password, it sends without signing in, for a server that relays for Viauna's address. |
+| `SENDER_SMTP_HOST`, `SENDER_SMTP_PORT`, `SENDER_SMTP_SECURITY`, `SENDER_SMTP_TLS_SERVERNAME`, `SENDER_SMTP_TLS_VERIFY` | `SMTP_HOST`'s, and with it its port, security, certificate name and checking; for another host, `465`, `tls`, —, `true` | Where it sends from, if not where people send. |
+
 ## Admins and password changes
 
 | Variable | Default | |

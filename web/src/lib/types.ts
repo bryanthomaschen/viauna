@@ -119,6 +119,8 @@ export interface SessionAccount {
   name: string;
   /** May open the admin page. */
   admin: boolean;
+  /** Reminders can be emailed to it, from the server's own sender. */
+  emailReminders: boolean;
 }
 
 export interface Identity {
@@ -357,6 +359,8 @@ export interface ServerFacts {
   passwordWebhook: boolean;
   passwordLdap: string | null;
   carddav: string | null;
+  /** Viauna's own sender, for reminders by email: its address and server; null if not set up. */
+  sender: string | null;
 }
 
 export interface AdminData {
