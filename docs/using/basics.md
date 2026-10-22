@@ -1,7 +1,7 @@
 # The basics
 
-Viauna works like Gmail, so if you've used Gmail you already know most of it. This page
-covers the essentials and the parts that differ on your own mail server.
+This page covers the essentials: signing in, conversations, archiving and undo, labels
+and folders, writing mail, images from the internet and settings.
 
 Anything below can also be done from the command menu: press ⌘K (Ctrl+K), type, and press
 Enter. A key in brackets, like (`e`), is its single-key shortcut, which works once you
@@ -18,7 +18,7 @@ another account**. Each one has its own address in the browser: `/u/0`, `/u/1` a
 ## Conversations
 
 A conversation is a message and its replies, including the ones you sent, which are filed
-in Sent. A reply that changes the subject starts a new conversation, as in Gmail.
+in Sent. A reply that changes the subject starts a new conversation.
 
 New mail appears in the Inbox within about a second, and in other folders within a
 minute. See [How it works: Mail sync](../how-it-works/sync.md).

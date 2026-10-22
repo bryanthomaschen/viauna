@@ -10,7 +10,7 @@ here has a date. What's already out is in the
   iCalendar, with nothing else to set up. Import and export `.ics` files; a Birthdays
   calendar from your contacts; and calendars from elsewhere by their address (public
   holidays, fixtures, another service's feed).
-- **Events as rich as Google Calendar's**: repeating, with changed or skipped occurrences;
+- **Everything an event needs**: repeating, with changed or skipped occurrences;
   all-day and multi-day; time zones; video-call links. Day, week, month and agenda
   views. Make an event from an email, or from an `.ics` file someone sends.
 - **Reminders** on the page, as browser notifications even with Viauna closed, and by

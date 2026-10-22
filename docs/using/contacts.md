@@ -25,7 +25,7 @@ To bring your contacts over:
 
 | From | Export as vCard |
 |---|---|
-| Gmail | [contacts.google.com](https://contacts.google.com) → Export → vCard |
+| Google Contacts | [contacts.google.com](https://contacts.google.com) → Export → vCard |
 | Apple Contacts | Select the contacts, then File → Export → Export vCard |
 | Thunderbird | Address Book → right-click the address book → Export → vCard |
 | Roundcube | Contacts → Export |

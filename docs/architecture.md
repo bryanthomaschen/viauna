@@ -44,7 +44,7 @@ server/                Node (TypeScript, Hono)
   mail/threading.ts    conversation grouping
   mail/views.ts        thread lists and conversation view
   mail/actions.ts      archive/move/flag/label with undo
-  mail/search.ts       Gmail query syntax → IMAP SEARCH
+  mail/search.ts       search operators → IMAP SEARCH
   mail/render.ts       sanitizing and rendering message HTML
   mail/fetch.ts        message download + disk cache
   mail/compose.ts      MIME building, SMTP send, drafts, uploads

@@ -19,7 +19,7 @@ hero:
 
 features:
   - title: Conversations across folders
-    details: Your replies, filed in Sent, sit under the message they answer, threaded by Message-ID and References the way Gmail does it.
+    details: Your replies, filed in Sent, sit under the message they answer, threaded by Message-ID and References.
   - title: Fast and live
     details: A local index makes lists, counts and paging instant. IMAP IDLE brings new Inbox mail to the open page within about a second.
   - title: Labels, not just folders
@@ -27,7 +27,7 @@ features:
   - title: Search the way you already do
     details: from:, has:attachment, older_than:1y, "exact phrase" and the rest, run on the server against its full-text index.
   - title: Keyboard friendly
-    details: 'A command menu (⌘K or Ctrl+K) for every action, folder and setting by name, and Gmail''s single-key shortcuts if you turn them on.'
+    details: 'A command menu (⌘K or Ctrl+K) for every action, folder and setting by name, and single-key shortcuts if you turn them on.'
   - title: Safe by default
     details: Message HTML is sanitized and shown in a sandbox, and tracking images stay blocked until you allow them, per message or per sender.
 ---

@@ -17,7 +17,7 @@ week, month, schedule and 4-day views; click or drag on the calendar to make an 
 drag to move it, and Undo; each event's card has **Join video call** for its link;
 search; and **Create event** in a message's menu, with a link back to the email.
 
-Repeating events, as Google Calendar offers them (daily, weekly on chosen days, monthly
+Repeating events (daily, weekly on chosen days, monthly
 on a date or a weekday, yearly, until a date or so many times), and changed or deleted
 as this event, this and following events, or all events. A rule another app wrote is
 kept as it is.

@@ -97,7 +97,7 @@ replaced but not edited.
 | | What happens |
 |---|---|
 | This event | The occurrence becomes a `VEVENT` of its own, with its `RECURRENCE-ID`; changing it again changes that one |
-| This and following events | The series is split, as Google Calendar does: the original ends just before the occurrence (its `UNTIL`, or its `COUNT` made the number before it), and a new event carries on from it with the same rule (its `COUNT` what's left), the dates left out after it, and the occurrences changed on their own after it. Its `UID` is the original's with `_R` and the occurrence added. From the first occurrence, it's all events |
+| This and following events | The series is split: the original ends just before the occurrence (its `UNTIL`, or its `COUNT` made the number before it), and a new event carries on from it with the same rule (its `COUNT` what's left), the dates left out after it, and the occurrences changed on their own after it. Its `UID` is the original's with `_R` and the occurrence added. From the first occurrence, it's all events |
 | All events | The series moves as the occurrence did: by as many days, to its new time of day, in its new zone. The dates left out, the names of occurrences changed on their own, a weekly or monthly rule's weekdays and dates, and the rule's end all move the same way, so they still match. An occurrence changed only in other ways (its title, say) moves with the series; one moved on its own stays put. A new title, place, description, colour, busy or free, or video link reaches the occurrences that had the old one |
 
 Deleting: **this event** adds it to the dates left out (and removes its own `VEVENT`);

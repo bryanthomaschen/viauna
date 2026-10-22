@@ -17,36 +17,35 @@ docker-mailserver). Reports from other servers are very welcome.
 
 Most open-source webmail looks and behaves like a 2009 desktop client. Viauna copies the
 interaction model people actually use every day — conversations, archive-don't-delete,
-inline replies, Gmail's one-key shortcuts for those who want them — on top of plain IMAP, so it works with the mail
-server you already run.
+inline replies, one-key shortcuts for those who want them — on top of plain IMAP, so it
+works with the mail server you already run.
 
 ## Features
 
 - **Conversations across folders.** Replies you sent (in Sent) sit under the message
-  they answer (in Inbox), threaded by `Message-ID`/`References` the way Gmail does it —
-  a reply that changes the subject starts a new conversation.
+  they answer (in Inbox), threaded by `Message-ID`/`References`; a reply that changes
+  the subject starts a new conversation.
 - **Fast.** A local index of every folder (SQLite) makes lists, counts and paging
   instant; newest mail first, older mail backfilled in the background.
 - **Live.** IMAP IDLE pushes new Inbox mail to the open page within about a second;
   other folders follow within a minute.
-- **Gmail-style labels** — several per conversation, stored on the server as IMAP
+- **Labels, not just folders** — several per conversation, stored on the server as IMAP
   keywords, so they follow your mail (Thunderbird and Apple Mail show them as tags).
-  Plain folders work too.
-- **Search with Gmail syntax** — `from:`, `to:`, `subject:`, `has:attachment`,
+- **Search with operators** — `from:`, `to:`, `subject:`, `has:attachment`,
   `is:unread`, `is:starred`, `label:`, `in:`, `before:`/`after:`,
   `older_than:`/`newer_than:`, `larger:`, `-exclude`, `"exact phrase"` — run on the
   server, so body text is covered by its full-text index.
 - **Archive, delete, spam, move, star, mark read — with Undo.**
-- **Compose like Gmail** — pop-up windows (minimise, full screen, several at once),
-  inline replies with the quoted text tucked behind `•••`, recipient autocomplete from
-  people you correspond with, rich text, pasted images, drag-and-drop attachments,
-  drafts autosaved to your server's Drafts folder.
+- **Compose in pop-up windows** (minimise, full screen, several at once), or reply
+  inline with the quoted text tucked behind `•••`; recipient autocomplete from people
+  you correspond with, rich text, pasted images, drag-and-drop attachments, drafts
+  autosaved to your server's Drafts folder.
 - **Several accounts at once** with an account switcher (`/u/0`, `/u/1`, …) and
   "send mail as" aliases.
-- **Filters and a vacation responder**, Gmail-style, kept on your mail server as Sieve
+- **Filters and a vacation responder**, kept on your mail server as Sieve
   so they run as mail arrives, in every app.
-- **Contacts**: an address book per mailbox, vCard import and export (from Gmail, Apple
-  Contacts, Thunderbird, Roundcube), suggestions from it as you write, and optional
+- **Contacts**: an address book per mailbox, vCard import and export (from Google Contacts,
+  Apple Contacts, Thunderbird, Roundcube), suggestions from it as you write, and optional
   two-way sync with your CardDAV server.
 - **Calendars**: as many per mailbox as you like, kept by Viauna in standard iCalendar;
   day, week, month, schedule and 4-day views; drag to make and move events; time zones
@@ -55,7 +54,7 @@ server you already run.
   changed without a restart and with a record of who changed what. The same from the
   command line, or all of it from environment variables.
 - **A command menu** — ⌘K or Ctrl+K, then type: any action, folder, label or setting.
-  Gmail's single-key shortcuts (`c` `/` `j` `k` `e` `#` `r` `a` `f` `z` `g i` …) are
+  Single-key shortcuts (`c` `/` `j` `k` `e` `#` `r` `a` `f` `z` `g i` …) are
   there too, off until you turn them on.
 - **Safe by default** — message HTML is sanitized and shown in a sandboxed iframe with
   its own content security policy; remote images (tracking pixels) are blocked until you

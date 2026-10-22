@@ -71,7 +71,7 @@ server, and use ManageSieve on the IMAP host's port 4190; if yours is elsewhere,
 `FILTERS=false` and `VACATION=false`, or Settings shows a Filters tab that can't connect.
 Forwarding in filters is off until you turn it on (`FILTER_FORWARDING`).
 
-Gmail's single-key shortcuts are now off until each person turns them on; the ⌘K /
+Single-key shortcuts are now off until each person turns them on; the ⌘K /
 Ctrl+K command menu is always there. In a browser where someone had changed any display
 setting (theme, density and so on), shortcuts stay on. Tell people who use them where
 the switch is: Settings → Keyboard shortcuts, or *turn on single-key shortcuts* in the

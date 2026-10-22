@@ -34,7 +34,7 @@ and then, for each message that matches when it arrives:
 - **Delete it** (into Trash);
 - **Forward it to** another address, if your server allows forwarding in filters.
 
-Every filter that matches applies, as in Gmail: if two of them move the same message,
+Every filter that matches applies: if two of them move the same message,
 it's filed in both folders. Filters sort mail that arrives from the moment they're
 saved; mail already here stays where it is. Mail a filter files outside the Inbox shows
 up in Viauna within a minute.

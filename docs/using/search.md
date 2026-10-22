@@ -1,7 +1,8 @@
 # Search
 
-Search uses Gmail's syntax. Press `/` to jump to the search box. Searches run on your
-mail server, so they cover message text, not just what Viauna has downloaded.
+Type words to find, or narrow a search with the operators below. Press `/` to jump to the
+search box. Searches run on your mail server, so they cover message text, not just what
+Viauna has downloaded.
 
 | Search | Finds |
 |---|---|

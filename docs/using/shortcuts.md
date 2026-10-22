@@ -21,7 +21,7 @@ or not single-key shortcuts are on, and while you're reading a message too.
 
 ## Single-key shortcuts
 
-Gmail's one-key shortcuts are here for anyone who wants them. They're off until you turn
+One-key shortcuts are here for anyone who wants them. They're off until you turn
 them on: in **Settings → Keyboard shortcuts**, from the command menu (*turn on
 single-key shortcuts*), or with **Turn on** in the panel the **?** button at the top
 opens. Each browser remembers its own choice. They're ignored while you're typing.
@@ -70,7 +70,7 @@ A few details:
 
 ## In the calendar
 
-The calendar has its own keys, as in Google Calendar. The command menu offers the same,
+The calendar has its own keys. The command menu offers the same,
 under **Calendar**, whether or not shortcuts are on.
 
 | Key | Action |

@@ -48,7 +48,7 @@ unless you pick another.
 
 ## Repeating events
 
-**Repeats** offers what Google Calendar does for the event's start date: daily; weekly on
+**Repeats** offers the usual choices for the event's start date: daily; weekly on
 its weekday; monthly on, say, the third Wednesday (and on the last one, when it's also
 the last in its month); annually on its date; every weekday. **Custom…** sets the rest:
 every so many days, weeks, months or years; which days of the week; for a monthly event,
