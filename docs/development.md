@@ -15,7 +15,7 @@ delivered for real, so you can watch live updates arrive.
 
 `npm run cli -- admin add alice@example.test` makes alice an admin of your dev server
 (open `/admin`); `npm run cli -- settings` lists every setting. It's the
-[`viauna` command](./self-hosting/admin.md#the-command-line), run from source.
+[`viauna` command](./administration/command-line.md), run from source.
 
 ```bash
 npm run typecheck

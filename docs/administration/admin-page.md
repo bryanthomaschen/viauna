@@ -1,11 +1,11 @@
-# Admin page and command line
+# The admin page
 
 > [!NOTE]
 > The admin page and the `viauna` command need Viauna 0.3 or newer.
 
 Most settings can be changed while Viauna runs, without a restart: from the **admin
-page**, or from the server's console with the **`viauna` command**. A change applies at
-once, in every page people have open (nobody needs to reload).
+page**, or from the server's console with the [**`viauna` command**](./command-line.md).
+A change applies at once, in every page people have open (nobody needs to reload).
 
 Some changes apply only to what happens next. Narrowing who can sign in
 (`ALLOWED_DOMAINS`, `ALLOW_CUSTOM_SERVERS`) or lowering `MAX_ACCOUNTS` applies to the
@@ -19,7 +19,7 @@ change things from the page, or mix the two.
 
 ## Becoming an admin
 
-On a new server nobody is an admin. Make yourself one from the console:
+On a new server nobody is an admin. Make yourself one from the server's console:
 
 ```bash
 docker exec viauna viauna admin add you@example.com
@@ -67,10 +67,10 @@ What the page can change:
 | Other mail servers | `ALLOW_CUSTOM_SERVERS` | Whether people can enter their own IMAP and SMTP servers. |
 | Contacts, contacts sync | `CONTACTS`, `CONTACTS_SYNC` | The address book, and syncing it with `CARDDAV_URL`, on or off. |
 | Calendar, calendars from the web, secret addresses, notifications with Viauna closed | `CALENDAR`, `CALENDAR_FEEDS`, `CALENDAR_SECRET_ADDRESSES`, `BROWSER_NOTIFICATIONS` | The calendar; adding calendars by their address, which this server then fetches; secret addresses for other apps to read calendars from; and reminders pushed to browsers; each on or off. |
-| Filters, forwarding in filters, vacation responder | `FILTERS`, `FILTER_FORWARDING`, `VACATION` | Forwarding is off by default. See [Filters and vacation](./filters.md). |
+| Filters, forwarding in filters, vacation responder | `FILTERS`, `FILTER_FORWARDING`, `VACATION` | Forwarding is off by default. See [Filters and vacation](../self-hosting/filters.md). |
 | Session length, accounts per browser, largest attachment, message cache | `SESSION_DAYS`, `MAX_ACCOUNTS`, `MAX_UPLOAD_MB`, `CACHE_MB` | |
 | Name | `APP_NAME` | |
-| Password changes | `PASSWORD_CHANGE` | Off, or one of the ways the environment set up. See [Password changes](./passwords.md). |
+| Password changes | `PASSWORD_CHANGE` | Off, or one of the ways the environment set up. See [Password changes](../self-hosting/passwords.md). |
 
 ### What the page can never change
 
@@ -91,32 +91,3 @@ Some settings are read only from the environment, at startup:
 That last group is deliberate. Someone who steals an admin's session can change what the
 page offers, but can't use it to run commands on your server, probe your network or
 send everyone to a page that collects their passwords.
-
-## The command line
-
-The image includes a `viauna` command. Run it inside the container, where it uses the
-same settings and database as the server:
-
-```bash
-docker exec viauna viauna settings                    # every setting, its value, and where that comes from
-docker exec viauna viauna settings set SESSION_DAYS 14
-docker exec viauna viauna settings set ALLOWED_DOMAINS "example.com, example.org"
-docker exec viauna viauna settings reset SESSION_DAYS # back to the default
-docker exec viauna viauna admin list
-docker exec viauna viauna admin add you@example.com
-docker exec viauna viauna admin remove you@example.com
-docker exec viauna viauna changes                     # recent changes, newest first
-docker exec viauna viauna version
-```
-
-Settings are named by their environment variable. Lists are comma-separated, and `""` is
-an empty list. A change made here is recorded as made by "command line". The command
-tells the running server through a socket in the data directory (`viauna.sock`), so the
-change applies at once; if it can't, the server still picks it up within a minute.
-
-Without Docker, run `node dist/server/cli.js` from the Viauna directory, with the same
-environment as the server.
-
-If an upgrade is waiting (the first start after moving from 0.1, or after setting
-`DATABASE_URL` on a server that had been using SQLite), the command asks you to start
-Viauna once first, so it never works on data the server is about to move.

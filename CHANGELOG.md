@@ -102,6 +102,11 @@ didn't change stays exactly as another app wrote it. See
   the admin page acts as that mailbox (`/u/1/admin`). Before, one admin signed in put it
   in every mailbox's menu in that browser, and the page acted as the first admin signed
   in. `/admin` on its own still opens it, as the first admin.
+- The docs have a [Quick start](https://bryanthomaschen.github.io/viauna/quick-start): try
+  Viauna on your computer with one command, or run it on a server with one compose file
+  that puts it behind Caddy. The admin page and the `viauna` command have their own
+  section, [Administration](https://bryanthomaschen.github.io/viauna/administration/admin-page),
+  moved from Self-hosting; the old address still leads there.
 
 ### Upgrading from 0.5
 

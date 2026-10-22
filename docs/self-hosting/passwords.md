@@ -5,7 +5,7 @@
 
 Viauna keeps no passwords of its own: a mailbox's password belongs to your mail server.
 So changing it from Viauna (Settings > Accounts > Change password) is handed to whatever
-you choose with `PASSWORD_CHANGE`, from the [admin page](./admin.md) or the environment:
+you choose with `PASSWORD_CHANGE`, from the [admin page](../administration/admin-page.md) or the environment:
 
 | `PASSWORD_CHANGE` | People see | You set |
 |---|---|---|

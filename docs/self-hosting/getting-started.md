@@ -3,6 +3,10 @@
 Viauna is one container: a Node server and the web app, with its data in one directory.
 It needs nothing besides your mail server: no database server, no Redis.
 
+This page puts Viauna behind a reverse proxy you already run. For the shortest way, with
+Caddy getting the certificate, or to try it on your own computer first, see
+[Quick start](../quick-start.md).
+
 ## What you need
 
 - A mail server with **IMAP** (port 993, or 143 with STARTTLS) and **authenticated SMTP

@@ -11,8 +11,8 @@ hero:
     alt: Viauna
   actions:
     - theme: brand
-      text: Get started
-      link: /self-hosting/getting-started
+      text: Quick start
+      link: /quick-start
     - theme: alt
       text: View on GitHub
       link: https://github.com/bryanthomaschen/viauna

@@ -90,7 +90,7 @@ Nothing to do: the new tables are created on the first start. Two things to know
 - A setting with an invalid value (a number out of range, or anything but `true`,
   `false`, `1`, `0`, `yes`, `no`, `on` or `off` for one that's on or off) now stops
   Viauna at startup with a message naming it, where 0.2 quietly read it as off.
-- Most settings can now be changed from the [admin page](./admin.md). Settings in your
+- Most settings can now be changed from the [admin page](../administration/admin-page.md). Settings in your
   environment keep working, and stay locked there.
 
 ### From 0.1 to 0.2

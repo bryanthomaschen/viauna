@@ -60,4 +60,4 @@ Notes:
   [Contacts and CardDAV](./contacts.md).
 - To make yourself an admin of Viauna (not of Mailu):
   `docker compose exec viauna viauna admin add you@example.com`. See
-  [Admin page and command line](./admin.md).
+  [The admin page](../administration/admin-page.md).

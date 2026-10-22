@@ -68,41 +68,46 @@ works with the mail server you already run.
 
 ## Quick start
 
+Try it on your computer, with your own mail server's hostnames:
+
 ```bash
 docker run -d --name viauna \
-  -p 127.0.0.1:3000:3000 \
-  -v viauna-data:/data \
-  -e PUBLIC_URL=https://mail.example.com \
+  -p 127.0.0.1:3000:3000 -v viauna-data:/data \
+  -e PUBLIC_URL=http://localhost:3000 \
   -e IMAP_HOST=imap.example.com \
   -e SMTP_HOST=smtp.example.com \
   ghcr.io/bryanthomaschen/viauna:0.5
 ```
 
+Then open <http://localhost:3000> and sign in with your mailbox address and password.
 Images are published for `linux/amd64` and `linux/arm64`.
 
-Put it behind your TLS-terminating reverse proxy (nginx, Caddy, Traefik) and sign in
-with your mailbox address and password. See [Getting started](docs/self-hosting/getting-started.md)
-for Docker Compose, and [Reverse proxy](docs/self-hosting/reverse-proxy.md) for nginx,
-Caddy and Traefik.
+To run it on a server, [Quick start](docs/quick-start.md) has a compose file that puts it
+behind Caddy, which gets the certificate. With a proxy of your own (nginx, Caddy, Traefik),
+see [Getting started](docs/self-hosting/getting-started.md) and
+[Reverse proxy](docs/self-hosting/reverse-proxy.md).
 
 ## Documentation
 
 Everything is on **[the docs site](https://bryanthomaschen.github.io/viauna/)**, and in
 [`docs/`](docs/) here:
 
+- **[Quick start](docs/quick-start.md)**
+- **Using Viauna**: [the basics](docs/using/basics.md) · [search](docs/using/search.md) ·
+  [contacts](docs/using/contacts.md) · [calendar](docs/using/calendar.md) · [filters and vacation](docs/using/filters.md) ·
+  [keyboard shortcuts](docs/using/shortcuts.md)
+- **Administration**: [the admin page](docs/administration/admin-page.md) ·
+  [the command line](docs/administration/command-line.md)
 - **Self-hosting**: [getting started](docs/self-hosting/getting-started.md) ·
   [reverse proxy](docs/self-hosting/reverse-proxy.md) ·
   [configuration](docs/self-hosting/configuration.md) ·
-  [admin page](docs/self-hosting/admin.md) · [password changes](docs/self-hosting/passwords.md) ·
+  [password changes](docs/self-hosting/passwords.md) ·
   [contacts and CardDAV](docs/self-hosting/contacts.md) ·
   [filters and vacation](docs/self-hosting/filters.md) ·
   [databases](docs/self-hosting/databases.md) ·
   [mail servers](docs/self-hosting/mail-servers.md) · [Mailu](docs/self-hosting/mailu.md) ·
   [upgrades and backups](docs/self-hosting/upgrading.md) ·
   [troubleshooting](docs/self-hosting/troubleshooting.md)
-- **Using Viauna**: [the basics](docs/using/basics.md) · [search](docs/using/search.md) ·
-  [contacts](docs/using/contacts.md) · [calendar](docs/using/calendar.md) · [filters and vacation](docs/using/filters.md) ·
-  [keyboard shortcuts](docs/using/shortcuts.md)
 - **How it works**: [overview](docs/how-it-works/index.md) ·
   [mail sync](docs/how-it-works/sync.md) ·
   [live updates and settings](docs/how-it-works/live-updates.md) ·

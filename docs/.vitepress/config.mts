@@ -15,28 +15,13 @@ export default defineConfig({
   themeConfig: {
     logo: "/logo.svg",
     nav: [
-      { text: "Self-hosting", link: "/self-hosting/getting-started" },
+      { text: "Quick start", link: "/quick-start" },
       { text: "Using Viauna", link: "/using/basics" },
+      { text: "Self-hosting", link: "/self-hosting/getting-started" },
       { text: "Roadmap", link: "/roadmap" },
     ],
     sidebar: [
-      {
-        text: "Self-hosting",
-        items: [
-          { text: "Getting started", link: "/self-hosting/getting-started" },
-          { text: "Reverse proxy", link: "/self-hosting/reverse-proxy" },
-          { text: "Configuration", link: "/self-hosting/configuration" },
-          { text: "Admin page and command line", link: "/self-hosting/admin" },
-          { text: "Password changes", link: "/self-hosting/passwords" },
-          { text: "Contacts and CardDAV", link: "/self-hosting/contacts" },
-          { text: "Filters and vacation", link: "/self-hosting/filters" },
-          { text: "Databases", link: "/self-hosting/databases" },
-          { text: "Mail servers", link: "/self-hosting/mail-servers" },
-          { text: "Mailu", link: "/self-hosting/mailu" },
-          { text: "Upgrades and backups", link: "/self-hosting/upgrading" },
-          { text: "Troubleshooting", link: "/self-hosting/troubleshooting" },
-        ],
-      },
+      { text: "Quick start", link: "/quick-start" },
       {
         text: "Using Viauna",
         items: [
@@ -46,6 +31,29 @@ export default defineConfig({
           { text: "Calendar", link: "/using/calendar" },
           { text: "Filters and vacation", link: "/using/filters" },
           { text: "Command menu and shortcuts", link: "/using/shortcuts" },
+        ],
+      },
+      {
+        text: "Administration",
+        items: [
+          { text: "The admin page", link: "/administration/admin-page" },
+          { text: "The command line", link: "/administration/command-line" },
+        ],
+      },
+      {
+        text: "Self-hosting",
+        items: [
+          { text: "Getting started", link: "/self-hosting/getting-started" },
+          { text: "Reverse proxy", link: "/self-hosting/reverse-proxy" },
+          { text: "Configuration", link: "/self-hosting/configuration" },
+          { text: "Password changes", link: "/self-hosting/passwords" },
+          { text: "Contacts and CardDAV", link: "/self-hosting/contacts" },
+          { text: "Filters and vacation", link: "/self-hosting/filters" },
+          { text: "Databases", link: "/self-hosting/databases" },
+          { text: "Mail servers", link: "/self-hosting/mail-servers" },
+          { text: "Mailu", link: "/self-hosting/mailu" },
+          { text: "Upgrades and backups", link: "/self-hosting/upgrading" },
+          { text: "Troubleshooting", link: "/self-hosting/troubleshooting" },
         ],
       },
       {

@@ -6,7 +6,7 @@
 Each mailbox has an address book (see [Contacts](../using/contacts.md) for how people use
 it). It's on by default and needs nothing set up: contacts are kept in Viauna's state
 store with everything else, so back that up as usual. Turn it off with `CONTACTS=false`
-or from the [admin page](./admin.md); contacts already saved are kept.
+or from the [admin page](../administration/admin-page.md); contacts already saved are kept.
 
 ## Syncing with a CardDAV server
 
