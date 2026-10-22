@@ -11,6 +11,8 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-24.04
+    # Usually 4 minutes; a stalled download fails the run instead of holding it for hours.
+    timeout-minutes: 20
     # The state store is tested on every engine it supports (test/databases.ts), with
     # their data in memory, since the tests rebuild tables constantly.
     services:
@@ -70,9 +72,18 @@ jobs:
             echo "::endgroup::"
           done
       - run: npm run build
+      # Only the browser is fetched (from Playwright's own CDN, and cached): the runner image
+      # has Chrome, and with it the libraries a headless Chromium needs. `--with-deps` had
+      # apt fetch some forty font and library packages from Ubuntu's mirror on every run,
+      # which on a slow day held the job for over ten minutes.
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - name: Browser tests (shortcuts and the command menu)
+        timeout-minutes: 8
         run: |
-          npx playwright-core install --with-deps chromium-headless-shell
+          npx playwright-core install chromium-headless-shell
           npm run test:browser
 
   docker:
