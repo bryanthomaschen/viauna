@@ -118,6 +118,13 @@ says so.
   organiser your answer, from your address, as calendar apps expect. It goes into the
   calendar chosen in **Settings > Calendar > Invitations** (your own, out of the box), or
   the one you pick on the card. It keeps your usual reminders.
+- An invitation can also go into your calendar as it arrives, before you've opened it,
+  outlined until you answer. **Settings > Calendar > Invitations** says from whom: everyone,
+  people you know (in your contacts, or you've written to them; the choice out of the
+  box), or nobody (only when you answer). When it arrives, an update to one in your
+  calendar is made there, a cancellation removes it, and a guest's answer to an event you
+  organise is counted, as long as each comes from the organiser (or that guest) itself.
+  Mail in Spam is left alone.
 - Change your answer on the card, or in the calendar: click the event and choose again
   under **Going?**. The organiser is told each time.
 - When the organiser changes it, the new invitation's card offers **Update your calendar**.

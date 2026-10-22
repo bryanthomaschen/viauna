@@ -186,6 +186,8 @@ export interface Settings {
   allDayReminders: Reminder[];
   /** The calendar invitations go into; null: your own. */
   invitationCalendar: number | null;
+  /** Which invitations go into the calendar as they arrive, before you answer. */
+  invitationsAdded: "everyone" | "known" | "answered";
 }
 
 /** A notification or an email, so many minutes before an event starts (an all-day one's day starts at midnight; negative: after). */

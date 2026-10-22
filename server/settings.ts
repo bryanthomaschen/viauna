@@ -38,6 +38,12 @@ export interface AccountSettings {
   seenZone: string;
   /** The calendar invitations go into; null: the mailbox's own. */
   invitationCalendar: number | null;
+  /**
+   * Which invitations go into the calendar as they arrive, before you answer: from
+   * everyone, from people you know (in your contacts, or you've written to them), or none
+   * (only when you answer).
+   */
+  invitationsAdded: "everyone" | "known" | "answered";
 }
 
 export const DEFAULT_SETTINGS: AccountSettings = {
@@ -54,6 +60,7 @@ export const DEFAULT_SETTINGS: AccountSettings = {
   allDayReminders: [],
   seenZone: "",
   invitationCalendar: null,
+  invitationsAdded: "known",
 };
 
 /** Fixed limits on reminders (docs/how-it-works/limits.md). */
@@ -143,6 +150,10 @@ export async function updateSettings(accountId: number, patch: Record<string, un
       if (!cal || cal.kind !== "events") return { error: "Pick one of your own calendars." };
     }
     next.invitationCalendar = id;
+  }
+  if ("invitationsAdded" in patch) {
+    const v = String(patch.invitationsAdded);
+    next.invitationsAdded = v === "everyone" || v === "answered" ? v : "known";
   }
   for (const key of ["reminders", "allDayReminders"] as const) {
     if (!(key in patch)) continue;

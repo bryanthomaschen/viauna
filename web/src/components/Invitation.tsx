@@ -127,7 +127,10 @@ export function InvitationCard({ refx }: { refx: MessageRef }) {
       <div className="invite-row muted">{when}{inv.occurrence ? " (one occurrence)" : ""}</div>
       {inv.repeat && <div className="invite-row muted"><Repeat size={18} aria-hidden /> {repeatText(inv.repeat, inv.allDay ? inv.start : instantToWall(inv.start, zone))}</div>}
       {inv.location && <div className="invite-row"><MapPin size={18} aria-hidden /> {inv.location}</div>}
-      {inv.video && <div className="invite-row"><Video size={18} aria-hidden /> <a href={inv.video} target="_blank" rel="noopener noreferrer">Join video call</a></div>}
+      {/* The server gives only http(s) links (videoProperty); checked again here all the same. */}
+      {inv.video && /^https?:\/\//i.test(inv.video) && (
+        <div className="invite-row"><Video size={18} aria-hidden /> <a href={inv.video} target="_blank" rel="noopener noreferrer">Join video call</a></div>
+      )}
       {inv.organizer && !replier && <div className="invite-row muted">From {who(inv.organizer)}{inv.youOrganize ? " (you)" : ""}</div>}
       {!replier && <Guests inv={inv} me={acct.identities.map((i) => i.address)} />}
       {inv.clashes.length > 0 && (

@@ -202,6 +202,25 @@ occurrence in the series kept.
 answer**, to an event you organise, sets their `PARTSTAT` in your copy (on the occurrence
 it names, if it names one); one to an older version is left out.
 
+**As they arrive.** Sync notes each new message in the Inbox whose structure has a
+calendar part, and Viauna reads it as soon as it's indexed, one at a time, while the
+mailbox's [connection](./sync.md) runs: mail that arrived while nobody had Viauna open is
+read when someone next does. Only new arrivals: mail indexed again (after a rebuild) and
+other folders, Spam among them, aren't acted on. A message acts on its own only when it
+comes from whoever it speaks for (its `From` address is the organiser's, or for an answer,
+that guest's), so nobody can add, change or remove an event by sending someone its `UID`:
+
+- an invitation not in the calendar goes in, unanswered (`NEEDS-ACTION`), into the
+  invitations calendar with the usual reminders, if the mailbox adds invitations from
+  everyone, or from people it knows and the organiser is one: in its contacts, or someone
+  it has sent mail to (the index's count);
+- a newer version of one in the calendar, from the same organiser, updates it as above;
+- a cancellation of one in the calendar, from its organiser, removes it (or the
+  occurrence);
+- a guest's answer to an event the mailbox organises is counted.
+
+Nobody is emailed by any of this: an answer goes only when you give one.
+
 In the calendar, each event's `response` is your `PARTSTAT` when you're one of its guests
 and not its organiser, and the grid draws it: `NEEDS-ACTION` outlined, `TENTATIVE`
 striped, `DECLINED` faded and struck through. Events you organise, and events without

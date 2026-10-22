@@ -401,6 +401,31 @@ describe.skipIf(!enabled)("against a real IMAP server", { timeout: 30_000 }, () 
     expect((await call("GET", "/api/u/0/contacts")).json.sync.at).toBeGreaterThan(Date.now() - 60_000);
   });
 
+  it("puts an invitation into the calendar as it arrives, and answers it from its message", async () => {
+    expect((await call("PUT", "/api/u/0/settings", { invitationsAdded: "everyone" })).status).toBe(200);
+    const ics = [
+      "BEGIN:VCALENDAR", "PRODID:-//Test//EN", "VERSION:2.0", "METHOD:REQUEST", "BEGIN:VEVENT",
+      "UID:it-invite@example.org", "DTSTAMP:20261022T000000Z", "DTSTART:20270405T010000Z", "DTEND:20270405T020000Z", "SEQUENCE:0",
+      "SUMMARY:Board meeting", "ORGANIZER;CN=Ann:mailto:ann@example.org",
+      `ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:${user}`, "ATTENDEE;PARTSTAT=ACCEPTED:mailto:ann@example.org",
+      "END:VEVENT", "END:VCALENDAR", "",
+    ].join("\r\n");
+    await append("INBOX", { from: "Ann <ann@example.org>", to: user, subject: "Invitation: Board meeting", text: "You're invited.", icalEvent: { method: "REQUEST", content: ics } });
+    const sg = "zone=Asia%2FSingapore";
+    // Sync notices it, and it's in the calendar before anyone opens it, unanswered.
+    const event = await until(async () => (await call("GET", `/api/u/0/calendar/events?from=2027-04-05&to=2027-04-06&${sg}`)).json.events?.find((e: any) => e.title === "Board meeting"), 20_000);
+    expect(event.response).toBe("needs-action");
+
+    const thread = await until(async () => (await call("GET", "/api/u/0/threads?view=inbox")).json.threads.find((t: any) => t.subject === "Invitation: Board meeting"));
+    const msg = (await call("GET", `/api/u/0/threads/${thread.id}?view=inbox`)).json.messages[0];
+    const base = `/api/u/0/messages/${msg.mailboxId}/${msg.uid}`;
+    expect((await call("GET", base)).json.invitation).toBe("REQUEST");
+    expect((await call("GET", `${base}/invitation?${sg}`)).json.invitation).toMatchObject({ title: "Board meeting", stored: { id: event.id, response: "needs-action" } });
+    const answered = await call("POST", `${base}/invitation?${sg}`, { action: "accepted" });
+    expect(answered.json).toMatchObject({ sent: true, invitation: { stored: { id: event.id, response: "accepted" } } });
+    expect((await call("GET", `/api/u/0/calendar/events/${event.id}?${sg}`)).json.event.response).toBe("accepted");
+  });
+
   it("keeps filters in the mailbox's Sieve script, and the server applies them as mail arrives", async () => {
     await call("POST", "/api/u/0/mailboxes", { name: "Receipts" });
     await until(async () => (await call("GET", "/api/u/0/mailboxes")).json.mailboxes.some((m: any) => m.path === "Receipts"));

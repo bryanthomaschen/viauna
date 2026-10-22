@@ -1,4 +1,5 @@
 import { attachContactsSync } from "../contacts-sync.ts";
+import { attachInvitations } from "../invitations.ts";
 import { type Credentials, credentialFingerprint } from "../crypto.ts";
 import { log } from "../log.ts";
 import { verifyLogin } from "./connection.ts";
@@ -108,6 +109,7 @@ export function runtimeFor(account: AccountInfo, creds: Credentials): Promise<Ac
       runtimes.set(account.id, rt);
       rt.start();
       attachContactsSync(rt);
+      attachInvitations(rt);
       log.info("account runtime started", { account: account.id });
     }
     rt.touch();

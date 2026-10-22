@@ -54,7 +54,10 @@ calendar and emails the organiser your answer the standard way; change it later 
 event. Cards also bring your calendar up to date with a newer version, remove a cancelled
 event, add an `.ics` file's events, and, for events you organise, count a guest's answer.
 The calendar shows your answer: outlined until you answer, striped for maybe, struck
-through for no.
+through for no. As invitations arrive, they can go into your calendar before you answer:
+from everyone, from people you know (the choice out of the box), or only when you answer
+(**Settings > Calendar**). Updates, cancellations and guests' answers are applied as they
+arrive, when they come from the organiser (or that guest) itself.
 
 **A secret address** for any calendar, so another app (your phone, Outlook, another
 calendar) can show it read-only: the whole calendar, or only "Busy" at the times you're

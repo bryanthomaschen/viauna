@@ -37,6 +37,7 @@ class FakeRuntime {
 vi.mock("../server/imap/runtime.ts", () => ({ AccountRuntime: FakeRuntime }));
 vi.mock("../server/crypto.ts", () => ({ credentialFingerprint: (c: { pass: string }) => `fp:${c.pass}` }));
 vi.mock("../server/contacts-sync.ts", () => ({ attachContactsSync: () => {} }));
+vi.mock("../server/invitations.ts", () => ({ attachInvitations: () => {} }));
 
 const { runtimeFor, stopAll, MailboxAuthError } = await import("../server/imap/pool.ts");
 const account = { id: 7, login: "ann", email: "ann@x", imap: {}, smtp: {} } as never;

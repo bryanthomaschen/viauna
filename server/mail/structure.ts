@@ -84,3 +84,12 @@ export function findTextPart(root: MessageStructureObject | undefined): TextPart
   walk(root, false);
   return plain ?? html;
 }
+
+/** Whether a message carries a calendar object (an invitation, or an .ics file), from its structure alone. */
+export function hasCalendarPart(root: MessageStructureObject | undefined): boolean {
+  if (!root) return false;
+  const type = root.type.toLowerCase();
+  if (type === "message/rfc822") return false;
+  if (root.childNodes?.length) return root.childNodes.some(hasCalendarPart);
+  return type === "text/calendar" || type === "application/ics" || /\.ics$/i.test(filename(root) ?? "");
+}

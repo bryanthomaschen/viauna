@@ -40,10 +40,16 @@ import {
   text,
   videoProperty,
 } from "./icalendar.ts";
+import { contactWithAddress } from "./contacts.ts";
+import { db } from "./db.ts";
 import type { AccountRuntime } from "./imap/runtime.ts";
+import type { MailboxRow } from "./imap/store.ts";
+import { log } from "./log.ts";
+import { getParsed } from "./mail/fetch.ts";
 import { sendCalendarMail } from "./mail/compose.ts";
 import { type RepeatRule, readRule, representative } from "./recurrence.ts";
 import { whenText } from "./sender.ts";
+import { setting } from "./config.ts";
 import { getSettings, reminderZone } from "./settings.ts";
 
 const PRODID = `-//Viauna//Viauna ${VERSION}//EN`;
@@ -418,3 +424,90 @@ export async function answerEvent(rt: AccountRuntime, creds: Credentials, eventI
   return { sent: await sendReply(rt, creds, root, me, response) };
 }
 
+// ---------------------------------------------------------------- as they arrive
+
+/** Someone the mailbox knows: in its contacts, or someone it has written to. */
+async function known(accountId: number, address: string): Promise<boolean> {
+  if ((await contactWithAddress(accountId, address)) !== null) return true;
+  const row = db().get<{ sent: number }>("SELECT sent FROM contacts WHERE account_id = ? AND address = ?", accountId, address);
+  return !!row && row.sent > 0;
+}
+
+/**
+ * What a newly arrived message's invitation does by itself, before anyone opens it. Only
+ * the organiser's own mail acts on an invitation (the message is from them), and only a
+ * guest's own on their answer, so nobody can add, change or remove an event by sending
+ * someone its UID:
+ *
+ * - a new invitation goes into the calendar if the mailbox's setting says so (from
+ *   everyone, or from people it knows), not yet answered;
+ * - a newer version of one already there updates it, as Update your calendar does;
+ * - a cancellation of one already there, from its organiser, removes it;
+ * - a guest's answer to an event the mailbox organises is counted.
+ *
+ * Returns what it did ("added", "updated", "removed", "counted"), or null.
+ */
+export async function processArrival(accountId: number, parsed: ParsedMail): Promise<string | null> {
+  const part = calendarPart(parsed);
+  const itip = part && readItip(part);
+  if (!itip || itip.method === "PUBLISH") return null;
+  const from = parsed.from?.value[0]?.address?.toLowerCase() ?? "";
+  const me = await meOf(accountId);
+  const master = masterEvent(itip.root)!;
+  const { organizer, attendees } = peopleOf(master);
+  if (!organizer) return null;
+  const row = await eventByUid(accountId, itip.uid);
+  const kept = row ? parseCalendar(row.ics) : null;
+  const keptOrganizer = kept ? peopleOf(masterEvent(kept)!).organizer?.address : null;
+
+  if (itip.method === "REQUEST") {
+    if (me.has(organizer.address) || from !== organizer.address) return null;
+    if (kept && row) {
+      if (keptOrganizer !== organizer.address) return null;
+      const newer = SEQ(master) > SEQ(masterEvent(kept)!) || (SEQ(master) === SEQ(masterEvent(kept)!) && !sameTimes(itip.root, kept));
+      if (!newer) return null;
+      await keepEvent(accountId, occurrenceOf(itip.root) ? withOccurrence(kept, itip.root) : merged(itip.root, kept, me), { id: row.id });
+      return "updated";
+    }
+    if (!myAttendee(master, me)) return null;
+    const settings = await getSettings(accountId);
+    if (settings.invitationsAdded === "answered") return null;
+    if (settings.invitationsAdded === "known" && !(await known(accountId, organizer.address))) return null;
+    await keepEvent(accountId, withUsualReminders(clone(itip.root), settings), { calendarId: settings.invitationCalendar });
+    return "added";
+  }
+  if (itip.method === "CANCEL") {
+    if (!row || keptOrganizer !== organizer.address || from !== organizer.address) return null;
+    const occurrence = occurrenceOf(itip.root);
+    await deleteEvent(accountId, row.id, occurrence ?? undefined, occurrence ? "this" : undefined);
+    return "removed";
+  }
+  // A REPLY: the guest's own answer, to an event the mailbox organises.
+  const guest = attendees[0];
+  if (!kept || !row || !guest || from !== guest.address || !keptOrganizer || !me.has(keptOrganizer)) return null;
+  try {
+    await keepEvent(accountId, applyReply(kept, itip.root, me), { id: row.id });
+  } catch {
+    return null;
+  }
+  return "counted";
+}
+
+/** Handles the invitations in a runtime's newly arrived Inbox mail, one message at a time. */
+export function attachInvitations(rt: AccountRuntime) {
+  let queue = Promise.resolve();
+  rt.on("invitations", (mb: MailboxRow, uids: number[]) => {
+    queue = queue.then(async () => {
+      if (!setting("calendar")) return;
+      for (const uid of uids) {
+        try {
+          const parsed = await getParsed(rt, mb, uid);
+          const done = parsed && (await processArrival(rt.account.id, parsed));
+          if (done) log.info("an invitation was handled as it arrived", { account: rt.account.id, mailbox: mb.id, uid, done });
+        } catch (err) {
+          log.warn("couldn't handle an invitation as it arrived", { account: rt.account.id, uid, error: (err as Error).message });
+        }
+      }
+    });
+  });
+}
