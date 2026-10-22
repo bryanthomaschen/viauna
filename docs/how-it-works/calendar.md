@@ -160,7 +160,8 @@ desktop notification of its own.
 
 **By email**: an `EMAIL` alarm is sent from [Viauna's own sender](../self-hosting/configuration.md#viauna-s-own-sender)
 (`SENDER_ADDRESS`), signed in as it, to the mailbox's own address, and only for mailboxes
-on `IMAP_HOST`, so the sender can't be made to mail anyone else; the alarm's `ATTENDEE`
+on `IMAP_HOST` whose login is the address shown (the one the mail server checked), so the
+sender can't be made to mail anyone else; the alarm's `ATTENDEE`
 is set to that address when it's saved, as RFC 5545 asks, but not followed. The email has
 the title, times (in the zone above), place and video link, and a link to the day in the
 calendar if `PUBLIC_URL` is set, in plain text and HTML, with `Auto-Submitted:
@@ -219,14 +220,27 @@ status or guests.
 
 **Guests on the same server.** A guest whose mailbox is on this Viauna server gets the
 same email as anyone else, and it goes into their calendar only when they answer it;
-nothing is put in anyone's calendar unasked. Their answer, though, is counted in the organiser's
-event at once, without waiting for the email, when both mailboxes are on this server's own
-mail server (`IMAP_HOST`), which vouches for each. The email goes too.
+nothing is put in anyone's calendar unasked. Once they have, the event stays in step both
+ways, without waiting for the emails (which go too):
 
-**Nothing by itself.** Mail that arrives with an invitation, an update, a cancellation or
-an answer changes nothing until someone presses its card's button: Viauna doesn't read
-calendar parts as mail arrives, and anyone can send a message that claims to be from
-anyone.
+- their answer, then and whenever they change it, is counted in the organiser's event;
+- when the organiser sends a change, it's made in their copy as **Update your calendar**
+  would make it, keeping their reminders, colour and answer; when the organiser takes them
+  off the guest list or deletes the event, their copy goes. **Don't send** sends nothing
+  and changes nobody's copy.
+
+Both happen only between mailboxes on this server's own mail server (`IMAP_HOST`), and
+only for the address it checked at sign-in: the login, where that's the address shown.
+The address typed in at sign-in proves nothing by itself (a separate username can sign
+in to one mailbox under another's address), and neither does an alias, which anyone can
+type in; an answer from either, or a change to a copy that names another organiser, is
+left for the email. A series split with **This and following** is a new event, with a new
+`UID`, so guests answer it again.
+
+**Nothing by itself from mail.** Mail that arrives with an invitation, an update, a
+cancellation or an answer changes nothing until someone presses its card's button: Viauna
+doesn't read calendar parts as mail arrives, and anyone can send a message that claims to
+be from anyone.
 
 In the calendar, each event's `response` is your `PARTSTAT` when you're one of its guests
 and not its organiser, and the grid draws it: `NEEDS-ACTION` outlined, `TENTATIVE`

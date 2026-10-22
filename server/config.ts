@@ -191,6 +191,19 @@ export function onOwnServer(account: { imap: Endpoint }): boolean {
   return !!config.imap && !account.imap.custom && endpointKey(account.imap) === endpointKey(config.imap);
 }
 
+/**
+ * The address this server's own mail server vouched for when the account signed in: its
+ * login, where that is the address it shows. Null otherwise. The address typed in at
+ * sign-in proves nothing by itself, since a separate username can sign in to one mailbox
+ * under another's address; so anything that reaches other people's mailboxes in this
+ * mailbox's name (email reminders, answers and changes counted directly in other
+ * mailboxes' calendars) goes by this, never by `email` alone or by an alias.
+ */
+export function verifiedAddress(account: { imap: Endpoint; login: string; email: string }): string | null {
+  const address = account.email.toLowerCase();
+  return onOwnServer(account) && account.login.toLowerCase() === address ? address : null;
+}
+
 // ------------------------------------------------------------ changeable settings
 
 export type SettingValue = boolean | number | string | string[];

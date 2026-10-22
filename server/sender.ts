@@ -2,16 +2,16 @@
 // mailbox SENDER_ADDRESS names. For now, reminders by email: they fall due when nobody may
 // be signed in, and a mailbox's own password can be used only while its owner is (it's
 // encrypted with a key their session holds). An email reminder goes only to the mailbox's
-// own address, and only for mailboxes on this server's own mail server (IMAP_HOST), so the
-// sender can't be made to mail anyone else.
+// own address, as this server's own mail server (IMAP_HOST) vouched for it at sign-in, so
+// the sender can't be made to mail anyone else.
 import nodemailer from "nodemailer";
-import { VERSION, config, onOwnServer, type Endpoint } from "./config.ts";
+import { VERSION, config, verifiedAddress, type Endpoint } from "./config.ts";
 import { addReminderChannel, type Notice } from "./reminders.ts";
 import { state } from "./state/db.ts";
 
 /** Whether this server sends email reminders for a mailbox. */
-export function emailReminders(account: { imap: Endpoint }): boolean {
-  return !!config.sender && onOwnServer(account);
+export function emailReminders(account: { imap: Endpoint; login: string; email: string }): boolean {
+  return !!config.sender && verifiedAddress(account) !== null;
 }
 
 const escape = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -85,8 +85,8 @@ export async function sendAsSender(to: string, mail: { subject: string; text: st
 // A due reminder by email, to the mailbox's own address.
 addReminderChannel(async (notice) => {
   if (notice.method !== "email" || !config.sender) return;
-  const account = await state().selectFrom("accounts").select(["email", "imap"]).where("id", "=", notice.accountId).executeTakeFirst();
-  if (!account || !emailReminders({ imap: JSON.parse(account.imap) as Endpoint })) return;
+  const account = await state().selectFrom("accounts").select(["login", "email", "imap"]).where("id", "=", notice.accountId).executeTakeFirst();
+  if (!account || !emailReminders({ ...account, imap: JSON.parse(account.imap) as Endpoint })) return;
   const link = config.publicUrl ? `${config.publicUrl.replace(/\/$/, "")}/mailbox/${encodeURIComponent(account.email)}/calendar/day/${notice.start.slice(0, 10)}` : null;
   await sendAsSender(account.email, reminderEmail(notice, link));
 });

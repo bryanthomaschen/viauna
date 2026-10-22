@@ -146,8 +146,13 @@ guest a standard invitation, which they can answer from whatever calendar or mai
 use; **Don't send** saves without emailing anyone. You're the event's organiser.
 
 Their answers come back by email: **Count it in your event** on each one's card adds it to
-the event, whose card and editor list who's said yes, maybe or no. A guest whose mailbox is on your Viauna server too gets the same email as
-anyone else, and their answer reaches your event at once.
+the event, whose card and editor list who's said yes, maybe or no.
+
+A guest whose mailbox is on your Viauna server too gets the same email as anyone else.
+Once they've answered, the event stays in step both ways: their answer reaches your event
+at once, and so do the changes you send to their calendar. Taking them off the guest list,
+or deleting the event, takes it out of their calendar. Nothing goes into their calendar
+before they answer.
 
 When you change, move or delete an event you organise with guests, Viauna asks whether to
 email them. Yes sends the new version (an invitation to anyone new), tells anyone you took

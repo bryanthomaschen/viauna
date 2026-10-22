@@ -124,4 +124,11 @@ describe.each(ENGINES)("sending email reminders on $name", ({ url }) => {
     await due(7);
     expect(received).toEqual([]);
   });
+
+  it("emails nobody when the address shown isn't the login the mail server checked", async () => {
+    // Signed in to their own mailbox as "me" while typing someone else's address.
+    await state().updateTable("accounts").set({ email: "someone@else.test" }).where("id", "=", 7).execute();
+    await due(7);
+    expect(received).toEqual([]);
+  });
 });

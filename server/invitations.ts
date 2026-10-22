@@ -45,7 +45,7 @@ import { log } from "./log.ts";
 import { sendCalendarMail } from "./mail/compose.ts";
 import { type RepeatRule, readRule, representative } from "./recurrence.ts";
 import { whenText } from "./sender.ts";
-import { type Endpoint, onOwnServer } from "./config.ts";
+import { type Endpoint, verifiedAddress } from "./config.ts";
 import { state } from "./state/db.ts";
 import { getSettings, reminderZone } from "./settings.ts";
 
@@ -358,7 +358,7 @@ export async function actOnInvitation(rt: AccountRuntime, creds: Credentials, pa
     for (const e of root.getAllSubcomponents("vevent")) setResponse(e, me, action);
     await keepEvent(accountId, root, target);
     const sent = await sendReply(rt, creds, itip.root, me, action);
-    await answerOnThisServer(rt, itip.root, me, action);
+    await answerOnThisServer(rt, itip.root, action);
     return { sent };
   }
   if (action === "add") {
@@ -441,27 +441,62 @@ export async function answerEvent(rt: AccountRuntime, creds: Credentials, eventI
   for (const e of root.getAllSubcomponents("vevent")) setResponse(e, me, response);
   await keepEvent(accountId, root, { id: row.id });
   const sent = await sendReply(rt, creds, root, me, response);
-  await answerOnThisServer(rt, root, me, response);
+  await answerOnThisServer(rt, root, response);
   return { sent };
 }
 
+/** This server's mailboxes whose verified address is `address`, but for the one acting. */
+async function mailboxesHere(address: string, except: number): Promise<number[]> {
+  const rows = await state().selectFrom("accounts").select(["id", "login", "email", "imap"]).where("email", "=", address).execute();
+  return rows.filter((a) => a.id !== except && verifiedAddress({ ...a, imap: JSON.parse(a.imap) as Endpoint }) === address).map((a) => a.id);
+}
+
 /**
- * When the organiser is a mailbox on this server too (both on its own mail server, which
- * vouches for each), the answer is counted in their event at once, without waiting for the
- * email. Only the answer: nothing goes into anyone's calendar unasked.
+ * When the organiser is a mailbox on this server too, the answer is counted in their event
+ * at once, without waiting for the email. Only as the address this server's mail server
+ * vouched for (an alias is whatever someone typed in), and only the answer: nothing goes
+ * into anyone's calendar unasked.
  */
-async function answerOnThisServer(rt: AccountRuntime, root: Component, me: Set<string>, response: Response): Promise<void> {
-  const { organizer } = peopleOf(masterEvent(root)!);
-  if (!organizer || !onOwnServer(rt.account)) return;
-  const accounts = await state().selectFrom("accounts").select(["id", "imap"]).where("email", "=", organizer.address).execute();
-  const host = accounts.find((a) => a.id !== rt.account.id && onOwnServer({ imap: JSON.parse(a.imap) as Endpoint }));
-  const uid = String(masterEvent(root)!.getFirstPropertyValue("uid") ?? "");
-  const row = host && (await eventByUid(host.id, uid));
-  if (!host || !row) return;
-  try {
-    await keepEvent(host.id, applyReply(parseCalendar(row.ics), replyObject(root, me, response), await meOf(host.id)), { id: row.id });
-  } catch (err) {
-    log.warn("couldn't count an answer in its organiser's event", { organizer: host.id, error: (err as Error).message });
+async function answerOnThisServer(rt: AccountRuntime, root: Component, response: Response): Promise<void> {
+  const mine = verifiedAddress(rt.account);
+  const master = masterEvent(root)!;
+  const { organizer } = peopleOf(master);
+  if (!mine || !organizer || !myAttendee(master, new Set([mine]))) return;
+  const uid = String(master.getFirstPropertyValue("uid") ?? "");
+  for (const host of await mailboxesHere(organizer.address, rt.account.id)) {
+    const row = await eventByUid(host, uid);
+    if (!row) continue;
+    try {
+      await keepEvent(host, applyReply(parseCalendar(row.ics), replyObject(root, new Set([mine]), response), await meOf(host)), { id: row.id });
+    } catch (err) {
+      log.warn("couldn't count an answer in its organiser's event", { organizer: host, error: (err as Error).message });
+    }
+  }
+}
+
+/**
+ * The organiser's change, made at once in the calendars of guests who are mailboxes on
+ * this server too and keep the event (because they answered it): the new version, with
+ * their reminders, colour and answer kept as Update your calendar keeps them; or, once
+ * it's cancelled or they're off the guest list, out of their calendar. A guest who hasn't
+ * answered has only the email: nothing goes into anyone's calendar unasked. Only from the
+ * organiser's verified address, and only into a kept event with the same organiser.
+ */
+async function updateGuestsOnThisServer(rt: AccountRuntime, organizer: string, uid: string, after: Component | null, was: Map<string, Person>, now: Map<string, Person>): Promise<void> {
+  if (verifiedAddress(rt.account) !== organizer) return;
+  for (const address of new Set([...was.keys(), ...now.keys()])) {
+    for (const guest of await mailboxesHere(address, rt.account.id)) {
+      const row = await eventByUid(guest, uid);
+      if (!row) continue;
+      const kept = parseCalendar(row.ics);
+      if (peopleOf(masterEvent(kept)!).organizer?.address !== organizer) continue;
+      try {
+        if (after && now.has(address)) await keepEvent(guest, merged(after, kept, await meOf(guest)), { id: row.id });
+        else await deleteEvent(guest, row.id);
+      } catch (err) {
+        log.warn("couldn't bring a guest's copy of an event up to date", { guest, error: (err as Error).message });
+      }
+    }
   }
 }
 
@@ -490,8 +525,10 @@ function cancellation(root: Component, guests: string[] | null): Component {
 /**
  * Emails an event's guests after the mailbox, its organiser, changed it: the new version to
  * everyone invited (an invitation to those new to it, an update to the rest), and a
- * cancellation to anyone taken off, or to all if it's gone. `before` and `after` are the
- * event's iCalendar text before and after (null: not there). Returns how many emails went.
+ * cancellation to anyone taken off, or to all if it's gone; and the same change made at
+ * once for guests on this server who keep it (updateGuestsOnThisServer). `before` and
+ * `after` are the event's iCalendar text before and after (null: not there). Returns how
+ * many emails went.
  */
 export async function notifyGuests(rt: AccountRuntime, creds: Credentials, before: string | null, after: string | null): Promise<number> {
   const me = await meOf(rt.account.id);
@@ -540,11 +577,12 @@ export async function notifyGuests(rt: AccountRuntime, creds: Credentials, befor
     return 1;
   };
   let sent = 0;
-  if (a) {
+  // Your reminders are yours: guests get the event without them.
+  const forGuests = a ? clone(a) : null;
+  for (const e of forGuests?.getAllSubcomponents("vevent") ?? []) e.removeAllSubcomponents("valarm");
+  if (a && forGuests) {
     const fresh = [...now.values()].filter((p) => !was.has(p.address));
     const known = [...now.values()].filter((p) => was.has(p.address));
-    const forGuests = clone(a);
-    for (const e of forGuests.getAllSubcomponents("vevent")) e.removeAllSubcomponents("valarm");
     sent += await mail(fresh, forGuests, "REQUEST", "invited");
     sent += await mail(known, forGuests, "REQUEST", "updated");
     const gone = [...was.values()].filter((p) => !now.has(p.address));
@@ -552,5 +590,6 @@ export async function notifyGuests(rt: AccountRuntime, creds: Credentials, befor
   } else if (b) {
     sent += await mail([...was.values()], cancellation(b, null), "CANCEL", "cancelled");
   }
+  await updateGuestsOnThisServer(rt, organizer.address, String(masterEvent(main)!.getFirstPropertyValue("uid") ?? ""), forGuests, was, now);
   return sent;
 }

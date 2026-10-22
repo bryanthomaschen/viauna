@@ -1,7 +1,8 @@
 // Invitations by email (server/invitations.ts) on each state-store engine: reading one from
 // a message as calendar apps send it, answering it (kept with the answer, and a REPLY to
 // the organiser, caught by a local SMTP server), newer versions, cancellations, files to
-// add, and a guest's answer counted by the organiser.
+// add, a guest's answer counted by the organiser, and events kept in step between
+// mailboxes on the same server.
 import fs from "node:fs";
 import type net from "node:net";
 import os from "node:os";
@@ -9,7 +10,8 @@ import path from "node:path";
 import { simpleParser } from "mailparser";
 import { SMTPServer } from "smtp-server";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { createEvent, deleteEvent, eventObject, eventsBetween, getEvent, listCalendars, updateEvent } from "../server/calendar.ts";
+import { createEvent, deleteEvent, eventObject, eventsBetween, getEvent, keepEvent, listCalendars, updateEvent } from "../server/calendar.ts";
+import { parseCalendar } from "../server/icalendar.ts";
 import { type Endpoint, config, endpointKey } from "../server/config.ts";
 import { sha256 } from "../server/crypto.ts";
 import type { AccountRuntime } from "../server/imap/runtime.ts";
@@ -256,25 +258,100 @@ describe.each(ENGINES)("invitations on $name", ({ url }) => {
       expect(await notifyGuests(rt, creds, before, (await eventObject(7, id)).row.ics)).toBe(0);
     });
 
-    it("counts a same-server guest's answer in the organiser's event at once", async () => {
+    describe("between mailboxes on this server", () => {
       const own: Endpoint = { host: "imap.example.test", port: 993, security: "tls", verify: true };
+      const json = endpointKey(own);
       const savedImap = config.imap;
-      config.imap = own;
-      try {
-        const json = endpointKey(own);
+      /** Another mailbox signed in through this server's own mail server, as the organiser (7) is. */
+      const mailbox = async (id: number, email: string, login = email, aliases: string[] = []) => {
+        const settings = { timeZone: SG, aliases: aliases.map((address) => ({ address, name: "" })) };
+        await state().insertInto("accounts").values({ id, login, email, imap: json, imap_hash: sha256(`${json}${id}`), smtp: "{}", settings: JSON.stringify(settings), created_at: 1 }).execute();
+        await listCalendars(id, email);
+        return { account: { id, email, login, imap: own, smtp: rt.account.smtp } } as unknown as AccountRuntime;
+      };
+      const kaiOf = (ev: { id: number }) => getEvent(7, ev.id, SG).then((e) => e.attendees.find((a) => a.address === "kai@example.test")?.response);
+      const copies = (accountId: number) => eventsBetween(accountId, "2027-03-25", "2027-04-10", SG);
+      let ev: { id: number };
+      let invite: string;
+
+      beforeEach(async () => {
+        config.imap = own;
         await state().updateTable("accounts").set({ imap: json, imap_hash: sha256(json) }).where("id", "=", 7).execute();
-        await state().insertInto("accounts").values({ id: 9, login: "kai@example.test", email: "kai@example.test", imap: json, imap_hash: sha256(`${json}9`), smtp: "{}", settings: JSON.stringify({ timeZone: SG }), created_at: 1 }).execute();
-        const ev = await createEvent(7, primary, { ...meeting, guests: [{ address: "kai@example.test", name: "Kai" }] }, SG);
+        ev = await createEvent(7, primary, { ...meeting, guests: [{ address: "kai@example.test", name: "Kai" }, { address: "ann@elsewhere.test" }] }, SG);
         await notifyGuests(rt, creds, null, (await eventObject(7, ev.id)).row.ics);
-        const invite = (await mailOf(0)).ics;
-        // Kai, on the same server, answers the email: the organiser's event knows at once.
-        const kai = { account: { id: 9, email: "kai@example.test", login: "kai@example.test", imap: own, smtp: rt.account.smtp } } as unknown as AccountRuntime;
-        await listCalendars(9, "Kai");
-        await actOnInvitation(kai, creds, await partOf(invite, "REQUEST"), "accepted", null);
-        expect((await getEvent(7, ev.id, SG)).attendees).toEqual([{ address: "kai@example.test", name: "Kai", response: "accepted", optional: false }]);
-      } finally {
+        invite = (await mailOf(0)).ics;
+        sent.length = 0;
+      });
+
+      afterEach(() => {
         config.imap = savedImap;
-      }
+      });
+
+      /** The organiser changes the event and tells the guests, as Send does. */
+      const change = async (patch: Record<string, unknown>) => {
+        const before = (await eventObject(7, ev.id)).row.ics;
+        await updateEvent(7, ev.id, patch, SG);
+        await notifyGuests(rt, creds, before, (await eventObject(7, ev.id)).row.ics);
+      };
+
+      it("counts a guest's answer in the organiser's event at once", async () => {
+        const kai = await mailbox(9, "kai@example.test");
+        await actOnInvitation(kai, creds, await partOf(invite, "REQUEST"), "accepted", null);
+        expect(await kaiOf(ev)).toBe("accepted");
+      });
+
+      it("counts an answer only from the address the mail server checked, not one typed in or an alias", async () => {
+        // Mallory signs in to her own mailbox while typing Kai's address; Max has it as an alias.
+        const mallory = await mailbox(10, "kai@example.test", "mallory@example.test");
+        await actOnInvitation(mallory, creds, await partOf(invite, "REQUEST"), "declined", null);
+        const max = await mailbox(11, "max@example.test", "max@example.test", ["kai@example.test"]);
+        await actOnInvitation(max, creds, await partOf(invite, "REQUEST"), "declined", null);
+        expect(await kaiOf(ev)).toBe("needs-action");
+      });
+
+      it("brings a guest's copy up to date at once, keeping their reminders and answer", async () => {
+        const kai = await mailbox(9, "kai@example.test");
+        await actOnInvitation(kai, creds, await partOf(invite, "REQUEST"), "accepted", null);
+        const [copy] = await copies(9);
+        await updateEvent(9, copy.id, { reminders: [{ method: "notification", minutes: 5 }] }, SG);
+        await change({ title: "Design review (room change)", location: "Room 7" });
+        const now = await getEvent(9, copy.id, SG);
+        expect(now).toMatchObject({ title: "Design review (room change)", location: "Room 7", reminders: [{ method: "notification", minutes: 5 }] });
+        expect(now.attendees.find((a) => a.address === "kai@example.test")?.response).toBe("accepted");
+        await change({ start: "2027-04-02T10:00", end: "2027-04-02T11:00" });
+        const moved = await getEvent(9, copy.id, SG);
+        expect(moved).toMatchObject({ start: "2027-04-02T10:00", end: "2027-04-02T11:00" });
+        // A new time keeps everyone's answers on the organiser's side, so here too.
+        expect(moved.attendees.find((a) => a.address === "kai@example.test")?.response).toBe("accepted");
+      });
+
+      it("takes a guest's copy out once they're off the guest list, or it's deleted", async () => {
+        const kai = await mailbox(9, "kai@example.test");
+        const lee = await mailbox(12, "lee@example.test");
+        await change({ guests: [{ address: "kai@example.test" }, { address: "lee@example.test" }] });
+        const leeInvite = (await mailOf(0)).ics;
+        for (const [who, part] of [[kai, invite], [lee, leeInvite]] as const) await actOnInvitation(who, creds, await partOf(part, "REQUEST"), "accepted", null);
+        await change({ guests: [{ address: "lee@example.test" }] });
+        expect(await copies(9)).toEqual([]);
+        expect(await copies(12)).toHaveLength(1);
+        const last = (await eventObject(7, ev.id)).row.ics;
+        await deleteEvent(7, ev.id);
+        await notifyGuests(rt, creds, last, null);
+        expect(await copies(12)).toEqual([]);
+      });
+
+      it("adds nothing for a guest who hasn't answered, and leaves another organiser's event alone", async () => {
+        await mailbox(9, "kai@example.test");
+        await change({ title: "Design review (moved)" });
+        expect(await copies(9)).toEqual([]);
+        // Lee keeps an event with the same UID from someone else: not the organiser's to change.
+        await mailbox(12, "lee@example.test");
+        const uid = /^UID:(.+)$/m.exec((await eventObject(7, ev.id)).row.ics)![1].trim();
+        const foreign = ics("REQUEST", { start: "20270401T020000Z", attendees: ["ATTENDEE;PARTSTAT=ACCEPTED:mailto:lee@example.test"] }).replace("UID:abc123@google.com", `UID:${uid}`);
+        await keepEvent(12, parseCalendar(foreign), { calendarId: null });
+        await change({ guests: [{ address: "kai@example.test" }, { address: "lee@example.test" }], title: "Taken over" });
+        expect((await copies(12)).map((e) => e.title)).toEqual(["Planning"]);
+      });
     });
   });
 });

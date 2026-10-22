@@ -58,8 +58,10 @@ through for no. Nothing in an email changes your calendar until you press its ca
 button. **Invite people** to
 your events: add guests in the editor, and Viauna emails them standard invitations (it
 asks first), updates when you change or move the event, and cancellations when you take
-someone off or delete it. Their answers are counted from their cards; a guest on the same
-Viauna server answers your event at once.
+someone off or delete it. Their answers are counted from their cards. Between mailboxes on
+the same Viauna server, an event someone has answered stays in step both ways: their
+answer reaches the organiser's event at once, and the organiser's changes, or its
+cancellation, reach their calendar.
 
 **A secret address** for any calendar, so another app (your phone, Outlook, another
 calendar) can show it read-only: the whole calendar, or only "Busy" at the times you're

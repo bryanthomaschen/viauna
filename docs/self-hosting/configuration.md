@@ -76,8 +76,9 @@ A mailbox that Viauna sends from itself, for [reminders by email](../using/calen
 They're due when nobody may be signed in, and a person's own password can be used only
 while they are, so the server needs a mailbox of its own: create one on your mail server,
 such as `noreply@example.com`. Email reminders go only to each mailbox's own address, and
-only for mailboxes on `IMAP_HOST`. Without `SENDER_ADDRESS`, reminders aren't offered by
-email. All environment only.
+only for mailboxes on `IMAP_HOST` signed in with that address as their login, which the
+mail server checked. Without `SENDER_ADDRESS`, reminders aren't offered by email. All
+environment only.
 
 | Variable | Default | |
 |---|---|---|
