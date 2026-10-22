@@ -182,6 +182,8 @@ export interface AppConfig {
   calendarFeeds: boolean;
   /** Calendars can have secret addresses. */
   calendarSecrets: boolean;
+  /** The key browsers subscribe to this server's pushes with; null while notifications with Viauna closed are off. */
+  pushKey: string | null;
   /** Filters and the vacation responder can be used (the mail server's ManageSieve). */
   filters: boolean;
   vacation: boolean;

@@ -122,6 +122,23 @@ When a reminder is due, every page you have open on the mailbox shows it at the 
 with **Open**; with **Desktop notifications** on (**Settings > General**) and the tab in
 the background, your computer shows it too. Times are in your calendar's time zone.
 
+### With Viauna closed
+
+To have reminders even with no Viauna tab open, go to **Settings > General > Reminders
+with Viauna closed** and choose **Turn on in this browser**, then allow notifications when
+the browser asks. **Send a test** checks it works. It's for this mailbox in this browser:
+turn it on in each browser you want them in, and for each of your mailboxes. Clicking a
+reminder opens its day in the calendar.
+
+They reach your browser through its maker's push service (Google's for Chrome and Edge,
+Mozilla's for Firefox, Apple's for Safari), encrypted so that only your browser can read
+them. Your server's admins can turn this off.
+
+On an **iPhone or iPad**, a web page can't show notifications: add Viauna to your Home
+Screen (in Safari, the Share button, then **Add to Home Screen**), open it from there, and
+turn them on in its Settings. On a computer or Android phone you can do the same, to have
+Viauna in a window of its own.
+
 Reminders that came with an imported event are kept; those that show something are sent
 the same way. Calendars from the web and the Birthdays calendar don't remind.
 

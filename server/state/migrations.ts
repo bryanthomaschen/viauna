@@ -317,6 +317,27 @@ export function migrations(dialect: Dialect): MigrationProvider {
         await db.updateTable("events").set({ alarm_at: 0 }).where("ics", "like", "%BEGIN:VALARM%").execute();
       },
     },
+
+    // 0.6: browsers that show this mailbox's reminders with Viauna closed (Web Push): the
+    // address of each one's push service, its keys, and how sending to it has gone.
+    "0011_push_subscriptions": {
+      async up(db: Kysely<any>) {
+        await table(db, "push_subscriptions")
+          .addColumn("id", serial, serialKey)
+          .addColumn("account_id", "integer", (c) => c.notNull())
+          .addColumn("endpoint", "text", (c) => c.notNull())
+          .addColumn("endpoint_hash", "varchar(64)", (c) => c.notNull()) // sha256 of endpoint, for the unique key
+          .addColumn("p256dh", "varchar(128)", (c) => c.notNull())
+          .addColumn("auth", "varchar(64)", (c) => c.notNull())
+          .addColumn("user_agent", "varchar(300)")
+          .addColumn("created_at", "bigint", (c) => c.notNull())
+          .addColumn("last_ok_at", "bigint")
+          .addColumn("failures", "integer", (c) => c.notNull().defaultTo(0))
+          .addUniqueConstraint("push_subscriptions_endpoint", ["account_id", "endpoint_hash"])
+          .addForeignKeyConstraint("push_subscriptions_account", ["account_id"], "accounts", ["id"], (fk) => fk.onDelete("cascade"))
+          .execute();
+      },
+    },
   };
   return { getMigrations: async () => all };
 }

@@ -169,7 +169,7 @@ interface Common<K extends string, V extends SettingValue> {
 }
 
 export type SettingDef =
-  | (Common<"allowCustomServers" | "contacts" | "contactsSync" | "calendar" | "calendarFeeds" | "calendarSecrets" | "filters" | "vacation" | "filterForwarding", boolean> & { type: "boolean" })
+  | (Common<"allowCustomServers" | "contacts" | "contactsSync" | "calendar" | "calendarFeeds" | "calendarSecrets" | "browserNotifications" | "filters" | "vacation" | "filterForwarding", boolean> & { type: "boolean" })
   | (Common<"sessionDays" | "maxAccounts" | "maxUploadMb" | "cacheMb", number> & { type: "integer"; min: number; max: number; unit: string })
   | (Common<"appName", string> & { type: "text"; max: number; required?: boolean })
   | (Common<"admins" | "allowedDomains", string[]> & { type: "list"; item: "address" | "domain" })
@@ -186,6 +186,7 @@ export interface SettingValues {
   calendar: boolean;
   calendarFeeds: boolean;
   calendarSecrets: boolean;
+  browserNotifications: boolean;
   filters: boolean;
   vacation: boolean;
   filterForwarding: boolean;
@@ -238,6 +239,11 @@ export const SETTINGS: readonly SettingDef[] = [
     key: "calendarSecrets", env: "CALENDAR_SECRET_ADDRESSES", type: "boolean", default: true,
     section: "Features", label: "Secret calendar addresses",
     help: "Let people give a calendar a secret address, so another app can show it read-only: all of it, or only when they're busy. Anyone who has the address can see what it shows, without signing in.",
+  },
+  {
+    key: "browserNotifications", env: "BROWSER_NOTIFICATIONS", type: "boolean", default: true,
+    section: "Features", label: "Notifications with Viauna closed",
+    help: "Let people have their browser show calendar reminders when no Viauna tab is open. They go, encrypted, through each browser's push service (Google's for Chrome, Mozilla's for Firefox, Apple's for Safari).",
   },
   {
     key: "filters", env: "FILTERS", type: "boolean", default: true,

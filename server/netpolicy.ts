@@ -3,6 +3,8 @@
 // sign-in, and the connection goes to the address that was checked (so a DNS answer
 // that changes in between, "rebinding", can't redirect it).
 import dns from "node:dns/promises";
+import { lookup } from "node:dns";
+import type { LookupAddress } from "node:dns";
 import net from "node:net";
 import type { Endpoint } from "./config.ts";
 import { config } from "./config.ts";
@@ -58,4 +60,31 @@ export async function connectTarget(endpoint: Endpoint): Promise<{ host: string;
   if (!found.length) throw new BlockedServerError(`Couldn't find the server "${name}".`);
   if (found.some((a) => isPrivateAddress(a.address))) throw new BlockedServerError("That server isn't allowed.");
   return { host: found[0].address, servername: endpoint.servername ?? (net.isIP(name) ? undefined : name) };
+}
+
+export const BLOCKED = "That address isn't allowed: it's on a private network.";
+
+/**
+ * A `lookup` for http.request, for addresses someone else gave (a calendar's, a browser's
+ * push service): the name looked up, every address it has checked, and the connection made
+ * to one of them, so a name that changes its answer in between can't point it inside.
+ * An address written as an IP isn't looked up; check it with isPrivateAddress first.
+ */
+export const publicLookup: net.LookupFunction = (hostname, options, callback) => {
+  lookup(hostname, { ...options, all: true }, (err, found) => {
+    if (err) return callback(err, "", 0);
+    const list = found as unknown as LookupAddress[];
+    if (!list.length) return callback(Object.assign(new Error("not found"), { code: "ENOTFOUND" }), "", 0);
+    if (!config.allowPrivateServers && list.some((a) => isPrivateAddress(a.address))) {
+      return callback(Object.assign(new Error(BLOCKED), { code: "EVIAUNAPRIVATE" }), "", 0);
+    }
+    if (options.all) (callback as (e: null, a: LookupAddress[]) => void)(null, list);
+    else callback(null, list[0].address, list[0].family);
+  });
+};
+
+/** Whether a URL's host, written as an IP, is one that mustn't be reached. */
+export function blockedIp(url: URL): boolean {
+  const host = url.hostname.replace(/^\[|\]$/g, "");
+  return !!net.isIP(host) && !config.allowPrivateServers && isPrivateAddress(host);
 }

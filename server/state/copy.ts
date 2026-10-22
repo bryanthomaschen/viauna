@@ -40,7 +40,7 @@ export async function copyState(from: Kysely<any>, to: StateStore): Promise<Reco
     }
     if (to.dialect === "postgres") {
       // The rows kept their ids; move the sequences past them.
-      for (const table of ["accounts", "admin_log", "contacts", "contact_books", "contact_deletions", "calendars", "events"]) {
+      for (const table of ["accounts", "admin_log", "contacts", "contact_books", "contact_deletions", "calendars", "events", "push_subscriptions"]) {
         await sql`SELECT setval(pg_get_serial_sequence(${table}, 'id'), COALESCE((SELECT MAX(id) FROM ${sql.table(table)}), 0) + 1, false)`.execute(trx);
       }
     }

@@ -74,6 +74,9 @@ Limits built into Viauna. The ones you can change are settings: see
 | Reminders on an event | 5, from four weeks before it (four weeks and a day for an all-day event) to the end of an all-day event's day |
 | A reminder that's late (Viauna was down) | Sent if at most 15 minutes late, else skipped |
 | Reminders looked for | Every 30 s |
+| Browsers with reminders on, per mailbox | 20; the oldest goes |
+| A pushed reminder | 3,000 bytes before encrypting; 15 s to post; kept by the push service until the event starts and 5 minutes more (5 minutes to a day) |
+| A browser that fails | Dropped after 10 failed pushes in a row, or at once if its push service says it's gone |
 
 ## Calendars from the web
 

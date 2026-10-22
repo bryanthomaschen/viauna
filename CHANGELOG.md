@@ -40,7 +40,11 @@ at once, and a failed fetch says why. `CALENDAR_FEEDS` (or the admin page) turns
 **Reminders**: an event can remind you minutes, hours, days or weeks before, or for an
 all-day event, days before at a time of day; new events get your usual ones, set in
 **Settings > Calendar**. A reminder shows in every page you have open, and as a desktop
-notification when they're on. Imported events' reminders are kept, and shown too.
+notification when they're on. **Reminders with Viauna closed** (Settings > General): your
+browser shows them even with no Viauna tab open, sent through its push service, encrypted
+for it alone; on an iPhone, from Viauna added to the Home Screen. Imported events'
+reminders are kept, and shown too. `BROWSER_NOTIFICATIONS` (or the admin page) turns the
+pushing off.
 
 **A secret address** for any calendar, so another app (your phone, Outlook, another
 calendar) can show it read-only: the whole calendar, or only "Busy" at the times you're

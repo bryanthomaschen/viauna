@@ -5,14 +5,12 @@
 // so a name that changes its answer in between can't point it inside; redirects are
 // checked the same way. Limits on time and size, and conditional requests (ETag,
 // Last-Modified), so a calendar that hasn't changed costs one small answer.
-import dns from "node:dns";
 import http from "node:http";
 import https from "node:https";
-import net from "node:net";
 import { Readable } from "node:stream";
 import zlib from "node:zlib";
-import { VERSION, config } from "./config.ts";
-import { isPrivateAddress } from "./netpolicy.ts";
+import { VERSION } from "./config.ts";
+import { BLOCKED, blockedIp, publicLookup } from "./netpolicy.ts";
 
 export class FeedError extends Error {}
 
@@ -53,22 +51,6 @@ export function feedUrl(input: unknown): string {
   return url.toString();
 }
 
-const BLOCKED = "That address isn't allowed: it's on a private network.";
-
-/** The name looked up, every address it has checked, and the connection made to one of them. */
-const publicLookup: net.LookupFunction = (hostname, options, callback) => {
-  dns.lookup(hostname, { ...options, all: true }, (err, found) => {
-    if (err) return callback(err, "", 0);
-    const list = found as unknown as dns.LookupAddress[];
-    if (!list.length) return callback(Object.assign(new Error("not found"), { code: "ENOTFOUND" }), "", 0);
-    if (!config.allowPrivateServers && list.some((a) => isPrivateAddress(a.address))) {
-      return callback(Object.assign(new Error(BLOCKED), { code: "EVIAUNAPRIVATE" }), "", 0);
-    }
-    if (options.all) (callback as (e: null, a: dns.LookupAddress[]) => void)(null, list);
-    else callback(null, list[0].address, list[0].family);
-  });
-};
-
 /** What went wrong, in words for the page. */
 function describe(err: unknown, url: URL): FeedError {
   if (err instanceof FeedError) return err;
@@ -89,9 +71,8 @@ function describe(err: unknown, url: URL): FeedError {
 const unreachable = (err: unknown) => /refused the connection|closed the connection|certificate|over https|took too long/.test((err as Error).message);
 
 function request(url: URL, headers: Record<string, string>, signal: AbortSignal): Promise<http.IncomingMessage> {
-  const host = url.hostname.replace(/^\[|\]$/g, "");
   // An address written as one isn't looked up, so it's checked here.
-  if (net.isIP(host) && !config.allowPrivateServers && isPrivateAddress(host)) return Promise.reject(new FeedError(BLOCKED));
+  if (blockedIp(url)) return Promise.reject(new FeedError(BLOCKED));
   return new Promise((resolve, reject) => {
     const req = (url.protocol === "https:" ? https : http).request(url, { method: "GET", headers, lookup: publicLookup, signal }, resolve);
     req.on("error", reject);

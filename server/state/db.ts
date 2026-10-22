@@ -187,6 +187,19 @@ export interface EventTable {
   alarm_checked_at: number | null;
 }
 
+export interface PushSubscriptionTable {
+  id: Generated<number>;
+  account_id: number;
+  endpoint: string;
+  endpoint_hash: string;
+  p256dh: string;
+  auth: string;
+  user_agent: string | null;
+  created_at: number;
+  last_ok_at: number | null;
+  failures: Generated<number>;
+}
+
 export interface StateSchema {
   accounts: AccountTable;
   sessions: SessionTable;
@@ -203,12 +216,13 @@ export interface StateSchema {
   contact_dates: ContactDateTable;
   calendars: CalendarTable;
   events: EventTable;
+  push_subscriptions: PushSubscriptionTable;
 }
 
 /** In dependency order, for copying from one store to another. */
 export const STATE_TABLES = [
   "accounts", "sessions", "session_accounts", "labels", "trusted_senders", "instance_settings", "admin_log",
-  "contact_books", "contacts", "contact_emails", "contact_deletions", "contact_labels", "contact_dates", "calendars", "events",
+  "contact_books", "contacts", "contact_emails", "contact_deletions", "contact_labels", "contact_dates", "calendars", "events", "push_subscriptions",
 ] as const;
 
 export type Dialect = "sqlite" | "postgres" | "mysql";

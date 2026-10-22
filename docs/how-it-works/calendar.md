@@ -134,6 +134,30 @@ time there.
 [live-update stream](./live-updates.md), as `reminder`. Upgrading from 0.5, events that
 already had alarms are looked at on the first round, and nothing past is sent.
 
+**With Viauna closed** (Web Push): a browser that turns them on registers Viauna's service
+worker (`/sw.js`), subscribes with its push service, and gives Viauna the subscription: the
+service's address for it, and its keys. Viauna keeps that per mailbox, up to 20 browsers
+each (the oldest goes). When a reminder is due, each of the mailbox's browsers is sent a
+message: its title, times, zone and place, and the page to open, as JSON, encrypted for
+that browser alone (RFC 8291, `aes128gcm`), so the push service can't read it. It's
+posted to the push service with a token signed by this server's key (VAPID, RFC 8292),
+`Urgency: high`, and a `TTL` lasting until the event starts and 5 minutes more (between 5
+minutes and a day), so a browser that's offline gets it when it's back if it's still
+useful. The worker shows it, quietly if a Viauna tab is in view, which shows it too; a
+click opens `/mailbox/<address>/calendar/day/<date>`, which the page sends to that
+mailbox's place in the browser. A page whose mailbox has them on doesn't also show a
+desktop notification of its own.
+
+- The key pair comes from the server's secret (`SECRET_KEY`, or `secret.key`), so every
+  instance sharing it signs alike; a new secret means turning them on again in each
+  browser.
+- The push service's address is the browser's to give, so it's reached like a calendar
+  from the web: `https://` only, at public addresses only, 15 s at most. One that answers
+  `404` or `410` (the browser unsubscribed) is forgotten, as is one that fails 10 times in
+  a row.
+- With `BROWSER_NOTIFICATIONS` (or `CALENDAR`) off, the page doesn't offer them and
+  nothing is pushed.
+
 ## Calendar files
 
 **Importing** a file splits it into events: every `VEVENT` with the same `UID` (the event

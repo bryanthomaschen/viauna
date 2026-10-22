@@ -76,6 +76,11 @@ state store and unaffected.
 - **For a password change**: the login, the address, and the current and new passwords,
   to your command (on its standard input), your webhook (a signed POST) or your LDAP
   directory. See [Password changes](../self-hosting/passwords.md).
+- **To a browser's push service**, for each reminder due, if that browser has turned on
+  reminders with Viauna closed: a message encrypted for the browser alone (the event's
+  title, times and place), which the service (Google's, Mozilla's or Apple's) passes on
+  without being able to read it. It does see that a message went to that browser, when,
+  and how long it was.
 - **From a calendar's secret address**, to whoever fetches it: the calendar, whole or only
   when its owner is busy, as they chose. See
   [Secret addresses](./calendar.md#secret-addresses).

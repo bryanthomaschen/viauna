@@ -7,7 +7,8 @@ import type { AppConfig, SessionAccount } from "../lib/types";
 
 export function Login({ config, adding, accounts }: { config: AppConfig | undefined; adding: boolean; accounts: SessionAccount[] }) {
   const client = useQueryClient();
-  const [email, setEmail] = useState("");
+  // ?email= from a link meant for a mailbox not signed in here.
+  const [email, setEmail] = useState(() => new URLSearchParams(location.search).get("email") ?? "");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
   const [imap, setImap] = useState({ host: "", port: 993, security: "tls" });

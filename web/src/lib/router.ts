@@ -10,6 +10,8 @@
 //   /u/0/calendar/search/lunch      events found
 //   /u/0/admin                 the admin page, for the whole server, as this account (an admin)
 //   /admin                     the same, as the first admin signed in
+//   /mailbox/ann@x.org/calendar/day/2026-10-21   the same as /u/N/…, for whichever N
+//                              that mailbox is in this browser (links in notifications)
 import { useSyncExternalStore } from "react";
 
 const listeners = new Set<() => void>();
@@ -56,7 +58,7 @@ export interface CalendarRoute {
 }
 
 export interface Route {
-  name: "login" | "mail" | "settings" | "contacts" | "calendar" | "admin" | "none";
+  name: "login" | "mail" | "settings" | "contacts" | "calendar" | "admin" | "mailbox" | "none";
   account: number;
   folder: Folder;
   thread: number | null;
@@ -64,6 +66,8 @@ export interface Route {
   calendar: CalendarRoute | null;
   /** The contacts with this label; null: all of them. */
   contactsLabel: string | null;
+  /** For "mailbox": its address, and the rest of the path, to go to as /u/N/<rest>. */
+  mailbox: { email: string; rest: string } | null;
 }
 
 const SIMPLE = new Set(["inbox", "starred", "sent", "drafts", "all", "spam", "trash", "archive"]);
@@ -72,8 +76,11 @@ export function parseRoute(path: string): Route {
   const [pathname, search] = path.split("?");
   const page = Math.max(0, Number(new URLSearchParams(search ?? "").get("p") ?? 1) - 1) || 0;
   const parts = pathname.split("/").filter(Boolean);
-  const none: Route = { name: "none", account: 0, folder: { kind: "inbox" }, thread: null, page: 0, calendar: null, contactsLabel: null };
+  const none: Route = { name: "none", account: 0, folder: { kind: "inbox" }, thread: null, page: 0, calendar: null, contactsLabel: null, mailbox: null };
   if (parts[0] === "login") return { ...none, name: "login" };
+  if (parts[0] === "mailbox" && parts[1]) {
+    return { ...none, name: "mailbox", account: -1, mailbox: { email: decodeURIComponent(parts[1]).toLowerCase(), rest: parts.slice(2).join("/") } };
+  }
   // No account yet: App picks the first admin signed in.
   if (parts[0] === "admin" && parts.length === 1) return { ...none, name: "admin", account: -1 };
   if (parts[0] !== "u" || parts.length < 2) return none;
@@ -111,7 +118,7 @@ export function parseRoute(path: string): Route {
     threadPart = rest[2];
   }
   const thread = threadPart && /^\d+$/.test(threadPart) ? Number(threadPart) : null;
-  return { name: "mail", account, folder, thread, page, calendar: null, contactsLabel: null };
+  return { name: "mail", account, folder, thread, page, calendar: null, contactsLabel: null, mailbox: null };
 }
 
 export function folderPath(account: number, folder: Folder): string {

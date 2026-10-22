@@ -44,6 +44,11 @@ export function App() {
     else if (accounts.length && route.name !== "login" && route.account >= accounts.length) navigate("/u/0/inbox", { replace: true });
     else if (accounts.length && route.name === "admin" && route.account < 0) {
       navigate(`/u/${accounts.find((a) => a.admin)?.index ?? 0}/admin`, { replace: true });
+    } else if (accounts.length && route.name === "mailbox" && route.mailbox) {
+      // A link for one mailbox (a notification's): to it, wherever it is in this browser.
+      const found = accounts.find((a) => a.email.toLowerCase() === route.mailbox!.email);
+      if (found) navigate(`/u/${found.index}/${route.mailbox.rest}`, { replace: true });
+      else navigate(`/login?add=1&email=${encodeURIComponent(route.mailbox.email)}`, { replace: true });
     }
   }, [session.data, route.name, route.account, accounts.length, adding]);
 
@@ -65,6 +70,6 @@ export function App() {
       </Suspense>
     );
   }
-  if (route.account >= accounts.length || route.name === "none") return null;
+  if (route.account >= accounts.length || route.account < 0 || route.name === "none" || route.name === "mailbox") return null;
   return <Shell route={route} accounts={accounts} appName={config.data?.appName ?? "Viauna"} />;
 }

@@ -8,6 +8,7 @@ import { ui } from "./account";
 import { refreshWhenSettled } from "./actions";
 import { refreshAccountSettings, refreshSettings } from "./config";
 import { calendarPath, navigate } from "./router";
+import { pushOn } from "./push";
 import { prefs, toast } from "./store";
 import type { ReminderNotice } from "./types";
 
@@ -97,6 +98,9 @@ export function useLiveUpdates(client: QueryClient, accountCount: number, onOpen
       source.addEventListener("reminder", (e) => {
         const n = JSON.parse((e as MessageEvent).data) as ReminderNotice;
         toast(reminderLine(n), { action: { label: "Open", run: () => openReminder(n) }, ms: 10 * 60_000 });
+        // With notifications on through the browser's push service, its worker shows this one.
+        const email = (client.getQueryData(["session"]) as { accounts?: { email: string }[] } | undefined)?.accounts?.[n.index]?.email;
+        if (email && pushOn(email)) return;
         if (prefs.get().notifications && document.hidden && "Notification" in window && Notification.permission === "granted") {
           const shown = new Notification(n.title || "Reminder", { body: reminderLine(n), tag: `viauna-reminder-${n.eventId}-${n.occurrence ?? ""}-${n.at}` });
           shown.onclick = () => {

@@ -66,7 +66,7 @@ What the page can change:
 | Allowed domains | `ALLOWED_DOMAINS` | Who can sign in. |
 | Other mail servers | `ALLOW_CUSTOM_SERVERS` | Whether people can enter their own IMAP and SMTP servers. |
 | Contacts, contacts sync | `CONTACTS`, `CONTACTS_SYNC` | The address book, and syncing it with `CARDDAV_URL`, on or off. |
-| Calendar, calendars from the web, secret addresses | `CALENDAR`, `CALENDAR_FEEDS`, `CALENDAR_SECRET_ADDRESSES` | The calendar; adding calendars by their address, which this server then fetches; and secret addresses for other apps to read calendars from; each on or off. |
+| Calendar, calendars from the web, secret addresses, notifications with Viauna closed | `CALENDAR`, `CALENDAR_FEEDS`, `CALENDAR_SECRET_ADDRESSES`, `BROWSER_NOTIFICATIONS` | The calendar; adding calendars by their address, which this server then fetches; secret addresses for other apps to read calendars from; and reminders pushed to browsers; each on or off. |
 | Filters, forwarding in filters, vacation responder | `FILTERS`, `FILTER_FORWARDING`, `VACATION` | Forwarding is off by default. See [Filters and vacation](./filters.md). |
 | Session length, accounts per browser, largest attachment, message cache | `SESSION_DAYS`, `MAX_ACCOUNTS`, `MAX_UPLOAD_MB`, `CACHE_MB` | |
 | Name | `APP_NAME` | |

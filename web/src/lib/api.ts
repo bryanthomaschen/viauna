@@ -130,6 +130,10 @@ export const api = {
 
   suggestions: (a: number, q: string) => request<{ contacts: Suggestion[] }>("GET", `${u(a)}/suggestions?q=${encodeURIComponent(q)}`),
 
+  addPush: (a: number, subscription: PushSubscriptionJSON) => request<{ ok: true }>("POST", `${u(a)}/push`, { subscription }),
+  removePush: (a: number, endpoint: string) => request<{ ok: true }>("DELETE", `${u(a)}/push`, { endpoint }),
+  testPush: (a: number, endpoint: string) => request<{ ok: true }>("POST", `${u(a)}/push/test`, { endpoint }),
+
   filters: (a: number) => request<FiltersState>("GET", `${u(a)}/filters`),
   saveFilters: (a: number, filters: Filter[]) => request<FiltersState>("PUT", `${u(a)}/filters`, { filters }),
   saveVacation: (a: number, vacation: Vacation) => request<FiltersState>("PUT", `${u(a)}/vacation`, { vacation }),

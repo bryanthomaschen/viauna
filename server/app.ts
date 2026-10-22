@@ -76,6 +76,7 @@ import { attachmentList, editorHtml, render } from "./mail/render.ts";
 import { parseQuery, searchThreads } from "./mail/search.ts";
 import { type View, conversation, listThreads, parseView } from "./mail/views.ts";
 import { passwordChangeFor } from "./password.ts";
+import { PushError, addSubscription, pushTo, removeSubscription, vapidPublicKey } from "./push.ts";
 import { type Notice, reminderEvents } from "./reminders.ts";
 import { accountSettingsEvents, getSettings, isTrustedSender, myAddresses, noteSeenZone, trustSender, updateSettings } from "./settings.ts";
 
@@ -190,7 +191,7 @@ export function createApp() {
     if (err instanceof ContactError) return c.json({ error: err.message }, err.status as 400);
     if (err instanceof FilterError) return c.json({ error: err.message }, err.status as 400);
     if (err instanceof CalendarError) return c.json({ error: err.message }, err.status as 400);
-    if (err instanceof FeedError) return c.json({ error: err.message }, 400);
+    if (err instanceof FeedError || err instanceof PushError) return c.json({ error: err.message }, 400);
     log.error("request failed", { path: c.req.path, error: (err as Error).message, stack: (err as Error).stack });
     const message = /ECONNREFUSED|ETIMEDOUT|ENOTFOUND|Connection not available|closed/i.test((err as Error).message)
       ? "The mail server isn't responding. Try again in a moment."
@@ -233,6 +234,8 @@ export function createApp() {
       calendar: setting("calendar"),
       calendarFeeds: setting("calendar") && setting("calendarFeeds"),
       calendarSecrets: setting("calendar") && setting("calendarSecrets"),
+      // The key a browser subscribes to this server's pushes with; null while they're off.
+      pushKey: setting("calendar") && setting("browserNotifications") ? vapidPublicKey() : null,
       filters: setting("filters") && !!config.managesieve,
       vacation: setting("vacation") && !!config.managesieve,
     }),
@@ -578,6 +581,30 @@ export function createApp() {
   acct.get("/suggestions", async (c) =>
     c.json({ contacts: await suggest(c.get("rt").account.id, c.req.query("q") ?? "", setting("contacts")) }),
   );
+
+  // ---------------------------------------------------------------- browser notifications
+
+  // This browser, for this mailbox's reminders with Viauna closed: { subscription } as the
+  // browser's PushManager gives it; DELETE with { endpoint } forgets it.
+  acct.post("/push", async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    await addSubscription(c.get("rt").account.id, body.subscription, c.req.header("user-agent") ?? "");
+    return c.json({ ok: true });
+  });
+
+  acct.delete("/push", async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    await removeSubscription(c.get("rt").account.id, body.endpoint);
+    return c.json({ ok: true });
+  });
+
+  // A test notification, to this browser only.
+  acct.post("/push/test", async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    if (typeof body.endpoint !== "string") throw new PushError("Say which browser.");
+    const sent = await pushTo(c.get("rt").account.id, { type: "test", title: config.appName, body: "Notifications work in this browser." }, 300, body.endpoint);
+    return sent ? c.json({ ok: true }) : c.json({ error: "Your browser's push service didn't take it. Turn notifications off and on again." }, 502);
+  });
 
   // ---------------------------------------------------------------- filters and vacation
 
@@ -1044,7 +1071,17 @@ export function createApp() {
       },
     }),
   );
-  app.use("*", serveStatic({ root: path.relative(process.cwd(), webRoot), index: "__none__" }));
+  app.use(
+    "*",
+    serveStatic({
+      root: path.relative(process.cwd(), webRoot),
+      index: "__none__",
+      // The service worker and the manifest are checked for changes every time.
+      onFound: (p, c) => {
+        if (/(^|\/)(sw\.js|manifest\.webmanifest)$/.test(p)) c.header("Cache-Control", "no-cache");
+      },
+    }),
+  );
   app.get("*", (c) => {
     if (!fs.existsSync(indexFile)) return c.text("Web app not built. Run `npm run build`, or use `npm run dev`.", 503);
     c.header("Cache-Control", "no-cache");

@@ -54,6 +54,7 @@ Settings that are on or off take `true` or `false`, `1` or `0`, `yes` or `no`, `
 | `CONTACTS_SYNC` | `true` | **Live.** Sync with `CARDDAV_URL`, when it's set. |
 | `CALENDAR` | `true` | **Live.** Each mailbox's calendars, kept by Viauna as iCalendar in the state store. Off: the calendar is gone from every page; calendars and events are kept. See [How it works: Calendar](../how-it-works/calendar.md). |
 | `CALENDAR_SECRET_ADDRESSES` | `true` | **Live.** Let people give a calendar a secret address, `/ical/…`, so another app can show it read-only, whole or only when they're busy. Anyone with an address can fetch it without signing in, so leave `/ical/` out of any login in front of Viauna. Off: every address answers 404, until it's on again. See [Secret addresses](../how-it-works/calendar.md#secret-addresses). |
+| `BROWSER_NOTIFICATIONS` | `true` | **Live.** Let people turn on calendar reminders in their browser with Viauna closed (Web Push). Each reminder goes, encrypted, through that browser's push service (Google's, Mozilla's or Apple's), from this server. See [Reminders](../how-it-works/calendar.md#reminders). |
 | `CALENDAR_FEEDS` | `true` | **Live.** Let people add a calendar from the web by its address, which this server fetches every 6 hours: only from public addresses, unless `ALLOW_PRIVATE_SERVERS` is on. Off: nothing is fetched, and those calendars are hidden until it's on again. See [Calendars from the web](../how-it-works/calendar.md#calendars-from-the-web). |
 | `FILTERS` | `true` | **Live.** Filters, kept on the mail server as Sieve. See [Filters and vacation](./filters.md). |
 | `FILTER_FORWARDING` | `false` | **Live.** Let a filter forward mail to another address. |
@@ -91,7 +92,7 @@ Settings that are on or off take `true` or `false`, `1` or `0`, `yes` or `no`, `
 |---|---|---|
 | `DATA_DIR` | `/data` in the image, `./data` outside it | State (unless `DATABASE_URL` is set), the mail index, the message cache, uploads and the generated secret. Mount a volume here. |
 | `DATABASE_URL` | — | Where accounts, sessions, settings and contacts are kept. Unset: SQLite, as `state.db` in `DATA_DIR`. Or a `postgres://` (or `postgresql://`), `mysql://` or `mariadb://` URL; see [Databases](./databases.md). |
-| `SECRET_KEY` | generated | Mixed into the encryption of saved passwords. If unset, one is generated into `DATA_DIR/secret.key` on first start. Changing or losing it signs everyone out. Generate one with `openssl rand -base64 32`. |
+| `SECRET_KEY` | generated | Mixed into the encryption of saved passwords. If unset, one is generated into `DATA_DIR/secret.key` on first start. Changing or losing it signs everyone out, and browsers need reminders with Viauna closed turned on again. Generate one with `openssl rand -base64 32`. |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error`; anything else means `info`. Logs are one JSON object per line: `debug` and `info` on standard output, `warn` and `error` on standard error. |
 
 The image's health check fetches `/api/config` every 30 seconds; a load balancer can use

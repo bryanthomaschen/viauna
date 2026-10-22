@@ -5,6 +5,7 @@ import { ui, useAccount } from "../lib/account";
 import { api } from "../lib/api";
 import { browserZone, zoneOffset } from "../lib/calendar";
 import { useConfig } from "../lib/config";
+import { disablePush, enablePush, pushOn, pushSupported, testPush } from "../lib/push";
 import { navigate, usePath } from "../lib/router";
 import { type Density, type Theme, prefs, toast } from "../lib/store";
 import type { Identity, Reminder, Settings } from "../lib/types";
@@ -80,6 +81,56 @@ const ZONES: string[] = (() => {
     return [];
   }
 })();
+
+/** iOS and iPadOS show web notifications only from an app added to the Home Screen. */
+const iosBrowserTab = () =>
+  /iPhone|iPad|iPod/.test(navigator.userAgent) && !(navigator as { standalone?: boolean }).standalone && !matchMedia("(display-mode: standalone)").matches;
+
+/** This mailbox's calendar reminders in this browser even with Viauna closed (Web Push). */
+function ClosedNotifications() {
+  const acct = useAccount();
+  const key = useConfig().data?.pushKey ?? null;
+  const [on, setOn] = useState(() => pushOn(acct.email));
+  const [busy, setBusy] = useState(false);
+  if (!key) return null;
+  const run = async (action: () => Promise<void>, done: string) => {
+    setBusy(true);
+    try {
+      await action();
+      setOn(pushOn(acct.email));
+      toast(done);
+    } catch (err) {
+      toast((err as Error).message, { error: true });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="setting">
+      <div className="name">
+        Reminders with Viauna closed
+        <small>This browser shows this mailbox's calendar reminders even when no Viauna tab is open, sent through its own push service, encrypted.</small>
+      </div>
+      <div className="options">
+        {iosBrowserTab() ? (
+          <span>On an iPhone or iPad, add Viauna to your Home Screen first (Share, then Add to Home Screen), open it from there, and turn them on in its Settings.</span>
+        ) : !pushSupported() ? (
+          <span>This browser can't show notifications with Viauna closed.</span>
+        ) : on ? (
+          <>
+            <span>On in this browser.</span>
+            <div className="buttons" style={{ margin: 0 }}>
+              <button type="button" className="btn btn-outline" disabled={busy} onClick={() => void run(() => testPush(acct.index), "Test sent. It should appear in a moment.")}>Send a test</button>
+              <button type="button" className="btn btn-text" disabled={busy} onClick={() => void run(() => disablePush(acct.index, acct.email), "Turned off in this browser.")}>Turn off</button>
+            </div>
+          </>
+        ) : (
+          <button type="button" className="btn btn-outline" disabled={busy} onClick={() => void run(() => enablePush(acct.index, acct.email, key), "Turned on in this browser.")}>Turn on in this browser</button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 /** Default reminders, saved a moment after the last change rather than at every keystroke. */
 function DefaultReminders({ label, saved, allDay, onSave }: { label: string; saved: Reminder[]; allDay: boolean; onSave: (r: Reminder[]) => Promise<void> }) {
@@ -228,6 +279,7 @@ function General() {
           </label>
         </div>
       </div>
+      <ClosedNotifications />
       <div className="setting">
         <div className="name">Signature<small>Added to the end of new messages and replies.</small></div>
         <div className="options" style={{ width: "100%" }}>

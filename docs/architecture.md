@@ -32,6 +32,7 @@ server/                Node (TypeScript, Hono)
   calendar-file.ts     calendar files (.ics): split into events to import, built to export
   birthdays.ts         the Birthdays calendar: contacts' dates made into events, never stored
   reminders.ts         reminders as they fall due: worked out per event, claimed, sent to every channel
+  push.ts              browser notifications with Viauna closed: Web Push (RFC 8291), VAPID, subscriptions
   feeds.ts             fetching calendars from the web: public addresses only, limits, conditional requests
   vtimezone.ts         VTIMEZONE definitions for IANA zones, from the zone's own changes
   filters.ts           filters and the vacation responder: checking, loading, saving
@@ -59,6 +60,8 @@ server/                Node (TypeScript, Hono)
 web/                   React app (Vite)
   src/lib              API client, router, stores, compose state, actions, live updates
   src/components       the UI
+  public/sw.js         the service worker: shows pushed reminders, opens them
+  public/              icons and the manifest, so it can be added to a home screen
 dev/                   local Dovecot, SMTP sink, test databases, seed data, release checks
 test/                  unit tests; integration tests against the dev server
 ```
