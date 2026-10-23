@@ -1,13 +1,14 @@
 // The addresses a mailbox sends as: its own, and others its owner has shown are theirs
 // (Settings > Accounts > Send mail as). One is sent from, answers invitations and goes in
 // the vacation responder's replies only once it's confirmed: by a code emailed to it
-// (SEND_AS=confirm, the default), or by the mail server taking it as the sender
-// (SEND_AS=server). The mail server is asked first either way (smtp-probe.ts), so an
-// address it would refuse is turned down at once. The mailbox's own address is confirmed
-// by signing in with it; typed beside a separate username it proves nothing, so it's
-// confirmed like any other. An address can go through its provider's own mail server
-// (SEND_AS_SERVERS), signed in with a password kept only in the session that entered it
-// (auth.ts, keepServerPassword).
+// (SEND_AS=confirm, the default), or by the mailbox's own mail server taking it as the
+// sender (SEND_AS=server; another provider's server saying yes proves nothing about whose
+// the address is, so those always get a code). The mail server is asked first either way
+// (smtp-probe.ts), so an address it would refuse is turned down at once. The mailbox's own
+// address is confirmed by signing in with it; typed beside a separate username it proves
+// nothing, so it's confirmed like any other. An address can go through its provider's own
+// mail server (SEND_AS_SERVERS), signed in with a password kept only in the session that
+// entered it (auth.ts, keepServerPassword).
 import crypto from "node:crypto";
 import type { Selectable } from "kysely";
 import MailComposer from "nodemailer/lib/mail-composer";
@@ -73,8 +74,9 @@ type Policy = "confirm" | "server" | "off";
 /** Whether the mail server checked this address's password at sign-in: it's the login itself. */
 const signedInAs = (account: Pick<AccountInfo, "login" | "email">) => account.login.toLowerCase() === account.email.toLowerCase();
 
-/** A server's say-so counts only while the server is trusted for it. */
-const counts = (row: Row, policy: Policy) => !!row.confirmed_at && (row.confirmed_by === "code" || (row.confirmed_by === "server" && policy === "server"));
+/** A server's say-so counts only while the server is trusted for it, and only the mailbox's own server is. */
+const counts = (row: Row, policy: Policy) =>
+  !!row.confirmed_at && (row.confirmed_by === "code" || (row.confirmed_by === "server" && policy === "server" && !row.smtp));
 
 const codeHash = (id: number, code: string) => crypto.createHmac("sha256", getServerSecret()).update(`viauna:send-as:v1:${id}:${code}`).digest("hex");
 
@@ -196,7 +198,8 @@ function cleanServer(input: unknown, address: string): (IdentityServer & { passw
 
 /**
  * Adds an address once the mail server that would send it (the mailbox's, or its own) says
- * it would; then confirms it (SEND_AS=server) or emails it a code. Returns it, the sign-in
+ * it would; then confirms it (SEND_AS=server, through the mailbox's own server) or emails
+ * it a code. Returns it, the sign-in
  * for its own server to keep in the session, and why a code couldn't be sent, if it couldn't.
  */
 export async function addIdentity(
@@ -231,12 +234,12 @@ export async function addIdentity(
     .values({
       account_id: account.id, address, name, position, created_at: now,
       smtp: server ? JSON.stringify({ host: server.host, port: server.port, security: server.security, login: server.login }) : null,
-      ...(policy === "server" ? { confirmed_at: now, confirmed_by: "server" } : {}),
+      ...(policy === "server" && !server ? { confirmed_at: now, confirmed_by: "server" } : {}),
     })
     .execute();
   const row = (await rows(account.id)).find((r) => r.address === address)!;
   let warning: string | null = null;
-  if (policy === "confirm") {
+  if (policy === "confirm" || server) {
     try {
       await sendCode(account, signIn ? { ...creds, servers: { ...creds.servers, [row.id]: signIn } } : creds, row.id);
     } catch (err) {
@@ -380,13 +383,13 @@ export async function confirmCode(account: AccountInfo, id: number | "own", inpu
     .execute();
 }
 
-/** Asks the mail server again; with SEND_AS=server, its yes confirms the address. */
+/** Asks the mail server again; with SEND_AS=server, the mailbox's own server's yes confirms the address. */
 export async function checkAgain(account: AccountInfo, creds: Credentials, id: number | "own"): Promise<boolean> {
   const row = await target(account, id);
   const server = serverOf(row);
   const route = server ? await routeOf(account, creds, row.address) : { endpoint: account.smtp, creds };
   await ask(route.endpoint, route.creds, row.address, server ? row.address : account.email, !!server);
-  if (setting("sendAs") !== "server") return false;
+  if (setting("sendAs") !== "server" || server) return false;
   await state().updateTable("identities").set({ confirmed_at: Date.now(), confirmed_by: "server" }).where("id", "=", row.id).execute();
   return true;
 }

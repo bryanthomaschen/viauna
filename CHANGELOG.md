@@ -107,8 +107,9 @@ code to itself; signing in with the address itself still confirms it.
 
 `SEND_AS` (or the admin page) chooses what confirms an address: a code (`confirm`, the
 default), your mail server accepting it as the sender (`server`, for servers that refuse
-senders a login doesn't own, as Mailu and mailcow do), or nothing but the mailbox's own
-address (`off`).
+senders a login doesn't own, as Mailu and mailcow do; an address sent through another
+provider's server still needs its code), or nothing but the mailbox's own address
+(`off`).
 
 With `SEND_AS_SERVERS` on (off by default), an address at another provider can be sent
 through that provider's own mail server, so the mail passes its checks; its password is kept

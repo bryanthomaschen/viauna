@@ -436,9 +436,11 @@ function IdentityRow({ identity: i, policy, onChange }: { identity: SendAddress;
         ? !i.own && policy === "off" ? "This server no longer sends from other addresses." : "This server no longer sends through other providers' mail servers."
         : i.own
           ? "You signed in with a separate username, so this address isn't confirmed yet."
-          : policy === "server" ? "Your mail server hasn't accepted it as yours." : "Not confirmed yet.";
-  const waiting = !i.confirmed && policy !== "server" && i.codeSentAt !== null;
-  const canCode = !i.confirmed && (policy !== "server" || i.own) && (policy !== "off" || i.own);
+          : policy === "server" && !i.server ? "Your mail server hasn't accepted it as yours." : "Not confirmed yet.";
+  const waiting = !i.confirmed && i.codeSentAt !== null;
+  // A code where no mail server's yes can confirm it: always but with SEND_AS=server, and then for
+  // the mailbox's own address and for one at another provider.
+  const canCode = !i.confirmed && (policy !== "off" || i.own) && (policy !== "server" || i.own || !!i.server);
   return (
     <li className="identity">
       <div className="identity-main">
@@ -477,7 +479,7 @@ function IdentityRow({ identity: i, policy, onChange }: { identity: SendAddress;
             </button>
           </form>
         )}
-        {!i.confirmed && policy === "server" && (
+        {!i.confirmed && policy === "server" && !i.server && (
           <div className="identity-act">
             <button type="button" className="btn btn-outline" disabled={busy} aria-label={`Ask your mail server again about ${i.address}`}
               onClick={() => void run(async () => {

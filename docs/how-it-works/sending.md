@@ -18,9 +18,11 @@ from it.
 2. **Then it's confirmed**, as the server's `SEND_AS` says:
    - `confirm` (the default): Viauna emails the address a code. Entering it confirms the
      address.
-   - `server`: the server's yes confirms it, and no code is sent. Choose it only if your
-     mail server checks senders: many say yes to any sender at this point and refuse the
-     message only once it's sent, or rewrite it.
+   - `server`: your mail server's yes confirms it, and no code is sent. Choose it only if
+     your mail server checks senders: many say yes to any sender at this point and refuse
+     the message only once it's sent, or rewrite it. An address sent through another
+     provider's server still gets a code: that server's yes shows only that it would send,
+     not whose the address is.
    - `off`: no other address can be added, and those already there can't be sent from.
      The mailbox's own address still works.
 

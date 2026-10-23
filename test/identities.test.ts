@@ -287,6 +287,20 @@ describe.each(ENGINES)("addresses to send as, on $name", ({ url }) => {
     expect((await listIdentities(me(), withIt))[1]).toMatchObject({ confirmed: true, usable: false });
   });
 
+  it("with SEND_AS=server, still wants a code for an address at another provider", async () => {
+    // That provider's server saying yes shows only that it would send, not whose the address is.
+    policy({ sendAs: "server", sendAsServers: true });
+    const server = { host: "127.0.0.1", port: theirs.endpoint().port, security: "none", login: "me@elsewhere.test", password: "other" };
+    const added = await addIdentity(me(), creds, { address: "me@elsewhere.test", server });
+    expect(added.identity).toMatchObject({ confirmed: false, usable: false, codeSentAt: expect.any(Number) });
+    expect(theirs.received).toHaveLength(1);
+    const withIt = { ...creds, servers: { [added.identity.id!]: added.server! } };
+    expect(await checkAgain(me(), withIt, added.identity.id!)).toBe(false);
+    expect((await listIdentities(me(), withIt))[1]).toMatchObject({ confirmed: false });
+    await confirmCode(me(), added.identity.id!, codeOf(theirs.received[0]));
+    expect((await listIdentities(me(), withIt))[1]).toMatchObject({ confirmed: true, confirmedBy: "code", usable: true });
+  });
+
   it("answers invitations only from a confirmed address, and as it", async () => {
     const rt = { account: me() } as AccountRuntime;
     const invite = { to: [{ address: "pat@example.test" }], subject: "Accepted: Review", text: "Yes.", html: "<p>Yes.</p>", method: "REPLY" as const, ics: "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n" };
