@@ -7,8 +7,14 @@ here has a date. What's already out is in the
 ## 0.7: Teams and devices
 
 - **Shared calendars**, with what each person may do: see only when you're busy, see the
-  details, or edit.
-- **Find a time** from colleagues' free and busy times.
+  details, or edit. Nobody sees your calendar, not even when you're busy, until you share
+  it with them, so a server open to anyone, such as a free email service, shows no one's
+  schedule to strangers.
+- **Organisations**, for a workplace: the server's admin can name groups (mail domains, or
+  a group in your LDAP directory) whose members see when each other are busy without
+  sharing one by one. Off until set up, and each person can still narrow what theirs show.
+- **Find a time** from the free and busy times you can see: of the people who share with
+  you, and of your organisation.
 - **Your phone and other apps**: Viauna serves CalDAV and CardDAV, so iPhone, Android
   (with DAVx5) and Thunderbird sync calendars and contacts with Viauna directly.
 
