@@ -99,6 +99,22 @@ The server doesn't allow custom keywords there (`PERMANENTFLAGS` without `\*`). 
 Check `MAX_UPLOAD_MB`, your proxy's body size limit (`client_max_body_size` in nginx),
 and your mail server's message size limit.
 
+## "Your mail server won't send as …: 553 …"
+
+Someone tried to add an address to **Send mail as** that the mail server won't let their
+login send as: it isn't the mailbox's own, nor an alias the server gives it. Give the
+mailbox that alias on the mail server (in Mailu, on the alias's or the user's page in its
+admin pages), then add the address again. With `SEND_AS=server`, **Ask your mail server
+again** confirms an address already in the list once the server takes it. See
+[Sending as other addresses](../how-it-works/sending.md).
+
+## The code to send as an address never arrives
+
+It goes from the mailbox to that address through the mailbox's own mail server (or, for an
+address with its own provider's server, through that server, to itself). Look in that
+address's junk folder, and check that the mailbox can send to it. A new code can be sent
+once a minute, and five a day to one address.
+
 ## Searching message text is slow
 
 Search runs on the mail server. Turn on its full-text search; see
