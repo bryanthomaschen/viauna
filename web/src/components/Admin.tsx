@@ -193,7 +193,7 @@ function TextControl({ s, save, locked }: { s: AdminSetting; save: Save; locked:
         inputMode={s.type === "integer" ? "numeric" : undefined}
         min={s.min}
         max={s.max}
-        style={{ maxWidth: s.type === "integer" ? 160 : 480, height: 40, fontSize: 14 }}
+        style={{ maxWidth: s.type === "integer" ? 160 : 480 }}
         value={draft}
         disabled={locked}
         aria-label={s.label}
@@ -297,7 +297,7 @@ function ListControl({ s, save, locked, you, imap }: { s: AdminSetting; save: Sa
       {!items.length && <div style={{ color: "var(--text-3)" }}>{admins ? "None." : "None: any address your mail server accepts can sign in."}</div>}
       {!locked && (
         <form className="inline-field" onSubmit={(e) => void add(e)}>
-          <input className="text-input" style={{ maxWidth: 360, height: 40, fontSize: 14 }} value={adding} onChange={(e) => setAdding(e.target.value)}
+          <input className="text-input" style={{ maxWidth: 360 }} value={adding} onChange={(e) => setAdding(e.target.value)}
             placeholder={admins ? "address@example.com" : "example.com"} aria-label={admins ? "Add an admin" : "Add a domain"} />
           <button type="submit" className="btn btn-outline" disabled={!adding.trim()}><Plus size={16} /> Add</button>
         </form>

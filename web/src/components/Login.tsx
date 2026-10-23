@@ -60,7 +60,7 @@ export function Login({ config, adding, accounts }: { config: AppConfig | undefi
             <details>
               <summary>Server settings</summary>
               <p style={{ fontSize: 13, color: "var(--text-3)" }}>Leave blank to use this server's default.</p>
-              <input className="text-input" style={{ height: 40, fontSize: 14 }} placeholder="Username (if not your email address)" aria-label="Username"
+              <input className="text-input" placeholder="Username (if not your email address)" aria-label="Username"
                 value={username} onChange={(e) => setUsername(e.target.value)} />
               {(["IMAP", "SMTP"] as const).map((kind) => {
                 const v = kind === "IMAP" ? imap : smtp;

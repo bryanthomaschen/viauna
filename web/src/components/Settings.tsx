@@ -159,7 +159,7 @@ function CalendarSettings() {
       <div className="setting">
         <div className="name">Time zone<small>The calendar shows times in it, wherever you open it.</small></div>
         <div className="options">
-          <select value={s.timeZone} aria-label="Time zone" onChange={(e) => void save({ timeZone: e.target.value })}>
+          <select className="text-input" value={s.timeZone} aria-label="Time zone" onChange={(e) => void save({ timeZone: e.target.value })}>
             <option value="">This device's ({device.replace(/_/g, " ")}, {zoneOffset(device)})</option>
             {zones.map((z) => <option key={z} value={z}>{z.replace(/_/g, " ")} ({zoneOffset(z)})</option>)}
           </select>
@@ -168,7 +168,7 @@ function CalendarSettings() {
       <div className="setting">
         <div className="name">Second time zone<small>Its times beside yours, in the day and week views.</small></div>
         <div className="options">
-          <select value={s.secondTimeZone} aria-label="Second time zone" onChange={(e) => void save({ secondTimeZone: e.target.value })}>
+          <select className="text-input" value={s.secondTimeZone} aria-label="Second time zone" onChange={(e) => void save({ secondTimeZone: e.target.value })}>
             <option value="">None</option>
             {zones.map((z) => <option key={z} value={z}>{z.replace(/_/g, " ")} ({zoneOffset(z)})</option>)}
           </select>
@@ -177,7 +177,7 @@ function CalendarSettings() {
       <div className="setting">
         <div className="name">Start of the week</div>
         <div className="options">
-          <select value={s.weekStart} aria-label="Start of the week" onChange={(e) => void save({ weekStart: e.target.value as Settings["weekStart"] })}>
+          <select className="text-input" value={s.weekStart} aria-label="Start of the week" onChange={(e) => void save({ weekStart: e.target.value as Settings["weekStart"] })}>
             <option value="auto">As usual for your language</option>
             <option value="sunday">Sunday</option>
             <option value="monday">Monday</option>
@@ -188,7 +188,7 @@ function CalendarSettings() {
       <div className="setting">
         <div className="name">Default event length<small>For a new event, and a click on the calendar.</small></div>
         <div className="options">
-          <select value={s.eventMinutes} aria-label="Default event length" onChange={(e) => void save({ eventMinutes: Number(e.target.value) as Settings["eventMinutes"] })}>
+          <select className="text-input" value={s.eventMinutes} aria-label="Default event length" onChange={(e) => void save({ eventMinutes: Number(e.target.value) as Settings["eventMinutes"] })}>
             {[15, 30, 45, 60, 90, 120].map((m) => <option key={m} value={m}>{m < 60 ? `${m} minutes` : m === 60 ? "1 hour" : `${m / 60} hours`}</option>)}
           </select>
         </div>
@@ -206,7 +206,7 @@ function CalendarSettings() {
         <div className="setting">
           <div className="name">Invitations<small>The calendar an invitation goes into when you answer it, unless you pick another on it.</small></div>
           <div className="options">
-            <select aria-label="Calendar for invitations" value={s.invitationCalendar ?? own.find((c) => c.primary)?.id ?? ""}
+            <select className="text-input" aria-label="Calendar for invitations" value={s.invitationCalendar ?? own.find((c) => c.primary)?.id ?? ""}
               onChange={(e) => void save({ invitationCalendar: Number(e.target.value) })}>
               {own.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
@@ -259,7 +259,7 @@ function General() {
       <div className="setting">
         <div className="name">Maximum page size<small>Conversations shown per page.</small></div>
         <div className="options">
-          <select value={s.pageSize} onChange={(e) => void save({ pageSize: Number(e.target.value) as Settings["pageSize"] })}>
+          <select className="text-input" aria-label="Maximum page size" value={s.pageSize} onChange={(e) => void save({ pageSize: Number(e.target.value) as Settings["pageSize"] })}>
             {[25, 50, 100].map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
         </div>
@@ -334,7 +334,7 @@ function Accounts() {
       <div className="setting">
         <div className="name">Your name<small>Shown to people you write to.</small></div>
         <div className="options">
-          <input className="text-input" style={{ maxWidth: 400 }} value={name} onChange={(e) => setName(e.target.value)} placeholder={acct.email} />
+          <input className="text-input" value={name} onChange={(e) => setName(e.target.value)} placeholder={acct.email} />
           <button type="button" className="btn btn-primary" disabled={name === s.name} onClick={() => void save({ name })}>Save</button>
         </div>
       </div>
@@ -346,9 +346,9 @@ function Accounts() {
               <tr><td>{s.name || "(no name)"}</td><td>{acct.email}</td><td style={{ color: "var(--text-3)" }}>default</td></tr>
               {aliases.map((a, i) => (
                 <tr key={i}>
-                  <td><input className="text-input" style={{ height: 36, fontSize: 14 }} placeholder="Name" value={a.name}
+                  <td><input className="text-input" placeholder="Name" value={a.name}
                     onChange={(e) => setAliases(aliases.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} /></td>
-                  <td><input className="text-input" style={{ height: 36, fontSize: 14 }} placeholder="address@example.com" value={a.address}
+                  <td><input className="text-input" placeholder="address@example.com" value={a.address}
                     onChange={(e) => setAliases(aliases.map((x, j) => (j === i ? { ...x, address: e.target.value } : x)))} /></td>
                   <td><IconButton label="Remove" onClick={() => setAliases(aliases.filter((_, j) => j !== i))}><Trash2 size={18} /></IconButton></td>
                 </tr>

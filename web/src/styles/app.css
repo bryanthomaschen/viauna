@@ -104,8 +104,8 @@ a { color: var(--primary); }
 .search-panel { position: absolute; top: 52px; left: 0; right: 0; background: var(--surface); border-radius: 8px; box-shadow: var(--shadow-2); padding: 20px 24px; z-index: 30; }
 .search-panel .row { display: grid; grid-template-columns: 140px 1fr; align-items: center; margin-bottom: 10px; }
 .search-panel label { color: var(--text-2); font-size: 13px; }
-.search-panel input[type="text"] { border: 0; border-bottom: 1px solid var(--border-strong); background: transparent; padding: 6px 0; outline: none; }
-.search-panel input[type="text"]:focus { border-bottom: 2px solid var(--primary); padding-bottom: 5px; }
+.search-panel input[type="text"], .search-panel select { border: 0; border-bottom: 1px solid var(--border-strong); background: transparent; padding: 6px 0; outline: none; }
+.search-panel input[type="text"]:focus, .search-panel select:focus { border-bottom: 2px solid var(--primary); padding-bottom: 5px; }
 .search-panel .buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 
 .icon-btn { display: inline-grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 50%; background: transparent; color: var(--text-2); cursor: pointer; flex-shrink: 0; }
@@ -377,8 +377,13 @@ a { color: var(--primary); }
 .dialog h2 { margin: 0 0 16px; font-size: 22px; font-weight: 400; }
 .dialog-text { margin: 0; color: var(--text-2); line-height: 1.5; }
 .dialog .buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; }
-.text-input { width: 100%; height: 48px; padding: 0 14px; border: 1px solid var(--border-strong); border-radius: 4px; background: transparent; outline: none; font-size: 16px; }
+/* Every form's text boxes and lists: one size. Larger only on the sign-in page; smaller only
+   inside a sentence ("Every 2 weeks"). */
+.text-input { width: 100%; height: 40px; padding: 0 14px; border: 1px solid var(--border-strong); border-radius: 4px; background: transparent; outline: none; font-size: 14px; }
 .text-input:focus { border: 2px solid var(--primary); padding: 0 13px; }
+textarea.text-input { height: auto; padding: 10px 14px; resize: vertical; font: inherit; font-size: 14px; }
+textarea.text-input:focus { padding: 9px 13px; }
+.custom-row .text-input, .custom-repeat > select.text-input, .custom-ends .text-input, .tidy-label .text-input, .invite-calendar .text-input { height: 36px; }
 .color-grid { display: grid; grid-template-columns: repeat(9, 24px); gap: 6px; margin-top: 12px; }
 .color-dot { width: 24px; height: 24px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0; }
 .color-dot.on { border-color: var(--text); }
@@ -423,7 +428,7 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
 .login-form .buttons { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; }
 .login-form details summary { cursor: pointer; color: var(--primary); font-size: 14px; }
 .login-form .servers { display: grid; grid-template-columns: 1fr 90px 110px; gap: 8px; margin-top: 8px; }
-.login-form .servers .text-input { height: 40px; font-size: 14px; }
+.login-form > .text-input { height: 48px; font-size: 16px; }
 .login-foot { margin-top: 16px; text-align: center; font-size: 12px; color: var(--text-muted); }
 
 /* ------------------------------------------------------------ settings */
@@ -437,6 +442,8 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
 .setting > .name small { display: block; font-weight: 400; color: var(--text-3); margin-top: 4px; }
 .setting .options { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 .setting .options label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.setting .text-input { max-width: 400px; }
+.setting td .text-input, .setting .vacation .text-input { max-width: none; }
 .setting table { border-collapse: collapse; width: 100%; max-width: 640px; }
 .setting td { padding: 6px 8px; border-bottom: 1px solid var(--border); }
 .sig-editor { width: 100%; max-width: 640px; border: 1px solid var(--border-strong); border-radius: 4px; }
@@ -447,7 +454,7 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
 
 .contacts-toolbar { gap: 8px; height: 64px; }
 .contacts-toolbar h2 { margin: 0 4px 0 0; font-size: 22px; font-weight: 400; }
-.contacts-search { max-width: 280px; height: 40px; font-size: 14px; }
+.contacts-search { max-width: 280px; }
 .sync-line { padding: 0 16px 8px 64px; font-size: 12px; color: var(--text-3); }
 .sync-line.error { color: var(--danger); }
 .spin { animation: spin 1s linear infinite; }
@@ -459,8 +466,6 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
 .contacts-table .contact-name { display: flex; align-items: center; gap: 12px; font-weight: 500; }
 .contacts-table .more { color: var(--text-3); font-size: 12px; }
 .contact-form { display: flex; flex-direction: column; gap: 10px; }
-.contact-form .text-input { height: 40px; font-size: 14px; }
-.contact-form textarea.text-input { height: auto; padding: 10px 14px; resize: vertical; font: inherit; font-size: 14px; }
 .contact-form .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .contact-form .row-field { display: grid; grid-template-columns: 1fr 130px auto; gap: 8px; align-items: center; }
 .contact-form .add-field { align-self: flex-start; padding-left: 4px; height: 30px; }
@@ -484,7 +489,7 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
 .tidy-group ul { list-style: none; margin: 6px 0 0; padding: 0; }
 .tidy-group li label { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 14px; cursor: pointer; }
 .tidy-label { display: flex; align-items: center; gap: 8px; }
-.tidy-label .text-input { height: 32px; font-size: 14px; max-width: 260px; }
+.tidy-label .text-input { max-width: 260px; }
 .tidy-old { color: var(--text-2); text-decoration: line-through; text-decoration-color: var(--text-3); }
 
 /* ------------------------------------------------------------ calendar */
@@ -570,7 +575,7 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
 .invite-answers { display: flex; gap: 6px; }
 .invite-answers .btn { min-width: 64px; justify-content: center; }
 .invite-calendar { display: flex; align-items: center; gap: 6px; }
-.invite-calendar .text-input { height: 36px; font-size: 14px; padding: 0 10px; width: auto; }
+.invite-calendar .text-input { padding: 0 10px; width: auto; }
 .invite-open { margin-left: auto; }
 
 .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
@@ -630,14 +635,11 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
 .secret-address h3 { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 14px; font-weight: 500; }
 .secret-address .muted { color: var(--text-3); margin: 0; }
 .secret-address .event-field { align-self: stretch; }
-.secret-address .text-input { height: 36px; font-size: 13px; }
 .secret-url { display: flex; gap: 8px; align-self: stretch; }
 .secret-url .text-input { flex: 1; min-width: 0; font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 12px; }
 .secret-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .secret-confirm span { flex: 1 1 100%; color: var(--danger); }
 .secret-buttons { margin: 0; justify-content: flex-start; }
-.event-form .text-input { height: 40px; font-size: 14px; }
-.event-form textarea.text-input { height: auto; padding: 10px 14px; resize: vertical; font: inherit; font-size: 14px; }
 .event-form .event-title { height: 48px; font-size: 18px; }
 .event-times { display: flex; flex-direction: column; gap: 8px; }
 .event-when { display: grid; grid-template-columns: var(--event-label) minmax(0, 1fr) 120px; align-items: center; gap: 8px; }
@@ -650,15 +652,15 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
 .event-zone-btn { height: 28px; padding: 0 8px; font-size: 13px; font-weight: 400; gap: 6px; }
 .custom-repeat { display: flex; flex-direction: column; gap: 10px; margin-left: calc(var(--event-label) + 8px); padding: 12px; border-radius: 12px; background: var(--surface-2); }
 .custom-row { display: flex; align-items: center; gap: 8px; font-size: 14px; }
-.custom-row .text-input { width: auto; height: 36px; }
+.custom-row .text-input { width: auto; }
 .custom-row input[type="number"] { width: 72px; }
 .weekday-row { gap: 6px; }
 .weekday { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border-strong); background: var(--surface); cursor: pointer; font-size: 12px; font-weight: 500; color: var(--text-2); }
 .weekday.on { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
-.custom-repeat > select.text-input { width: auto; height: 36px; align-self: flex-start; }
+.custom-repeat > select.text-input { width: auto; align-self: flex-start; }
 .custom-ends { display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
 .custom-ends label { display: flex; align-items: center; gap: 8px; }
-.custom-ends .text-input { width: auto; height: 32px; font-size: 13px; }
+.custom-ends .text-input { width: auto; }
 .custom-ends input[type="number"] { width: 72px; }
 .import-file { display: flex; align-items: center; gap: 12px; font-size: 14px; }
 .scope-options { display: flex; flex-direction: column; gap: 10px; font-size: 15px; }
@@ -677,8 +679,7 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
 .event-form .event-field > .invite-row { padding: 10px 0 0; }
 .reminders { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .reminder-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.reminders .text-input { height: 36px; font-size: 14px; padding: 0 10px; }
-.event-form .reminders .text-input { height: 40px; }
+.reminders .text-input { padding: 0 10px; }
 .reminders .text-input:focus { padding: 0 9px; }
 .reminder-method { flex: 0 1 132px; min-width: 0; }
 .reminder-amount { flex: 0 0 64px; }
@@ -686,9 +687,9 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
 .reminder-time { flex: 0 1 112px; min-width: 0; }
 .reminder-at { color: var(--text-2); font-size: 14px; }
 /* As tall as a reminder's row, so an event with none has it level with its label; its icon at the controls' edge. */
-.reminders .add-field { align-self: flex-start; height: 36px; margin-left: -8px; padding: 0 12px 0 8px; }
-.event-form .reminders .add-field { height: 40px; }
-.reminder-defaults { align-items: stretch !important; width: 100%; max-width: 560px; }
+.reminders .add-field { align-self: flex-start; height: 40px; margin-left: -8px; padding: 0 12px 0 8px; }
+/* The reminders' boxes end with the other settings' boxes, their remove buttons beyond. */
+.reminder-defaults { align-items: stretch !important; width: 100%; max-width: 448px; }
 .event-field .color-grid { margin-top: 0; grid-template-columns: repeat(13, 24px); }
 /* The calendar's colour inside its list's box, so the box starts where the other controls do. */
 .color-select { position: relative; display: block; }
@@ -714,7 +715,6 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
 .filters-key { color: var(--text-3); margin-right: 4px; }
 .filters-warning { display: flex; gap: 8px; align-items: center; color: var(--danger); font-size: 14px; }
 .filter-form { display: flex; flex-direction: column; gap: 10px; }
-.filter-form .text-input { height: 36px; font-size: 14px; }
 .filter-field { display: grid; grid-template-columns: 130px 1fr; align-items: center; gap: 8px; cursor: default !important; }
 .filter-field > span { color: var(--text-2); font-size: 14px; }
 .filter-size { display: grid; grid-template-columns: 1fr 100px 90px; gap: 8px; }
@@ -726,8 +726,6 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
 .filter-actions .text-input { width: 100%; }
 .filter-note { font-size: 12px; color: var(--text-3); }
 .vacation { width: 100%; max-width: 560px; }
-.vacation .text-input { height: 40px; font-size: 14px; }
-.vacation textarea.text-input { height: auto; padding: 10px 14px; font: inherit; font-size: 14px; resize: vertical; }
 .vacation-days { display: flex; flex-wrap: wrap; gap: 8px 24px; }
 .vacation-days label { display: flex; align-items: center; gap: 8px; }
 .vacation-days .text-input { width: auto; }

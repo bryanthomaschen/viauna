@@ -291,7 +291,7 @@ function FolderDialog() {
       {!existing && folders.length > 0 && (
         <label style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 16 }}>
           Inside
-          <select value={parent} onChange={(e) => setParent(e.target.value === "" ? "" : Number(e.target.value))}>
+          <select className="text-input" value={parent} onChange={(e) => setParent(e.target.value === "" ? "" : Number(e.target.value))}>
             <option value="">(top level)</option>
             {folders.map((f) => (
               <option key={f.id} value={f.id}>{f.path}</option>
