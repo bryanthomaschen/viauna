@@ -257,19 +257,21 @@ export function EventDialog({ id, occurrence, initial }: { id?: number; occurren
             )}
           </div>
           {!d.allDay && d.zonesOpen && (
-            <div className="event-zones">
-              <ZoneSelect label="Start time zone" value={startZone} at={wallToMs(d.start, startZone)}
+            <>
+              <ZoneSelect label="Start time zone" shown={d.endZone !== null ? "Start zone" : "Time zone"} value={startZone} at={wallToMs(d.start, startZone)}
                 onChange={(z) => set({ zone: z })} />
               {d.endZone !== null && (
-                <ZoneSelect label="End time zone" value={endZone} at={wallToMs(d.end, endZone)} onChange={(z) => set({ endZone: z })} />
+                <ZoneSelect label="End time zone" shown="End zone" value={endZone} at={wallToMs(d.end, endZone)} onChange={(z) => set({ endZone: z })} />
               )}
-              <label className="event-check-inline">
-                <input type="checkbox" checked={d.endZone !== null} onChange={(e) => set({ endZone: e.target.checked ? startZone : null })} />
-                A different time zone for the end (a flight, say)
-              </label>
-            </div>
+              <div className="event-check">
+                <label>
+                  <input type="checkbox" checked={d.endZone !== null} onChange={(e) => set({ endZone: e.target.checked ? startZone : null })} />
+                  A different time zone for the end (a flight, say)
+                </label>
+              </div>
+            </>
           )}
-          {backwards && <div className="form-error" role="alert">The event ends before it starts.</div>}
+          {backwards && <div className="form-error event-indent" role="alert">The event ends before it starts.</div>}
         </div>
         <RepeatField draft={d} customOpen={customOpen} setCustomOpen={setCustomOpen} onChange={(repeat) => set({ repeat })} />
         <label className="event-field">
@@ -283,18 +285,32 @@ export function EventDialog({ id, occurrence, initial }: { id?: number; occurren
         </label>
         {hosting ? (
           <div className="event-guests">
-            <RecipientField label="Guests" account={acct.index} value={d.guests ?? []} onChange={(guests) => set({ guests })} />
-            {loaded && loaded.attendees.length > 0 && <Guests inv={loaded} me={mine} />}
+            <RecipientField label="Guests" placeholder="Add guests" account={acct.index} value={d.guests ?? []} onChange={(guests) => set({ guests })} />
+            {loaded && loaded.attendees.length > 0 && <div className="event-indent"><Guests inv={loaded} me={mine} /></div>}
           </div>
         ) : (
-          loaded && <Guests inv={loaded} me={mine} />
+          loaded && loaded.attendees.length > 0 && (
+            <div className="event-field event-top">
+              <span>Guests</span>
+              <Guests inv={loaded} me={mine} />
+            </div>
+          )
         )}
-        <input className="text-input" aria-label="Location" placeholder="Add location" value={d.location} maxLength={1000} onChange={(e) => set({ location: e.target.value })} />
-        <input className="text-input" type="url" aria-label="Video call link" placeholder="Add a video call link" value={d.video ?? ""} maxLength={2000}
-          onChange={(e) => set({ video: e.target.value })} />
-        <textarea className="text-input" aria-label="Description" placeholder="Add description" rows={4} value={d.description} maxLength={20000}
-          onChange={(e) => set({ description: e.target.value })} />
-        <div className="event-field event-reminders">
+        <label className="event-field">
+          <span>Location</span>
+          <input className="text-input" aria-label="Location" placeholder="Add location" value={d.location} maxLength={1000} onChange={(e) => set({ location: e.target.value })} />
+        </label>
+        <label className="event-field">
+          <span>Video call</span>
+          <input className="text-input" type="url" aria-label="Video call link" placeholder="Add a link" value={d.video ?? ""} maxLength={2000}
+            onChange={(e) => set({ video: e.target.value })} />
+        </label>
+        <label className="event-field event-top">
+          <span>Description</span>
+          <textarea className="text-input" aria-label="Description" placeholder="Add description" rows={4} value={d.description} maxLength={20000}
+            onChange={(e) => set({ description: e.target.value })} />
+        </label>
+        <div className="event-field event-top">
           <span id="event-reminders">Notifications</span>
           <RemindersField value={d.reminders ?? []} onChange={(reminders) => set({ reminders })} allDay={d.allDay}
             email={!!acct.accounts[acct.index]?.emailReminders} />
@@ -357,11 +373,11 @@ function fromLoaded(e: NonNullable<Awaited<ReturnType<typeof api.event>>["event"
   };
 }
 
-function ZoneSelect({ label, value, at, onChange }: { label: string; value: string; at: number; onChange: (zone: string) => void }) {
+function ZoneSelect({ label, shown, value, at, onChange }: { label: string; shown: string; value: string; at: number; onChange: (zone: string) => void }) {
   const zones = ZONES.includes(value) ? ZONES : [value, ...ZONES];
   return (
     <label className="event-field">
-      <span>{label.replace(" time zone", "")}</span>
+      <span>{shown}</span>
       <select className="text-input" aria-label={label} value={value} onChange={(e) => onChange(e.target.value)}>
         {zones.map((z) => <option key={z} value={z}>{z.replace(/_/g, " ")} ({zoneOffset(z, at)})</option>)}
       </select>
@@ -776,9 +792,12 @@ export function ImportDialog() {
           A calendar file (.ics) exported from another calendar app. Events already here are updated, not added twice.
         </p>
         <input ref={input} type="file" accept=".ics,text/calendar" hidden onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-        <div className="import-file">
-          <button type="button" className="btn btn-outline" onClick={() => input.current?.click()}>Choose a file</button>
-          <span className="muted">{file ? file.name : "No file chosen"}</span>
+        <div className="event-field">
+          <span>File</span>
+          <div className="import-file">
+            <button type="button" className="btn btn-outline" onClick={() => input.current?.click()}>Choose a file</button>
+            <span className="muted">{file ? file.name : "No file chosen"}</span>
+          </div>
         </div>
         <label className="event-field">
           <span>Into</span>

@@ -574,7 +574,8 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
 .invite-open { margin-left: auto; }
 
 .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
-.swatch.lg { width: 16px; height: 16px; border-radius: 4px; margin-top: 6px; }
+/* In a card's column of 18px icons, centred in it, as the 12px one is in a row. */
+.swatch.lg { width: 16px; height: 16px; border-radius: 4px; margin: 6px 1px 0; }
 .muted { color: var(--text-3); }
 
 .mini-month { padding: 4px 16px 12px 22px; font-size: 12px; user-select: none; }
@@ -604,18 +605,22 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
 .event-card-tools { display: flex; justify-content: flex-end; gap: 2px; margin-right: -8px; }
 .event-card-title { display: flex; align-items: flex-start; gap: 16px; }
 .event-card-title h3 { margin: 0; font-size: 22px; font-weight: 400; line-height: 28px; word-break: break-word; }
-.event-card-row { display: flex; align-items: flex-start; gap: 16px; padding: 6px 0; font-size: 14px; overflow-wrap: anywhere; }
-.event-card-title + .event-card-row { padding: 2px 0 8px 32px; }
+.event-card-row { display: flex; align-items: flex-start; gap: 16px; padding: 6px 0; font-size: 14px; line-height: 20px; overflow-wrap: anywhere; }
+.event-card-title + .event-card-row { padding: 2px 0 8px 34px; }
 .event-card-row svg { flex-shrink: 0; margin-top: 1px; color: var(--text-2); }
-.event-card-row select { border: 0; background: transparent; font-size: 14px; padding: 2px 0; max-width: 100%; }
+.event-card-row > .swatch { margin: 4px 3px 0; }
+/* The browser draws a list's text about 4px inside its box: back to the other rows' text. */
+.event-card-row select { border: 0; background: transparent; font-size: 14px; height: 20px; padding: 0; margin-left: -4px; max-width: 100%; }
 .event-description > div { white-space: pre-wrap; max-height: 240px; overflow-y: auto; }
-.event-join { margin: 4px 0 8px 32px; height: 40px; text-decoration: none; }
+.event-join { margin: 4px 0 8px 34px; height: 40px; text-decoration: none; }
 .quick-create { display: flex; flex-direction: column; gap: 8px; }
 .quick-title { width: 100%; border: 0; border-bottom: 1px solid var(--border-strong); background: transparent; font-size: 22px; padding: 6px 0; outline: none; }
 .quick-title:focus { border-bottom: 2px solid var(--primary); padding-bottom: 5px; }
 .quick-create .buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
 
+/* The editor's rows: each label in one column, so every control starts at the same edge. */
 .event-form { display: flex; flex-direction: column; gap: 10px; }
+.event-form, .secret-address { --event-label: 96px; }
 /* Its fields, all disabled at once for an event from the web; no box of its own. */
 .event-fieldset { display: contents; }
 .feed-status { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin: 10px 0; font-size: 13px; }
@@ -635,15 +640,15 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
 .event-form textarea.text-input { height: auto; padding: 10px 14px; resize: vertical; font: inherit; font-size: 14px; }
 .event-form .event-title { height: 48px; font-size: 18px; }
 .event-times { display: flex; flex-direction: column; gap: 8px; }
-.event-when { display: grid; grid-template-columns: 56px 1fr 120px; align-items: center; gap: 8px; }
+.event-when { display: grid; grid-template-columns: var(--event-label) minmax(0, 1fr) 120px; align-items: center; gap: 8px; }
 .event-when > span, .event-field > span { color: var(--text-2); font-size: 14px; }
-.event-check { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; padding-left: 64px; font-size: 14px; }
+/* What sits under the controls without a label of its own starts where they do. */
+.event-check, .event-indent { padding-left: calc(var(--event-label) + 8px); }
+.event-check { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; min-height: 28px; font-size: 14px; }
 .event-check label { display: flex; align-items: center; gap: 8px; }
+.event-check input[type="checkbox"] { margin: 0; }
 .event-zone-btn { height: 28px; padding: 0 8px; font-size: 13px; font-weight: 400; gap: 6px; }
-.event-zones { display: flex; flex-direction: column; gap: 8px; padding-left: 64px; }
-.event-zones .event-field { grid-template-columns: 48px 1fr; }
-.event-check-inline { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-2); }
-.custom-repeat { display: flex; flex-direction: column; gap: 10px; margin-left: 88px; padding: 12px; border-radius: 12px; background: var(--surface-2); }
+.custom-repeat { display: flex; flex-direction: column; gap: 10px; margin-left: calc(var(--event-label) + 8px); padding: 12px; border-radius: 12px; background: var(--surface-2); }
 .custom-row { display: flex; align-items: center; gap: 8px; font-size: 14px; }
 .custom-row .text-input { width: auto; height: 36px; }
 .custom-row input[type="number"] { width: 72px; }
@@ -658,22 +663,38 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
 .import-file { display: flex; align-items: center; gap: 12px; font-size: 14px; }
 .scope-options { display: flex; flex-direction: column; gap: 10px; font-size: 15px; }
 .scope-options label { display: flex; align-items: center; gap: 10px; cursor: pointer; }
-.event-field { display: grid; grid-template-columns: 80px 1fr; align-items: center; gap: 8px; }
-.event-field.event-reminders { align-items: start; }
-.event-field.event-reminders > span { padding-top: 10px; }
-.reminders { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.reminder-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.event-field { display: grid; grid-template-columns: var(--event-label) minmax(0, 1fr); align-items: center; gap: 8px; }
+/* Beside something taller than a control (a description, a list), level with its first line. */
+.event-field.event-top { align-items: start; }
+.event-field.event-top > span { padding-top: 10px; line-height: 20px; }
+/* Guests: the address field's own label in the label column, the field boxed like the rest. */
+.event-guests { display: flex; flex-direction: column; gap: 8px; }
+.event-guests .field { display: grid; grid-template-columns: var(--event-label) minmax(0, 1fr); align-items: start; gap: 8px; min-height: 0; border: 0; cursor: text; }
+.event-guests .field-label { padding: 10px 0 0; line-height: 20px; color: var(--text-2); font-size: 14px; }
+.event-guests .recipients { min-height: 40px; padding: 4px 13px; border: 1px solid var(--border-strong); border-radius: 4px; font-size: 14px; }
+.event-guests .recipients:focus-within { border: 2px solid var(--primary); padding: 3px 12px; }
+.event-form .invite-row { padding: 4px 0; }
+.event-form .event-field > .invite-row { padding: 10px 0 0; }
+.reminders { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.reminder-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .reminders .text-input { height: 36px; font-size: 14px; padding: 0 10px; }
+.event-form .reminders .text-input { height: 40px; }
 .reminders .text-input:focus { padding: 0 9px; }
 .reminder-method { flex: 0 1 132px; min-width: 0; }
 .reminder-amount { flex: 0 0 64px; }
 .reminder-unit { flex: 1 1 130px; min-width: 0; }
 .reminder-time { flex: 0 1 112px; min-width: 0; }
 .reminder-at { color: var(--text-2); font-size: 14px; }
-.reminders .add-field { align-self: flex-start; padding-left: 4px; height: 30px; }
+/* As tall as a reminder's row, so an event with none has it level with its label; its icon at the controls' edge. */
+.reminders .add-field { align-self: flex-start; height: 36px; margin-left: -8px; padding: 0 12px 0 8px; }
+.event-form .reminders .add-field { height: 40px; }
 .reminder-defaults { align-items: stretch !important; width: 100%; max-width: 560px; }
 .event-field .color-grid { margin-top: 0; grid-template-columns: repeat(13, 24px); }
-.color-select { display: flex; align-items: center; gap: 8px; }
+/* The calendar's colour inside its list's box, so the box starts where the other controls do. */
+.color-select { position: relative; display: block; }
+.color-select .swatch { position: absolute; left: 14px; top: 50%; margin-top: -6px; pointer-events: none; }
+.color-select select.text-input { padding-left: 36px; }
+.color-select select.text-input:focus { padding-left: 35px; }
 
 .search-results { list-style: none; margin: 0; padding: 8px 0; }
 .search-results ul { list-style: none; margin: 0; padding: 0; flex: 1; min-width: 0; }
@@ -798,8 +819,12 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
   .toolbar .range { display: none; }
   .calendar-toolbar { padding-left: 8px; gap: 4px; }
   .calendar-title { font-size: 18px; margin: 0 4px; }
-  .event-when { grid-template-columns: 48px 1fr 100px; }
-  .event-check, .event-zones { padding-left: 56px; }
+  /* The editor's labels above their controls, which take the width. */
+  .event-when { grid-template-columns: minmax(0, 1fr) 104px; row-gap: 4px; }
+  .event-when > span { grid-column: 1 / -1; }
+  .event-field, .event-guests .field { grid-template-columns: minmax(0, 1fr); row-gap: 4px; }
+  .event-field.event-top > span, .event-guests .field-label { padding-top: 0; }
+  .event-check, .event-indent { padding-left: 0; }
   .custom-repeat { margin-left: 0; }
   .event-field .color-grid { grid-template-columns: repeat(7, 24px); }
   .search-day { flex-direction: column; gap: 0; }

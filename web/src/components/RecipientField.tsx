@@ -26,6 +26,7 @@ export function RecipientField({
   onChange,
   autoFocus,
   right,
+  placeholder,
 }: {
   label: string;
   account: number;
@@ -33,6 +34,8 @@ export function RecipientField({
   onChange: (next: Address[]) => void;
   autoFocus?: boolean;
   right?: ReactNode;
+  /** Shown in the empty field. */
+  placeholder?: string;
 }) {
   const [text, setText] = useState("");
   const [active, setActive] = useState(0);
@@ -91,6 +94,7 @@ export function RecipientField({
         <input
           ref={input}
           value={text}
+          placeholder={value.length ? undefined : placeholder}
           autoFocus={autoFocus}
           aria-label={label === "To" ? "To recipients" : `${label} recipients`}
           aria-autocomplete="list"
