@@ -41,7 +41,7 @@ With Docker Compose, next to a PostgreSQL container:
 ```yaml
 services:
   viauna:
-    image: ghcr.io/bryanthomaschen/viauna:0.5
+    image: ghcr.io/bryanthomaschen/viauna:0.6
     environment:
       DATABASE_URL: postgres://viauna:${DB_PASSWORD}@postgres:5432/viauna
       # …the rest as in Getting started

@@ -24,7 +24,7 @@ docker run -d --name viauna \
   -e PUBLIC_URL=http://localhost:3000 \
   -e IMAP_HOST=imap.example.com \
   -e SMTP_HOST=smtp.example.com \
-  ghcr.io/bryanthomaschen/viauna:0.5
+  ghcr.io/bryanthomaschen/viauna:0.6
 ```
 
 Open `http://localhost:3000` and sign in with your full address and its password. Your
@@ -58,7 +58,7 @@ Save this as `compose.yml`, with your hostname in both places it says
 ```yaml
 services:
   viauna:
-    image: ghcr.io/bryanthomaschen/viauna:0.5
+    image: ghcr.io/bryanthomaschen/viauna:0.6
     restart: unless-stopped
     environment:
       PUBLIC_URL: https://webmail.example.com

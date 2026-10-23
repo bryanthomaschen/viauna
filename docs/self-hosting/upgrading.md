@@ -52,7 +52,7 @@ docker compose up -d
 With `docker run`, pull the new image, then remove the container and run it again with
 the same options; the data volume keeps everything.
 
-Pin a minor version, such as `ghcr.io/bryanthomaschen/viauna:0.5`, and each pull brings
+Pin a minor version, such as `ghcr.io/bryanthomaschen/viauna:0.6`, and each pull brings
 that version's fixes without surprises. Move to the next one after reading its release
 notes: before 1.0, a new minor version may change settings or behaviour.
 

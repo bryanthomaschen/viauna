@@ -7,7 +7,7 @@ changes and upgrades independently.
 # Add to (or alongside) your Mailu docker-compose.yml
 services:
   viauna:
-    image: ghcr.io/bryanthomaschen/viauna:0.5
+    image: ghcr.io/bryanthomaschen/viauna:0.6
     restart: unless-stopped
     environment:
       PUBLIC_URL: https://webmail.example.com

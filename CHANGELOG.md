@@ -9,6 +9,8 @@ its notes before moving to it. A patch release (0.2.0 to 0.2.1) only fixes thing
 
 ## Unreleased
 
+## 0.6.0 - 2026-10-23
+
 A calendar for each mailbox, with repeating events, reminders and invitations any
 calendar app understands; labels and birthdays in contacts; and addresses you send as,
 shown to be yours before mail goes out from them.
