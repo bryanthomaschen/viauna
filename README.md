@@ -40,16 +40,20 @@ works with the mail server you already run.
   inline with the quoted text tucked behind `•••`; recipient autocomplete from people
   you correspond with, rich text, pasted images, drag-and-drop attachments, drafts
   autosaved to your server's Drafts folder.
-- **Several accounts at once** with an account switcher (`/u/0`, `/u/1`, …) and
-  "send mail as" aliases.
+- **Several accounts at once** with an account switcher (`/u/0`, `/u/1`, …), and
+  "send mail as" addresses, each confirmed by your mail server or by a code emailed to it,
+  even at another provider through its own mail server.
 - **Filters and a vacation responder**, kept on your mail server as Sieve
   so they run as mail arrives, in every app.
 - **Contacts**: an address book per mailbox, vCard import and export (from Google Contacts,
   Apple Contacts, Thunderbird, Roundcube), suggestions from it as you write, and optional
   two-way sync with your CardDAV server.
 - **Calendars**: as many per mailbox as you like, kept by Viauna in standard iCalendar;
-  day, week, month, schedule and 4-day views; drag to make and move events; time zones
-  done right; events made from an email.
+  day, week, month, schedule and 4-day views; drag to make and move events; repeating
+  events and time zones done right; reminders on the page, with Viauna closed, or by
+  email; invitations any calendar app understands, sent and answered; a Birthdays
+  calendar from your contacts, calendars from the web, a secret address for another app,
+  and `.ics` import and export.
 - **An admin page** for whoever runs it: who can sign in, limits, password changes,
   changed without a restart and with a record of who changed what. The same from the
   command line, or all of it from environment variables.
@@ -65,6 +69,8 @@ works with the mail server you already run.
 |---|---|
 | ![Conversation](docs/screenshots/conversation.png) | ![Compose](docs/screenshots/compose.png) |
 | ![Dark mode](docs/screenshots/dark.png) | ![Phone](docs/screenshots/mobile.png) |
+
+![Calendar](docs/screenshots/calendar.png)
 
 ## Quick start
 

@@ -189,7 +189,10 @@ not built in.
 | Accounts, sessions, settings | SQLite in `DATA_DIR` | PostgreSQL, MySQL/MariaDB | — | built |
 | Password change | Off | Link to the mail server's own page; LDAP | Webhook, command | built; no vendor drivers yet |
 | Contacts | Viauna's database, vCard import/export | CardDAV sync, any server | — | built |
-| Calendars | Viauna's database, kept as iCalendar; .ics import and export | — | — | being built |
+| Calendars | Viauna's database, kept as iCalendar; .ics import and export | Calendars from the web by their address; a secret address for another app to read | — | built |
+| Invitations | Standard email invitations (iMIP), through the mailbox's own SMTP | — | — | built |
+| Reminders | On the page | The browser's push service (Web Push), with Viauna closed; email from `SENDER_ADDRESS` | — | built |
+| Sending as other addresses | A code emailed to the address, after the mail server is asked | The mail server's yes (`SEND_AS=server`); the address's own provider's SMTP (`SEND_AS_SERVERS`) | — | built |
 | Filters, vacation responder | On, kept on the mail server over ManageSieve | — | — | built |
 
 The database is chosen by `DATABASE_URL`, not the admin page, because the settings

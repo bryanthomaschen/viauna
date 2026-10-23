@@ -22,10 +22,14 @@ features:
     details: Your replies, filed in Sent, sit under the message they answer, threaded by Message-ID and References.
   - title: Fast and live
     details: A local index makes lists, counts and paging instant. IMAP IDLE brings new Inbox mail to the open page within about a second.
+  - title: A calendar and contacts too
+    details: Calendars with repeating events, reminders and invitations any calendar app understands, and an address book that syncs with CardDAV.
   - title: Labels, not just folders
     details: Several labels per conversation, stored on the server as IMAP keywords, so Thunderbird and Apple Mail show them as tags.
   - title: Search the way you already do
     details: from:, has:attachment, older_than:1y, "exact phrase" and the rest, run on the server against its full-text index.
+  - title: Filters on your server
+    details: Rules that sort mail as it arrives, and a vacation responder, kept on your mail server as Sieve, so they run whether or not Viauna is open.
   - title: Keyboard friendly
     details: 'A command menu (⌘K or Ctrl+K) for every action, folder and setting by name, and single-key shortcuts if you turn them on.'
   - title: Safe by default
@@ -40,6 +44,8 @@ features:
 |---|---|
 | ![A conversation](./screenshots/conversation.png) | ![Writing a message](./screenshots/compose.png) |
 | ![Dark mode](./screenshots/dark.png) | ![On a phone](./screenshots/mobile.png) |
+
+![The calendar](./screenshots/calendar.png)
 
 ## One container, your mail server
 

@@ -63,6 +63,25 @@ long as the data volume and the secret are kept.
 The version you're running is shown at the foot of the sign-in page, and by
 `docker exec viauna viauna version`.
 
+### From 0.5 to 0.6
+
+- **Back up `state.db` first** (or your `DATABASE_URL` database): calendars, like contacts,
+  are kept there and nowhere else. The new tables are made on the first start.
+- **"Send mail as" addresses need confirming again.** Each mailbox's addresses are kept,
+  but nothing is sent from one until it's confirmed, by a code emailed to it. On Mailu,
+  mailcow or another server that refuses senders a login doesn't own, set
+  `SEND_AS=server` and your mail server's yes confirms them instead, with no codes. Tell
+  the people who use them. See [Sending as other addresses](../how-it-works/sending.md).
+- **A login in front of Viauna** must let `/ical/` (secret calendar addresses), `/sw.js`,
+  the manifest and the icons through. See [Reverse proxy](./reverse-proxy.md).
+- **Reminders by email** need a mailbox for Viauna to send from: see
+  [Viauna's own sender](./configuration.md#viauna-s-own-sender). Without one, reminders
+  still show on the page and in the browser.
+- The calendar and its parts are on by default; turn any off with `CALENDAR`,
+  `CALENDAR_FEEDS`, `CALENDAR_SECRET_ADDRESSES` and `BROWSER_NOTIFICATIONS`, or from the
+  admin page. Sending through other providers' mail servers (`SEND_AS_SERVERS`) is off
+  until you turn it on.
+
 ### From 0.4 to 0.5
 
 Nothing to do. Filters and the vacation responder appear for mailboxes on your own mail

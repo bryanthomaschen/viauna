@@ -9,6 +9,10 @@ its notes before moving to it. A patch release (0.2.0 to 0.2.1) only fixes thing
 
 ## Unreleased
 
+A calendar for each mailbox, with repeating events, reminders and invitations any
+calendar app understands; labels and birthdays in contacts; and addresses you send as,
+shown to be yours before mail goes out from them.
+
 ### Calendar
 
 Each mailbox has calendars, as many as you like, kept by Viauna in standard iCalendar
@@ -17,10 +21,9 @@ week, month, schedule and 4-day views; click or drag on the calendar to make an 
 drag to move it, and Undo; each event's card has **Join video call** for its link;
 search; and **Create event** in a message's menu, with a link back to the email.
 
-Repeating events (daily, weekly on chosen days, monthly
-on a date or a weekday, yearly, until a date or so many times), and changed or deleted
-as this event, this and following events, or all events. A rule another app wrote is
-kept as it is.
+Repeating events (daily, weekly on chosen days, monthly on a date or a weekday, yearly,
+until a date or so many times), and changed or deleted as this event, this and following
+events, or all events. A rule another app wrote is kept as it is.
 
 Time zones done right: times are shown in your zone (Settings > Calendar), with a second
 zone beside them if you like; an event can be in a zone of its own, with its end in
@@ -55,13 +58,12 @@ event. Cards also bring your calendar up to date with a newer version, remove a 
 event, add an `.ics` file's events, and, for events you organise, count a guest's answer.
 The calendar shows your answer: outlined until you answer, striped for maybe, struck
 through for no. Nothing in an email changes your calendar until you press its card's
-button. **Invite people** to
-your events: add guests in the editor, and Viauna emails them standard invitations (it
-asks first), updates when you change or move the event, and cancellations when you take
-someone off or delete it. Their answers are counted from their cards. Between mailboxes on
-the same Viauna server, an event someone has answered stays in step both ways: their
-answer reaches the organiser's event at once, and the organiser's changes, or its
-cancellation, reach their calendar.
+button. **Invite people** to your events: add guests in the editor, and Viauna emails
+them standard invitations (it asks first), updates when you change or move the event, and
+cancellations when you take someone off or delete it. Their answers are counted from
+their cards. Between mailboxes on the same Viauna server, an event someone has answered
+stays in step both ways: their answer reaches the organiser's event at once, and the
+organiser's changes, or its cancellation, reach their calendar.
 
 **A secret address** for any calendar, so another app (your phone, Outlook, another
 calendar) can show it read-only: the whole calendar, or only "Busy" at the times you're
@@ -146,18 +148,17 @@ with only the confirmed addresses the first time its mailbox is used. On Mailu, 
 server that refuses senders a login doesn't own, `SEND_AS=server` confirms them without
 codes, as people use them.
 
-Otherwise, nothing you have to do: the calendar's tables are made on the first start, and it's on. The same
-start finds the labels, nicknames and dates in the contacts already kept. For reminders by
-email, give Viauna a mailbox to send from: see
-[Viauna's own sender](https://bryanthomaschen.github.io/viauna/self-hosting/configuration#viauna-s-own-sender).
+Otherwise, nothing you have to do: the calendar's tables are made on the first start, and
+it's on. The same start finds the labels, nicknames and dates in the contacts already
+kept. For reminders by email, give Viauna a mailbox to send from: see [Viauna's own
+sender](https://bryanthomaschen.github.io/viauna/self-hosting/configuration#viauna-s-own-sender).
 If you put a login of your own in front of Viauna, leave `/ical/`, `/sw.js`, the manifest
-and the icons out of it: see
-[Reverse proxy](https://bryanthomaschen.github.io/viauna/self-hosting/reverse-proxy). Calendars
+and the icons out of it: see [Reverse
+proxy](https://bryanthomaschen.github.io/viauna/self-hosting/reverse-proxy). Calendars
 are kept in the state store and nowhere else, so back up `state.db` (or your
-`DATABASE_URL` database) as the
-[upgrading page](https://bryanthomaschen.github.io/viauna/self-hosting/upgrading#backing-up)
-says. Turn the calendar off with `CALENDAR=false` or from the admin page.
-
+`DATABASE_URL` database) as the [upgrading
+page](https://bryanthomaschen.github.io/viauna/self-hosting/upgrading#backing-up) says.
+Turn the calendar off with `CALENDAR=false` or from the admin page.
 ## 0.5.0 - 2026-10-21
 
 Filters and a vacation responder, kept on your mail server so they work with Viauna
