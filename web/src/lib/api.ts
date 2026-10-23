@@ -35,6 +35,7 @@ import type {
   Settings,
   ThreadsResponse,
   Label,
+  Link,
   Address,
 } from "./types";
 
@@ -213,6 +214,7 @@ export const api = {
     request<{ ok: true; signedOut: number }>("POST", `${u(a)}/password`, { current, next }),
   saveSettings: (a: number, patch: Partial<Settings>) => request<{ settings: Settings }>("PUT", `${u(a)}/settings`, patch),
   identities: (a: number) => request<SendAddresses>("GET", `${u(a)}/identities`),
+  links: (a: number) => request<{ links: Link[] }>("GET", `${u(a)}/links`),
   addIdentity: (a: number, body: { name: string; address: string; server?: { host: string; port: number; security: string; login: string; password: string } }) =>
     request<SendAddresses & { identity: SendAddress; warning: string | null }>("POST", `${u(a)}/identities`, body),
   sendIdentityCode: (a: number, id: number | "own") => request<SendAddresses>("POST", `${u(a)}/identities/${id}/code`),

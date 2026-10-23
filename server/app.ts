@@ -930,6 +930,12 @@ export function createApp() {
 
   acct.route("/calendar", calendar);
 
+  // The apps menu's links (LINKS): everyone's, and the admins' in an admin's mailbox.
+  acct.get("/links", (c) => {
+    const admin = isAdmin(c.get("rt").account);
+    return c.json({ links: setting("links").filter((l) => l.for === "everyone" || admin) });
+  });
+
   acct.get("/settings", async (c) => {
     const rt = c.get("rt");
     return c.json({ settings: await getSettings(rt.account.id), email: rt.account.email, password: passwordChangeFor(rt.account) });

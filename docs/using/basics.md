@@ -89,7 +89,8 @@ Some settings follow your mailbox to every browser; others apply to this browser
   other mail apps ask for the new password.
 - **Contacts** has its own page, in the menu on the left: see [Contacts](./contacts.md).
 - **Calendar**, and Contacts, are a click away with the apps button (the four squares,
-  top right): see [Calendar](./calendar.md).
+  top right): see [Calendar](./calendar.md). Links your server's admin has added, such as
+  your mail server's own settings, are there too.
 - **Filters** and the **vacation responder** are in Settings: see
   [Filters and the vacation responder](./filters.md).
 - **Admin settings**, in the account menu, appears only for the people who run your

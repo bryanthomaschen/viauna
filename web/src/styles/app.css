@@ -624,6 +624,15 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
 .app-link svg { color: var(--primary); }
 .app-link:hover, .app-link:focus-visible { background: var(--surface-hover); outline: none; }
 .app-link.on { background: var(--nav-active); }
+/* The admin's links (LINKS), under the apps. */
+.apps-links { grid-column: 1 / -1; list-style: none; margin: 4px 0 0; padding: 8px 0 0; border-top: 1px solid var(--border); }
+.apps-links a { display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 12px; border-radius: 12px; color: var(--text); text-decoration: none; font-size: 14px; }
+.apps-links a:hover, .apps-links a:focus-visible { background: var(--surface-hover); outline: none; }
+.apps-links svg { flex-shrink: 0; color: var(--text-2); }
+.apps-links span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.links-table .links-url { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.links-add .text-input { flex: 1 1 160px; max-width: 240px; }
+.links-add select.text-input { flex: 0 1 150px; }
 
 .event-card { width: min(420px, calc(100vw - 32px)); padding: 8px 16px 16px; border-radius: 16px; background: var(--surface-3); }
 .event-card:focus { outline: none; }

@@ -40,7 +40,10 @@ export function formatValue(value: SettingValue | null, unit?: string): string {
   if (value === null) return "(default)";
   if (typeof value === "boolean") return value ? "on" : "off";
   if (typeof value === "number") return unit ? `${value} ${unit}` : String(value);
-  if (Array.isArray(value)) return value.length ? value.join(", ") : "(none)";
+  if (Array.isArray(value)) {
+    if (!value.length) return "(none)";
+    return value.map((v) => (typeof v === "string" ? v : `${v.label} <${v.url}>${v.for === "admins" ? " (admins)" : ""}`)).join(", ");
+  }
   return value === "" ? "(none)" : value;
 }
 

@@ -206,7 +206,14 @@ export function verifiedAddress(account: { imap: Endpoint; login: string; email:
 
 // ------------------------------------------------------------ changeable settings
 
-export type SettingValue = boolean | number | string | string[];
+/** A link in the apps menu (LINKS): for everyone, or only in admins' mailboxes. */
+export interface Link {
+  label: string;
+  url: string;
+  for: "everyone" | "admins";
+}
+
+export type SettingValue = boolean | number | string | string[] | Link[];
 
 interface Common<K extends string, V extends SettingValue> {
   key: K;
@@ -223,7 +230,8 @@ export type SettingDef =
   | (Common<"sessionDays" | "maxAccounts" | "maxUploadMb" | "cacheMb", number> & { type: "integer"; min: number; max: number; unit: string })
   | (Common<"appName", string> & { type: "text"; max: number; required?: boolean })
   | (Common<"admins" | "allowedDomains", string[]> & { type: "list"; item: "address" | "domain" })
-  | (Common<"passwordChange" | "sendAs", string> & { type: "choice"; choices: { value: string; label: string }[] });
+  | (Common<"passwordChange" | "sendAs", string> & { type: "choice"; choices: { value: string; label: string }[] })
+  | (Common<"links", Link[]> & { type: "links" });
 
 export type SettingKey = SettingDef["key"];
 
@@ -247,6 +255,7 @@ export interface SettingValues {
   maxUploadMb: number;
   cacheMb: number;
   appName: string;
+  links: Link[];
   passwordChange: "off" | "link" | "command" | "webhook" | "ldap";
 }
 
@@ -353,6 +362,11 @@ export const SETTINGS: readonly SettingDef[] = [
     help: "Shown in the title bar and on the sign-in page.",
   },
   {
+    key: "links", env: "LINKS", type: "links", default: [],
+    section: "Appearance", label: "Links",
+    help: "Links in the apps menu (the four squares, top right), for everyone or only in admins' mailboxes: your mail server's own pages, a help page, an intranet. Each opens in a new tab.",
+  },
+  {
     key: "passwordChange", env: "PASSWORD_CHANGE", type: "choice", default: "off",
     choices: [
       { value: "off", label: "Off" },
@@ -366,6 +380,7 @@ export const SETTINGS: readonly SettingDef[] = [
   },
 ];
 
+const MAX_LINKS = 20;
 const DOMAIN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/;
 const ADDRESS = /^[^\s@,]+@[^\s@,]+$/;
 
@@ -419,6 +434,29 @@ export function parseSetting(def: SettingDef, input: unknown): { value: SettingV
     case "choice": {
       const choice = def.choices.find((c) => c.value === text);
       return choice ? { value: choice.value } : { error: `${def.label} must be one of ${def.choices.map((c) => c.value).join(", ")}.` };
+    }
+    case "links": {
+      // From the API, a list; from the environment or the command line, that list as JSON.
+      let items: unknown = input;
+      if (text !== null) {
+        try {
+          items = text ? JSON.parse(text) : [];
+        } catch {
+          return { error: `${def.label} must be a JSON list, such as [{"label": "Mail admin", "url": "https://mail.example.com/admin", "for": "admins"}].` };
+        }
+      }
+      if (!Array.isArray(items) || items.length > MAX_LINKS) return { error: `${def.label} must be a list of at most ${MAX_LINKS}.` };
+      const out: Link[] = [];
+      for (const item of items as Record<string, unknown>[]) {
+        const label = String(item?.label ?? "").trim();
+        const url = String(item?.url ?? "").trim();
+        const audience = item?.for === undefined || item?.for === "everyone" ? "everyone" : item?.for === "admins" ? "admins" : null;
+        if (!label || label.length > 60 || /[\x00-\x1f]/.test(label)) return { error: "Each link needs a label of at most 60 characters, on one line." };
+        if (!/^https?:\/\//i.test(url) || url.length > 2000 || !URL.canParse(url)) return { error: `"${url}" isn't a web address (https://…).` };
+        if (!audience) return { error: `A link is for "everyone" or for "admins".` };
+        out.push({ label, url, for: audience });
+      }
+      return { value: out };
     }
   }
 }

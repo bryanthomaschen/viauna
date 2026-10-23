@@ -380,12 +380,19 @@ export interface MessageRef {
 
 // ---------------------------------------------------------------- the admin page
 
-export type SettingValue = boolean | number | string | string[];
+/** A link in the apps menu, set by an admin (LINKS). */
+export interface Link {
+  label: string;
+  url: string;
+  for: "everyone" | "admins";
+}
+
+export type SettingValue = boolean | number | string | string[] | Link[];
 
 export interface AdminSetting {
   key: string;
   env: string;
-  type: "boolean" | "integer" | "text" | "list" | "choice";
+  type: "boolean" | "integer" | "text" | "list" | "choice" | "links";
   section: string;
   label: string;
   help: string;

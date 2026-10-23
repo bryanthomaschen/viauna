@@ -471,7 +471,7 @@ describe.skipIf(!enabled)("in a browser", { timeout: 30_000 }, () => {
     });
   });
   describe("the admin page", () => {
-    it("is in the menu only in an admin's mailbox, and acts as that mailbox", async () => {
+    it("is in the menu only in an admin's mailbox, acts as that mailbox, and adds links for everyone or admins", async () => {
       // A second mailbox, the admin, signed in beside the first, which isn't one.
       const other = `kb2-${crypto.randomBytes(4).toString("hex")}@example.test`;
       const { COMMAND_LINE, changeSettings } = await import("../server/instance.ts");
@@ -500,6 +500,25 @@ describe.skipIf(!enabled)("in a browser", { timeout: 30_000 }, () => {
         await page.locator(".account-pop").getByText("Admin settings").click();
         await until(() => where() === "/u/1/admin", "the admin page, as the admin's mailbox");
         await until(() => page.getByText(`Signed in as ${other}`).count(), "the page to say which mailbox it acts as");
+        // Links the admin adds: everyone's in every mailbox's apps menu, the admins' only in theirs.
+        for (const [label, url, audience] of [["Help", "https://help.example.test/", "everyone"], ["Mail admin", "https://mail.example.test/admin", "admins"]]) {
+          const form = page.locator(".links-add");
+          await form.getByLabel("Link label").fill(label);
+          await form.getByLabel("Link address").fill(url);
+          await form.getByLabel("Shown to").selectOption(audience);
+          await form.getByRole("button", { name: "Add" }).click();
+          await until(() => page.locator(".links-table", { hasText: label }).count(), `the link "${label}" on the admin page`);
+        }
+        const appsLinks = async (a: number) => {
+          await page.goto(`${base}/u/${a}/inbox`);
+          await page.getByRole("button", { name: "Apps" }).click();
+          await page.locator(".apps-links").waitFor();
+          const labels = await page.locator(".apps-links a").allTextContents();
+          await press("Escape");
+          return labels.join(", ");
+        };
+        if ((await appsLinks(1)) !== "Help, Mail admin") throw new Error(`the admin's apps menu has ${await appsLinks(1)}`);
+        if ((await appsLinks(0)) !== "Help") throw new Error(`another mailbox's apps menu has ${await appsLinks(0)}`);
         // /admin alone opens it as the admin signed in, not as the first mailbox.
         await page.goto(`${base}/admin`);
         await until(() => where() === "/u/1/admin", "/admin to open as the admin");
@@ -508,7 +527,7 @@ describe.skipIf(!enabled)("in a browser", { timeout: 30_000 }, () => {
         await until(() => page.getByText("This page is for admins").count(), "the page to refuse a mailbox that isn't an admin");
       } finally {
         await post("/api/auth/logout", { index: 1 }).catch(() => {});
-        await changeSettings({ ADMIN_ADDRESSES: null }, COMMAND_LINE);
+        await changeSettings({ ADMIN_ADDRESSES: null, LINKS: null }, COMMAND_LINE);
         await inbox();
       }
     });

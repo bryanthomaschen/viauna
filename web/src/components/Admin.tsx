@@ -14,7 +14,7 @@ import { useLiveUpdates } from "../lib/live";
 import { longDate } from "../lib/format";
 import { navigate } from "../lib/router";
 import { toast } from "../lib/store";
-import type { AdminData, AdminSetting, ServerFacts, SessionAccount, SettingValue } from "../lib/types";
+import type { AdminData, AdminSetting, Link, ServerFacts, SessionAccount, SettingValue } from "../lib/types";
 import { Dialogs, IconButton, Toasts } from "./common";
 
 type Save = (patch: Record<string, SettingValue | null>) => Promise<boolean>;
@@ -101,7 +101,10 @@ export function show(value: SettingValue | null, unit?: string): string {
   if (value === null) return "the default";
   if (typeof value === "boolean") return value ? "On" : "Off";
   if (typeof value === "number") return unit ? `${value.toLocaleString()} ${unit}` : value.toLocaleString();
-  if (Array.isArray(value)) return value.length ? value.join(", ") : "None";
+  if (Array.isArray(value)) {
+    if (!value.length) return "None";
+    return value.map((v) => (typeof v === "string" ? v : `${v.label}${v.for === "admins" ? " (admins)" : ""}`)).join(", ");
+  }
   return value === "" ? "None" : value;
 }
 
@@ -141,6 +144,8 @@ function SettingRow({ s, save, data }: { s: AdminSetting; save: Save; data: Admi
       <div className="options">
         {s.type === "list" ? (
           <ListControl s={s} save={save} locked={locked} you={data.you} imap={data.server.imap} />
+        ) : s.type === "links" ? (
+          <LinksControl s={s} save={save} locked={locked} />
         ) : s.type === "choice" ? (
           <ChoiceControl s={s} save={save} locked={locked} server={data.server} />
         ) : s.type === "boolean" ? (
@@ -247,6 +252,58 @@ function ChoiceControl({ s, save, locked, server }: { s: AdminSetting; save: Sav
           </label>
         );
       })}
+    </>
+  );
+}
+
+/** The apps menu's links: each with its label, its address and who sees it. */
+function LinksControl({ s, save, locked }: { s: AdminSetting; save: Save; locked: boolean }) {
+  const links = s.value as Link[];
+  const [label, setLabel] = useState("");
+  const [url, setUrl] = useState("");
+  const [audience, setAudience] = useState<Link["for"]>("everyone");
+  const add = async (e: FormEvent) => {
+    e.preventDefault();
+    if (await save({ [s.key]: [...links, { label, url, for: audience }] })) {
+      setLabel("");
+      setUrl("");
+    }
+  };
+  return (
+    <>
+      {links.length > 0 ? (
+        <table className="links-table">
+          <tbody>
+            {links.map((l, i) => (
+              <tr key={`${i}${l.url}`}>
+                <td>{l.label}</td>
+                <td className="links-url"><a href={l.url} target="_blank" rel="noopener noreferrer">{l.url}</a></td>
+                <td>{l.for === "admins" ? "Admins only" : "Everyone"}</td>
+                <td style={{ textAlign: "right", width: 48 }}>
+                  {!locked && (
+                    <IconButton label={`Remove ${l.label}`} onClick={() => void save({ [s.key]: links.filter((_, j) => j !== i) })}>
+                      <Trash2 size={18} />
+                    </IconButton>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <div style={{ color: "var(--text-3)" }}>None.</div>
+      )}
+      {!locked && (
+        <form className="inline-field links-add" onSubmit={(e) => void add(e)}>
+          <input className="text-input" aria-label="Link label" placeholder="Label" maxLength={60} value={label} onChange={(e) => setLabel(e.target.value)} />
+          <input className="text-input" type="url" aria-label="Link address" placeholder="https://…" value={url} onChange={(e) => setUrl(e.target.value)} />
+          <select className="text-input" aria-label="Shown to" value={audience} onChange={(e) => setAudience(e.target.value as Link["for"])}>
+            <option value="everyone">Everyone</option>
+            <option value="admins">Admins only</option>
+          </select>
+          <button type="submit" className="btn btn-outline" disabled={!label.trim() || !url.trim()}><Plus size={16} /> Add</button>
+        </form>
+      )}
     </>
   );
 }

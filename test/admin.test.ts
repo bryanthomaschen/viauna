@@ -37,6 +37,19 @@ describe("parsing a setting", () => {
     expect(parseSetting(def("ADMIN_ADDRESSES"), [1])).toHaveProperty("error");
   });
 
+  it("reads links as a list or as JSON, for everyone unless they're for admins", () => {
+    const admin = { label: "Mail admin", url: "https://mail.example.com/admin", for: "admins" };
+    expect(parseSetting(def("LINKS"), [{ label: " Help ", url: "https://help.example.com" }, admin])).toEqual({
+      value: [{ label: "Help", url: "https://help.example.com", for: "everyone" }, admin],
+    });
+    expect(parseSetting(def("LINKS"), JSON.stringify([admin]))).toEqual({ value: [admin] });
+    expect(parseSetting(def("LINKS"), "")).toEqual({ value: [] });
+    const many = Array.from({ length: 21 }, () => ({ label: "x", url: "https://a.test" }));
+    for (const bad of ["[{", [{ label: "x", url: "javascript:alert(1)" }], [{ label: "", url: "https://a.test" }], [{ label: "x", url: "https://a.test", for: "nobody" }], many]) {
+      expect(parseSetting(def("LINKS"), bad)).toHaveProperty("error");
+    }
+  });
+
   it("checks text and choices", () => {
     expect(parseSetting(def("APP_NAME"), "  Mail  ")).toEqual({ value: "Mail" });
     expect(parseSetting(def("APP_NAME"), " ")).toHaveProperty("error");

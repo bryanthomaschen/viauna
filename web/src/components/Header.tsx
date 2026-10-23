@@ -1,6 +1,6 @@
 import * as Popover from "@radix-ui/react-popover";
-import { useQueryClient } from "@tanstack/react-query";
-import { BookUser, CalendarDays, CircleHelp, Command, LayoutGrid, LogOut, Mail, Menu, Search, Settings, ShieldCheck, SlidersHorizontal, UserPlus, X } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { BookUser, CalendarDays, CircleHelp, Command, ExternalLink, LayoutGrid, LogOut, Mail, Menu, Search, Settings, ShieldCheck, SlidersHorizontal, UserPlus, X } from "lucide-react";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { ui, useAccount } from "../lib/account";
 import { api } from "../lib/api";
@@ -45,17 +45,18 @@ export function Header({ route, appName }: { route: Route; appName: string }) {
   );
 }
 
-/** Mail, Calendar and Contacts: the apps of the suite, one click apart. */
+/** Mail, Calendar and Contacts: the apps of the suite, one click apart; and the admin's links. */
 function Apps({ route }: { route: Route }) {
   const acct = useAccount();
   const config = useConfig().data;
   const [open, setOpen] = useState(false);
+  const links = useQuery({ queryKey: ["links", acct.index], queryFn: () => api.links(acct.index), staleTime: 5 * 60_000 }).data?.links ?? [];
   const apps = [
     { name: "Mail", icon: Mail, to: `/u/${acct.index}/inbox`, on: route.name === "mail" },
     ...(config?.calendar ? [{ name: "Calendar", icon: CalendarDays, to: calendarPath(acct.index), on: route.name === "calendar" }] : []),
     ...(config?.contacts ? [{ name: "Contacts", icon: BookUser, to: `/u/${acct.index}/contacts`, on: route.name === "contacts" }] : []),
   ];
-  if (apps.length < 2) return null;
+  if (apps.length < 2 && !links.length) return null;
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
@@ -77,6 +78,18 @@ function Apps({ route }: { route: Route }) {
               <span>{a.name}</span>
             </a>
           ))}
+          {links.length > 0 && (
+            <ul className="apps-links" aria-label="Links">
+              {links.map((l) => (
+                <li key={`${l.label}${l.url}`}>
+                  <a href={l.url} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)}>
+                    <ExternalLink size={16} aria-hidden />
+                    <span>{l.label}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>

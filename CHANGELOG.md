@@ -121,6 +121,9 @@ from the address the invitation was sent to. See
 
 ### Also
 
+- **Links** in the apps menu (the four squares, top right), added on the admin page or with
+  `LINKS`: each with a label and a web address, for everyone or only in admins' mailboxes,
+  such as your mail server's own settings and admin pages.
 - Search: `rfc822msgid:` finds a message by its Message-ID.
 - Text boxes and lists are one size across Viauna, Settings' lists included, and the event
   editor's labels share one column, with every box starting at one edge.

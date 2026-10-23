@@ -68,8 +68,10 @@ What the page can change:
 | Contacts, contacts sync | `CONTACTS`, `CONTACTS_SYNC` | The address book, and syncing it with `CARDDAV_URL`, on or off. |
 | Calendar, calendars from the web, secret addresses, notifications with Viauna closed | `CALENDAR`, `CALENDAR_FEEDS`, `CALENDAR_SECRET_ADDRESSES`, `BROWSER_NOTIFICATIONS` | The calendar; adding calendars by their address, which this server then fetches; secret addresses for other apps to read calendars from; and reminders pushed to browsers; each on or off. |
 | Filters, forwarding in filters, vacation responder | `FILTERS`, `FILTER_FORWARDING`, `VACATION` | Forwarding is off by default. See [Filters and vacation](../self-hosting/filters.md). |
+| Sending as other addresses, other providers' mail servers | `SEND_AS`, `SEND_AS_SERVERS` | What shows an address in "Send mail as" is someone's: a code, or your mail server's yes; and whether an address can go through its own provider's server. See [Sending as other addresses](../how-it-works/sending.md). |
 | Session length, accounts per browser, largest attachment, message cache | `SESSION_DAYS`, `MAX_ACCOUNTS`, `MAX_UPLOAD_MB`, `CACHE_MB` | |
 | Name | `APP_NAME` | |
+| Links | `LINKS` | Links in the apps menu, each for everyone or for admins only: a label, a web address, and who sees it. |
 | Password changes | `PASSWORD_CHANGE` | Off, or one of the ways the environment set up. See [Password changes](../self-hosting/passwords.md). |
 
 ### What the page can never change
