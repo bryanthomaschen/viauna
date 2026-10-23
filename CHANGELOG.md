@@ -124,6 +124,8 @@ from the address the invitation was sent to. See
 - Search: `rfc822msgid:` finds a message by its Message-ID.
 - Text boxes and lists are one size across Viauna, Settings' lists included, and the event
   editor's labels share one column, with every box starting at one edge.
+- On a phone, the end of Settings scrolls clear of the floating Compose button, which
+  covered its last buttons.
 - How conversations are grouped is in the docs:
   [Conversations](https://bryanthomaschen.github.io/viauna/how-it-works/conversations).
 - The command menu scrolls with the mouse wheel when its commands don't fit; only the

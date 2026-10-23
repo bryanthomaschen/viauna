@@ -806,6 +806,8 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
   .row .snippet { display: block; white-space: nowrap; }
   .row .snippet::before { content: none; }
   .compose-btn.compose-fab { display: inline-flex; position: fixed; right: 16px; bottom: 16px; z-index: 40; margin: 0; box-shadow: var(--shadow-2); }
+  /* Room to scroll the last setting out from under the floating Compose button. */
+  .settings { padding-bottom: 88px; }
   .header .search-field .icon-btn:last-child { display: none; }
   .row .meta { padding-left: 0; }
   .row:hover .date { visibility: visible; }
