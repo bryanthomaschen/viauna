@@ -646,6 +646,8 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
 .event-when > span, .event-field > span { color: var(--text-2); font-size: 14px; }
 /* What sits under the controls without a label of its own starts where they do. */
 .event-check, .event-indent { padding-left: calc(var(--event-label) + 8px); }
+/* A long event scrolls under Save and Cancel, which stay at the dialog's foot. */
+.event-editor > .buttons { position: sticky; bottom: -24px; z-index: 1; margin: 14px -24px -24px; padding: 12px 24px 24px; background: var(--surface); border-top: 1px solid var(--border); border-radius: 0 0 28px 28px; }
 .event-check { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; min-height: 28px; font-size: 14px; }
 .event-check label { display: flex; align-items: center; gap: 8px; }
 .event-check input[type="checkbox"] { margin: 0; }

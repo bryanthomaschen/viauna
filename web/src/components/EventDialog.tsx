@@ -221,7 +221,7 @@ export function EventDialog({ id, occurrence, initial }: { id?: number; occurren
 
   return (
     <Modal open onClose={close} title={id === undefined ? "New event" : readOnly ? "Event" : "Edit event"}>
-      <form className="event-form" onSubmit={(e) => void save(e)}>
+      <form className="event-form event-editor" onSubmit={(e) => void save(e)}>
         {readOnly && (
           <p className="dialog-text">
             This event is in {calendar?.name ?? "a calendar"}, which comes from the web, so it can't be changed here. Duplicate it into one of your calendars to change it.
