@@ -7,7 +7,7 @@ import { CalendarDays, ChevronDown, ChevronUp, MapPin, Repeat, TriangleAlert, Us
 import { useState } from "react";
 import { ui, useAccount } from "../lib/account";
 import { api } from "../lib/api";
-import { formatWhen, instantToWall, repeatText, useCalendarZone } from "../lib/calendar";
+import { calendarsQuery, formatWhen, instantToWall, repeatText, useCalendarZone } from "../lib/calendar";
 import { calendarPath, navigate } from "../lib/router";
 import { toast } from "../lib/store";
 import type { Answer, Invitation, InvitationAction, MessageRef, Person } from "../lib/types";
@@ -76,7 +76,7 @@ export function InvitationCard({ refx }: { refx: MessageRef }) {
   const zone = useCalendarZone();
   const key = ["invitation", acct.index, refx.mailboxId, refx.uid, zone];
   const query = useQuery({ queryKey: key, queryFn: () => api.invitation(acct.index, refx, zone), staleTime: 0 });
-  const calendars = useQuery({ queryKey: ["calendars", acct.index], queryFn: () => api.calendars(acct.index), staleTime: 60_000 });
+  const calendars = useQuery({ ...calendarsQuery(acct.index), staleTime: 60_000 });
   const own = (calendars.data?.calendars ?? []).filter((c) => !c.readOnly);
   const [calendarId, setCalendarId] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);

@@ -192,7 +192,8 @@ async function shownKinds(accountId: number): Promise<Map<number, CalendarKind>>
   return new Map(rows.filter((r) => shown(r.kind)).map((r) => [r.id, r.kind]));
 }
 
-const changed = (accountId: number) => calendarEvents.emit("changed", accountId);
+/** Tells the mailbox's open pages; `events` false when only the calendars themselves changed (a name, a colour, shown or hidden). */
+const changed = (accountId: number, events = true) => calendarEvents.emit("changed", accountId, events);
 
 function cleanName(input: unknown): string {
   const name = typeof input === "string" ? input.trim() : "";
@@ -277,7 +278,7 @@ export async function createCalendar(accountId: number, input: Record<string, un
     .where("account_id", "=", accountId)
     .orderBy("id", "desc")
     .executeTakeFirstOrThrow();
-  changed(accountId);
+  changed(accountId, false);
   return calendarJson(row);
 }
 
@@ -288,7 +289,7 @@ export async function updateCalendar(accountId: number, id: number, input: Recor
   if ("color" in input) set.color = cleanColor(input.color);
   if ("visible" in input) set.visible = input.visible ? 1 : 0;
   await state().updateTable("calendars").set(set).where("account_id", "=", accountId).where("id", "=", id).execute();
-  changed(accountId);
+  changed(accountId, false);
   return calendarJson(await ownCalendar(accountId, id));
 }
 
@@ -884,7 +885,7 @@ export async function makeSecret(accountId: number, id: number, mode: unknown): 
     .where("account_id", "=", accountId)
     .where("id", "=", id)
     .execute();
-  changed(accountId);
+  changed(accountId, false);
   return { token, calendar: calendarJson(await ownCalendar(accountId, id)) };
 }
 
@@ -895,7 +896,7 @@ export async function setSecretMode(accountId: number, id: number, mode: unknown
   const cal = await ownCalendar(accountId, id);
   if (!cal.secret_mode) throw new CalendarError("This calendar has no secret address.");
   await state().updateTable("calendars").set({ secret_mode: m }).where("account_id", "=", accountId).where("id", "=", id).execute();
-  changed(accountId);
+  changed(accountId, false);
   return calendarJson(await ownCalendar(accountId, id));
 }
 
@@ -908,7 +909,7 @@ export async function dropSecret(accountId: number, id: number): Promise<Calenda
     .where("account_id", "=", accountId)
     .where("id", "=", id)
     .execute();
-  changed(accountId);
+  changed(accountId, false);
   return calendarJson(await ownCalendar(accountId, id));
 }
 

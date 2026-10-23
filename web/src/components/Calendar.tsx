@@ -32,7 +32,7 @@ import {
   ArrowLeft, Bell, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Copy, Download, EllipsisVertical, Eye, Globe, Link, MapPin, Pencil, Plus, RefreshCw, Repeat,
   Settings, Text, Trash2, TriangleAlert, Upload, UserRound, Video, X,
 } from "lucide-react";
-import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type FormEvent, type ReactNode, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { ui, useAccount } from "../lib/account";
 import { api } from "../lib/api";
 import { useConfig } from "../lib/config";
@@ -43,11 +43,13 @@ import {
   addMinutes,
   askScope,
   askSend,
+  calendarsQuery,
   firstDay,
   formatWhen,
   instantToWall,
   reminderText,
   repeatText,
+  showCalendars,
   textOnColor,
   today,
   useCalendarZone,
@@ -89,8 +91,10 @@ function useView(route: Route): CalendarView {
 
 function useCalendars() {
   const acct = useAccount();
-  return useQuery({ queryKey: ["calendars", acct.index], queryFn: () => api.calendars(acct.index), staleTime: 60_000 });
+  return useQuery({ ...calendarsQuery(acct.index), staleTime: 60_000 });
 }
+
+const NONE: CalendarInfo[] = [];
 
 const openEvent = (e: { id: number; occurrence: string | null }) => ui.set((s) => ({ ...s, eventDialog: { id: e.id, occurrence: e.occurrence } }));
 const newEvent = (initial: NonNullable<ReturnType<typeof ui.get>["eventDialog"]>["initial"] = {}) => ui.set((s) => ({ ...s, eventDialog: { initial } }));
@@ -104,20 +108,9 @@ export function CalendarSidebar({ route, collapsed, open }: { route: Route; coll
   const view = useView(route);
   const calendars = useCalendars().data?.calendars ?? [];
   const selected = route.calendar?.date ?? today(zone);
-  const toggle = async (c: CalendarInfo, visible: boolean) => {
-    // Shown or hidden at once; the server's answer follows.
-    client.setQueryData(["calendars", acct.index], { calendars: calendars.map((x) => (x.id === c.id ? { ...x, visible } : x)) });
-    try {
-      await api.updateCalendar(acct.index, c.id, { visible });
-    } catch (err) {
-      toast((err as Error).message, { error: true });
-    }
-    void client.invalidateQueries({ queryKey: ["calendars", acct.index] });
-  };
-  const only = async (c: CalendarInfo) => {
-    await Promise.all(calendars.map((x) => (x.visible !== (x.id === c.id) ? api.updateCalendar(acct.index, x.id, { visible: x.id === c.id }) : null)));
-    void client.invalidateQueries({ queryKey: ["calendars", acct.index] });
-  };
+  const toggle = (c: CalendarInfo, visible: boolean) => showCalendars(client, acct.index, { [c.id]: visible });
+  const only = (c: CalendarInfo) =>
+    showCalendars(client, acct.index, Object.fromEntries(calendars.filter((x) => x.visible !== (x.id === c.id)).map((x) => [x.id, x.id === c.id])));
   const feeds = useConfig().data?.calendarFeeds ?? false;
   const refetch = async (c: CalendarInfo) => {
     try {
@@ -158,7 +151,7 @@ export function CalendarSidebar({ route, collapsed, open }: { route: Route; coll
     <li key={c.id} className="has-menu">
       <label className="nav-item" title={c.feed?.error ? `${c.name}: ${c.feed.error}` : c.name}>
         <input type="checkbox" className="calendar-check" checked={c.visible} style={{ accentColor: c.color }}
-          onChange={(e) => void toggle(c, e.target.checked)} />
+          onChange={(e) => toggle(c, e.target.checked)} />
         <span className="nav-label">{c.name}</span>
         {c.feed?.error && <TriangleAlert size={16} className="calendar-warning" aria-label="Couldn't be fetched" />}
       </label>
@@ -170,7 +163,7 @@ export function CalendarSidebar({ route, collapsed, open }: { route: Route; coll
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
           <DropdownMenu.Content className="menu" align="start" sideOffset={4}>
-            <DropdownMenu.Item className="menu-item" onSelect={() => void only(c)}><Eye size={18} /> Show only this one</DropdownMenu.Item>
+            <DropdownMenu.Item className="menu-item" onSelect={() => only(c)}><Eye size={18} /> Show only this one</DropdownMenu.Item>
             <DropdownMenu.Item className="menu-item" onSelect={() => ui.set((s) => ({ ...s, calendarDialog: { calendar: c } }))}>
               <Settings size={18} /> {c.kind === "feed" ? "Settings" : "Name and colour"}
             </DropdownMenu.Item>
@@ -304,7 +297,7 @@ function CalendarGrid({ route }: { route: Route }) {
   const minutes = acct.settings?.eventMinutes ?? 60;
   /** Where the last click on the grid was, for the card its selection opens. */
   const clickedAt = useRef<DOMRect | null>(null);
-  const calendars = useCalendars().data?.calendars ?? [];
+  const calendars = useCalendars().data?.calendars ?? NONE;
   const events = useQuery({
     queryKey: ["events", acct.index, range?.from, range?.to, zone],
     queryFn: () => api.events(acct.index, range!.from, range!.to, zone),
@@ -372,7 +365,9 @@ function CalendarGrid({ route }: { route: Route }) {
     );
   };
 
-  const visible = useMemo(() => new Map(calendars.filter((c) => c.visible).map((c) => [c.id, c])), [calendars]);
+  // Behind the list by a moment: a tick shows as it's clicked, and the grid redraws after.
+  const shown = useDeferredValue(calendars);
+  const visible = useMemo(() => new Map(shown.filter((c) => c.visible).map((c) => [c.id, c])), [shown]);
   const fcEvents = useMemo<FcEvent[]>(
     () =>
       (events.data?.events ?? [])
@@ -457,6 +452,77 @@ function CalendarGrid({ route }: { route: Route }) {
     calApi()?.unselect();
   };
 
+  // FullCalendar redraws everything on each render it's given, which a tick, a card opening
+  // or a refetch would otherwise cost, so it gets one only when what it shows changes. Its
+  // handlers reach the latest state through `on`.
+  const handlers = { onDatesSet, onSelect, onDateClick, onEventClick, onMoved, secondHour, navDay: (d: Date) => go("day", calApi()?.formatIso(d, true).slice(0, 10) ?? date) };
+  const on = useRef(handlers);
+  on.current = handlers;
+  // An hour before now when the calendar opens, not each time the hour turns.
+  const scrollTime = useMemo(() => `${String(Math.max(0, Temporal.Now.zonedDateTimeISO(zone).hour - 1)).padStart(2, "0")}:00:00`, [zone]);
+  const weekStart = firstDay(acct.settings?.weekStart);
+  const secondFrom = second ? (range?.from ?? date) : null;
+  const grid = useMemo(
+    () => (
+      <FullCalendar
+        ref={ref}
+        plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin, monarchPlugin]}
+        initialView={FC_VIEW[view]}
+        initialDate={date}
+        views={{
+          timeGridFourDays: { type: "timeGrid", duration: { days: 4 } },
+          listSchedule: { type: "list", duration: { days: 30 }, noEventsText: "Nothing in the next 30 days" },
+        }}
+        headerToolbar={false}
+        timeZone={zone}
+        firstDay={weekStart}
+        weekends={p.calendarWeekends}
+        weekNumbers={p.calendarWeekNumbers}
+        nowIndicator
+        height="100%"
+        expandRows
+        scrollTime={scrollTime}
+        // Rows of a quarter hour, labelled by the hour. A drag snaps to a row; with rows
+        // longer than the snap, FullCalendar tracks an event by its middle, which then
+        // sits on a snap boundary and makes the event jump 15 minutes as it's picked up.
+        slotDuration="00:15:00"
+        slotHeaderInterval="01:00:00"
+        slotHeaderInnerClass="calendar-slot-label"
+        {...(second
+          ? {
+              slotHeaderContent: (arg: SlotHeaderInfo) => on.current.secondHour(arg),
+              allDayHeaderContent: () => (
+                <span className="slot-two zone-labels" title={`${second.replace(/_/g, " ")} and ${zone.replace(/_/g, " ")}`}>
+                  <span className="slot-second">{zoneOffset(second)}</span>
+                  <span>{zoneOffset(zone)}</span>
+                </span>
+              ),
+            }
+          : {})}
+        locales={LOCALES}
+        locale={LOCALE}
+        eventTimeFormat={{ hour: "numeric", minute: "2-digit", hour12: HOUR12 }}
+        slotHeaderFormat={HOUR12 ? { hour: "numeric", omitZeroMinute: true, meridiem: "short" } : { hour: "2-digit", minute: "2-digit", hour12: false }}
+        fixedWeekCount={false}
+        dayMaxEvents
+        selectable
+        selectMirror
+        selectMinDistance={5}
+        editable
+        navLinks
+        navLinkDayClick={(d: Date) => on.current.navDay(d)}
+        events={fcEvents}
+        datesSet={(info) => on.current.onDatesSet(info)}
+        select={(info) => on.current.onSelect(info)}
+        dateClick={(info) => on.current.onDateClick(info)}
+        eventClick={(info) => on.current.onEventClick(info)}
+        eventDrop={(info) => void on.current.onMoved(info)}
+        eventResize={(info) => void on.current.onMoved(info)}
+      />
+    ),
+    [zone, weekStart, p.calendarWeekends, p.calendarWeekNumbers, second, secondFrom, scrollTime, fcEvents],
+  );
+
   return (
     <>
       <div className="toolbar calendar-toolbar">
@@ -495,63 +561,7 @@ function CalendarGrid({ route }: { route: Route }) {
           </DropdownMenu.Portal>
         </DropdownMenu.Root>
       </div>
-      <div className="calendar-grid">
-        <FullCalendar
-          ref={ref}
-          plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin, monarchPlugin]}
-          initialView={FC_VIEW[view]}
-          initialDate={date}
-          views={{
-            timeGridFourDays: { type: "timeGrid", duration: { days: 4 } },
-            listSchedule: { type: "list", duration: { days: 30 }, noEventsText: "Nothing in the next 30 days" },
-          }}
-          headerToolbar={false}
-          timeZone={zone}
-          firstDay={firstDay(acct.settings?.weekStart)}
-          weekends={p.calendarWeekends}
-          weekNumbers={p.calendarWeekNumbers}
-          nowIndicator
-          height="100%"
-          expandRows
-          scrollTime={`${String(Math.max(0, Temporal.Now.zonedDateTimeISO(zone).hour - 1)).padStart(2, "0")}:00:00`}
-          // Rows of a quarter hour, labelled by the hour. A drag snaps to a row; with rows
-          // longer than the snap, FullCalendar tracks an event by its middle, which then
-          // sits on a snap boundary and makes the event jump 15 minutes as it's picked up.
-          slotDuration="00:15:00"
-          slotHeaderInterval="01:00:00"
-          slotHeaderInnerClass="calendar-slot-label"
-          {...(second
-            ? {
-                slotHeaderContent: secondHour,
-                allDayHeaderContent: () => (
-                  <span className="slot-two zone-labels" title={`${second.replace(/_/g, " ")} and ${zone.replace(/_/g, " ")}`}>
-                    <span className="slot-second">{zoneOffset(second)}</span>
-                    <span>{zoneOffset(zone)}</span>
-                  </span>
-                ),
-              }
-            : {})}
-          locales={LOCALES}
-          locale={LOCALE}
-          eventTimeFormat={{ hour: "numeric", minute: "2-digit", hour12: HOUR12 }}
-          slotHeaderFormat={HOUR12 ? { hour: "numeric", omitZeroMinute: true, meridiem: "short" } : { hour: "2-digit", minute: "2-digit", hour12: false }}
-          fixedWeekCount={false}
-          dayMaxEvents
-          selectable
-          selectMirror
-          selectMinDistance={5}
-          editable
-          navLinks
-          navLinkDayClick={(d: Date) => go("day", calApi()?.formatIso(d, true).slice(0, 10) ?? date)}
-          events={fcEvents}
-          datesSet={onDatesSet}
-          select={onSelect}
-          dateClick={onDateClick}
-          eventClick={onEventClick}
-          eventDrop={(info) => void onMoved(info)}
-          eventResize={(info) => void onMoved(info)}
-        />
-      </div>
+      <div className="calendar-grid">{grid}</div>
       {quick && <QuickCreate state={quick} calendars={calendars} onClose={close} onSaved={refresh} />}
       {card && (card.event.contactId !== null
         ? <ContactDateCard state={card} calendars={calendars} onClose={() => setCard(null)} />

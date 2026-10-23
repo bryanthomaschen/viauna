@@ -90,9 +90,10 @@ export function useLiveUpdates(client: QueryClient, accountCount: number, onOpen
         if (reconnected) refreshSettings(client);
         reconnected = true;
       });
+      // Only the list when only calendars changed: showing or hiding one moves no event.
       source.addEventListener("calendar", (e) => {
-        const { index } = JSON.parse((e as MessageEvent).data) as { index: number };
-        for (const key of ["calendars", "events", "event", "calendar-search"]) void client.invalidateQueries({ queryKey: [key, index] });
+        const { index, events } = JSON.parse((e as MessageEvent).data) as { index: number; events: boolean };
+        for (const key of events ? ["calendars", "events", "event", "calendar-search"] : ["calendars"]) void client.invalidateQueries({ queryKey: [key, index] });
       });
       // A reminder due: a notice here, and a desktop notification if they're on and the tab is in the background.
       source.addEventListener("reminder", (e) => {

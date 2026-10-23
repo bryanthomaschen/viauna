@@ -17,6 +17,7 @@ import {
   addMinutes,
   askScope,
   askSend,
+  calendarsQuery,
   colorLabel,
   dayName,
   instantToWall,
@@ -98,7 +99,7 @@ export function EventDialog({ id, occurrence, initial }: { id?: number; occurren
   const zone = useCalendarZone();
   const minutes = acct.settings?.eventMinutes ?? 60;
   const close = () => ui.set((s) => ({ ...s, eventDialog: null }));
-  const calendars = useQuery({ queryKey: ["calendars", acct.index], queryFn: () => api.calendars(acct.index) });
+  const calendars = useQuery(calendarsQuery(acct.index));
   const existing = useQuery({
     queryKey: ["event", acct.index, id, zone, occurrence ?? null],
     queryFn: () => api.event(acct.index, id!, zone, occurrence),
@@ -523,7 +524,7 @@ export function CalendarDialog({ calendar }: { calendar?: CalendarInfo }) {
   const [busy, setBusy] = useState(false);
   const close = () => ui.set((s) => ({ ...s, calendarDialog: null }));
   // The list's copy, which a refresh or a new secret address brings up to date.
-  const listed = useQuery({ queryKey: ["calendars", acct.index], queryFn: () => api.calendars(acct.index), enabled: !!calendar });
+  const listed = useQuery({ ...calendarsQuery(acct.index), enabled: !!calendar });
   const current = listed.data?.calendars.find((c) => c.id === calendar?.id) ?? calendar;
   const feed = current?.feed ?? null;
   const secrets = useConfig().data?.calendarSecrets ?? false;
@@ -737,7 +738,7 @@ export function SubscribeDialog() {
 export function ImportDialog() {
   const acct = useAccount();
   const client = useQueryClient();
-  const calendars = useQuery({ queryKey: ["calendars", acct.index], queryFn: () => api.calendars(acct.index) });
+  const calendars = useQuery(calendarsQuery(acct.index));
   const list = (calendars.data?.calendars ?? []).filter((c) => !c.readOnly);
   const [file, setFile] = useState<File | null>(null);
   const [target, setTarget] = useState<string>("");

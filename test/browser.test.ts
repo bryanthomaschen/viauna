@@ -2,9 +2,9 @@
 // turned on from the command menu) and the ⌘K / Ctrl+K command menu, each pressed and
 // its effect checked, including after clicking into a message or ticking a checkbox,
 // where keys used to go missing. Then the calendar, by mouse and keyboard: clicking and
-// dragging on the grid, Undo, its own keys, and an event made from an email. And the admin
-// page, offered only in an admin's mailbox. Needs the dev mail server (`npm run dev:mail`), a
-// build (`npm run build`) and Chromium (`npx playwright-core install
+// dragging on the grid, Undo, its own keys, ticking calendars on and off, and an event made
+// from an email. And the admin page, offered only in an admin's mailbox. Needs the dev mail
+// server (`npm run dev:mail`), a build (`npm run build`) and Chromium (`npx playwright-core install
 // chromium-headless-shell`). Skipped unless VIAUNA_BROWSER=1.
 //
 //   VIAUNA_BROWSER=1 npx vitest run test/browser.test.ts
@@ -15,7 +15,7 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
-import { type Browser, type Page, chromium } from "playwright-core";
+import { type Browser, type Page, type Route, chromium } from "playwright-core";
 import { afterAll, beforeAll, describe, it } from "vitest";
 
 const enabled = process.env.VIAUNA_BROWSER === "1";
@@ -662,6 +662,57 @@ describe.skipIf(!enabled)("in a browser", { timeout: 30_000 }, () => {
       const text = fs.readFileSync((await download.path())!, "utf8");
       if (!text.includes("SUMMARY:Louvre") || !text.includes("TZID:Europe/Paris") || download.suggestedFilename() !== "Imported trip.ics") {
         throw new Error(`exported ${download.suggestedFilename()}: ${text.slice(0, 200)}`);
+      }
+    });
+
+    it("ticks a calendar off and on as fast as it's clicked, whatever order the server's answers come in", async () => {
+      await week();
+      // A slow network, as from another continent: each change reaches the server late, and
+      // each copy of the list comes back late, so one fetched before a click lands after it
+      // and mustn't put the tick back as it was. Hiding a calendar moves no event, so the
+      // events aren't fetched again either.
+      const late = (route: Route) => {
+        if (route.request().method() === "GET") void route.fetch().then((r) => setTimeout(() => void route.fulfill({ response: r }).catch(() => {}), 300), () => {});
+        else setTimeout(() => void route.continue().catch(() => {}), 300);
+      };
+      let refetched = 0;
+      const counted = (route: Route) => {
+        refetched++;
+        return route.continue();
+      };
+      await page.route("**/calendar/calendars**", late);
+      await page.route("**/calendar/events?*", counted);
+      try {
+        const box = page.locator(".calendar-list input[type=checkbox]").first();
+        await page.evaluate(() => {
+          const el = document.querySelector<HTMLInputElement>(".calendar-list input[type=checkbox]")!;
+          const w = window as unknown as { ticks: boolean[]; asked: boolean[] };
+          w.ticks = [];
+          w.asked = [];
+          el.addEventListener("click", () => w.asked.push(el.checked));
+          const frame = () => {
+            w.ticks.push(el.checked);
+            requestAnimationFrame(frame);
+          };
+          requestAnimationFrame(frame);
+        });
+        for (let i = 0; i < 4; i++) {
+          await box.click();
+          await page.waitForTimeout(400);
+        }
+        await page.waitForTimeout(1500);
+        const { ticks, asked } = await page.evaluate(() => {
+          const w = window as unknown as { ticks: boolean[]; asked: boolean[] };
+          return { ticks: w.ticks, asked: w.asked };
+        });
+        const changes = ticks.filter((t, i) => i > 0 && t !== ticks[i - 1]).length;
+        if (changes !== asked.length || ticks.at(-1) !== asked.at(-1)) throw new Error(`${asked.length} clicks, the tick changed ${changes} times, ending ${ticks.at(-1)}`);
+        if (refetched) throw new Error(`the events were fetched ${refetched} times`);
+        const saved = await page.evaluate(async () => (await (await fetch("/api/u/0/calendar/calendars")).json()).calendars[0].visible);
+        if (saved !== asked.at(-1)) throw new Error(`the server has it ${saved ? "shown" : "hidden"}`);
+      } finally {
+        await page.unroute("**/calendar/calendars**", late);
+        await page.unroute("**/calendar/events?*", counted);
       }
     });
 

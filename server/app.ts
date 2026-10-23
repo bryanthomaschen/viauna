@@ -1023,9 +1023,9 @@ export function createApp() {
       };
       contactEvents.on("changed", onContacts);
       // Calendars or events changed in another tab or browser: the page refetches them.
-      const onCalendar = (accountId: number) => {
+      const onCalendar = (accountId: number, events: boolean) => {
         const index = indexOf.get(accountId);
-        if (index !== undefined && !stream.aborted) void stream.writeSSE({ event: "calendar", data: JSON.stringify({ index }) });
+        if (index !== undefined && !stream.aborted) void stream.writeSSE({ event: "calendar", data: JSON.stringify({ index, events }) });
       };
       calendarEvents.on("changed", onCalendar);
       // A reminder due: the page shows it.

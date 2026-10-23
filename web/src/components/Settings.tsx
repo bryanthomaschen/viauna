@@ -3,7 +3,7 @@ import { ArrowLeft, ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
 import { ui, useAccount } from "../lib/account";
 import { api } from "../lib/api";
-import { browserZone, zoneOffset } from "../lib/calendar";
+import { browserZone, calendarsQuery, zoneOffset } from "../lib/calendar";
 import { useConfig } from "../lib/config";
 import { disablePush, enablePush, pushOn, pushSupported, testPush } from "../lib/push";
 import { navigate, usePath } from "../lib/router";
@@ -149,7 +149,7 @@ function CalendarSettings() {
   const save = useSave();
   const p = prefs.use();
   const s = acct.settings;
-  const calendars = useQuery({ queryKey: ["calendars", acct.index], queryFn: () => api.calendars(acct.index), staleTime: 60_000 });
+  const calendars = useQuery({ ...calendarsQuery(acct.index), staleTime: 60_000 });
   const own = (calendars.data?.calendars ?? []).filter((c) => !c.readOnly);
   if (!s) return <div className="empty"><div className="spinner lg" /></div>;
   const device = browserZone();

@@ -2,10 +2,13 @@
 // its colours, and dates and times as it shows them. Times travel as wall-clock strings
 // in the calendar's zone ("2026-10-21T09:00") or as ISO instants; Temporal (the polyfill
 // FullCalendar brings) converts between them.
+import type { QueryClient } from "@tanstack/react-query";
 import { Temporal } from "temporal-polyfill";
 import { ui, useAccount } from "./account";
+import { api } from "./api";
 import type { CalendarView } from "./router";
-import type { Reminder, RepeatRule, Scope, Settings, Weekday } from "./types";
+import { toast } from "./store";
+import type { CalendarInfo, Reminder, RepeatRule, Scope, Settings, Weekday } from "./types";
 
 export const browserZone = (): string => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 
@@ -247,4 +250,68 @@ export function reminderText(r: Reminder, allDay: boolean): string {
     when = `${plural(amount, unit)} before`;
   }
   return r.method === "email" ? `Email, ${when[0].toLowerCase()}${when.slice(1)}` : when;
+}
+
+// ---------------------------------------------------------------- showing and hiding calendars
+
+/**
+ * Ticks in the calendar list that the server hasn't confirmed yet, by calendar. A list
+ * fetched before the confirmation (one already on its way when the box was clicked) is
+ * shown with the ticks on top, so it can't flip one back; the first list fetched after it
+ * is the server's own. `confirmed` is the number of the last fetch started by then.
+ */
+const ticks = new Map<number, { visible: boolean; confirmed?: number }>();
+const sending = new Set<number>();
+let fetches = 0;
+
+/** The calendar list, as every part that shows calendars asks for it. */
+export const calendarsQuery = (index: number) => ({
+  queryKey: ["calendars", index],
+  queryFn: async (): Promise<{ calendars: CalendarInfo[] }> => {
+    const started = ++fetches;
+    const { calendars } = await api.calendars(index);
+    return {
+      calendars: calendars.map((c) => {
+        const tick = ticks.get(c.id);
+        if (!tick) return c;
+        if (tick.confirmed !== undefined && started > tick.confirmed) {
+          ticks.delete(c.id);
+          return c;
+        }
+        return { ...c, visible: tick.visible };
+      }),
+    };
+  },
+});
+
+/**
+ * Shows or hides calendars: here at once, then on the server, which keeps it for the
+ * mailbox's other devices. Each calendar has one request out at a time, carrying its
+ * latest click, so clicking fast sends two at most, in order.
+ */
+export function showCalendars(client: QueryClient, index: number, visible: Record<number, boolean>) {
+  client.setQueryData<{ calendars: CalendarInfo[] }>(["calendars", index], (old) =>
+    old && { calendars: old.calendars.map((c) => (c.id in visible ? { ...c, visible: visible[c.id] } : c)) });
+  for (const [id, shown] of Object.entries(visible)) {
+    ticks.set(Number(id), { visible: shown });
+    void send(client, index, Number(id));
+  }
+}
+
+async function send(client: QueryClient, index: number, id: number) {
+  if (sending.has(id)) return;
+  sending.add(id);
+  try {
+    for (let tick = ticks.get(id); tick && tick.confirmed === undefined; tick = ticks.get(id)) {
+      await api.updateCalendar(index, id, { visible: tick.visible });
+      // Clicked again meanwhile: that tick is a new one, sent next.
+      if (ticks.get(id) === tick) tick.confirmed = fetches;
+    }
+  } catch (err) {
+    ticks.delete(id);
+    toast((err as Error).message, { error: true });
+  } finally {
+    sending.delete(id);
+  }
+  void client.invalidateQueries({ queryKey: ["calendars", index] });
 }

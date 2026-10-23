@@ -15,7 +15,7 @@ HTTP/1.1 a browser allows six connections per site, and each tab's stream holds 
 | `settings` | A setting for everyone changed | Refetches everything shown from settings |
 | `account-settings` | One mailbox's own settings changed (name, signature, page size…) | Refetches that mailbox's settings and lists |
 | `contacts` | A contacts sync started or ended | Refetches the contact list |
-| `calendar` | A mailbox's calendars or events changed (in another tab, browser or device) | Refetches its calendars and events |
+| `calendar` | A mailbox's calendars or events changed (in another tab, browser or device); says when only the calendars did (a name, a colour, shown or hidden) | Refetches its calendars, and its events unless only the calendars changed |
 | `reauth` | A mailbox's saved password stopped working | Asks you to sign in again |
 | `ready` | The stream is set up | After a reconnect, refetches everything shown from settings |
 | `ping` | Every 25 s, to keep the connection open | Nothing |
@@ -26,6 +26,9 @@ HTTP/1.1 a browser allows six connections per site, and each tab's stream holds 
   250 ms more, then refetches. If actions you made are still on their way to the server,
   it waits until they finish, so it never shows the server half-way (a star back for a
   moment after unstarring).
+- Ticking a calendar on or off shows at once, and stays so: a list of calendars the server
+  sent before it had the change is shown with the tick on top. Each calendar has one change
+  on its way at a time, so clicking fast sends two at most, the last click last.
 - New Inbox mail reaches an open page within about a second; mail in other folders
   within a minute. See [Mail sync](./sync.md#how-fresh-the-list-is).
 - If the stream drops, the page opens it again after 5 s.
