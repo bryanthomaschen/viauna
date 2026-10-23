@@ -168,10 +168,35 @@ export interface Identity {
   address: string;
 }
 
+/** One of the addresses a mailbox sends as, as Settings > Accounts shows it (server/identities.ts). */
+export interface SendAddress extends Identity {
+  /** null: the mailbox's own address, with nothing recorded for it. */
+  id: number | null;
+  own: boolean;
+  confirmed: boolean;
+  confirmedBy: "login" | "code" | "server" | null;
+  /** Can be sent from now. */
+  usable: boolean;
+  /** When the code waiting to be entered was sent. */
+  codeSentAt: number | null;
+  server: { host: string; port: number; security: "tls" | "starttls" | "none"; login: string } | null;
+  /** Its own server's password is in this browser's session. */
+  password: boolean;
+}
+
+/** When an address other than the mailbox's counts as yours here (SEND_AS). */
+export type SendAsPolicy = "confirm" | "server" | "off";
+
+export interface SendAddresses {
+  identities: SendAddress[];
+  sendAs: SendAsPolicy;
+  /** Addresses can go through their own provider's server (SEND_AS_SERVERS). */
+  servers: boolean;
+}
+
 export interface Settings {
   name: string;
   signature: string;
-  aliases: Identity[];
   images: "ask" | "always";
   pageSize: 25 | 50 | 100;
   /** The calendar's time zone; empty: the browser's. */

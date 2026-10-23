@@ -219,11 +219,11 @@ interface Common<K extends string, V extends SettingValue> {
 }
 
 export type SettingDef =
-  | (Common<"allowCustomServers" | "contacts" | "contactsSync" | "calendar" | "calendarFeeds" | "calendarSecrets" | "browserNotifications" | "filters" | "vacation" | "filterForwarding", boolean> & { type: "boolean" })
+  | (Common<"allowCustomServers" | "contacts" | "contactsSync" | "calendar" | "calendarFeeds" | "calendarSecrets" | "browserNotifications" | "filters" | "vacation" | "filterForwarding" | "sendAsServers", boolean> & { type: "boolean" })
   | (Common<"sessionDays" | "maxAccounts" | "maxUploadMb" | "cacheMb", number> & { type: "integer"; min: number; max: number; unit: string })
   | (Common<"appName", string> & { type: "text"; max: number; required?: boolean })
   | (Common<"admins" | "allowedDomains", string[]> & { type: "list"; item: "address" | "domain" })
-  | (Common<"passwordChange", string> & { type: "choice"; choices: { value: string; label: string }[] });
+  | (Common<"passwordChange" | "sendAs", string> & { type: "choice"; choices: { value: string; label: string }[] });
 
 export type SettingKey = SettingDef["key"];
 
@@ -240,6 +240,8 @@ export interface SettingValues {
   filters: boolean;
   vacation: boolean;
   filterForwarding: boolean;
+  sendAs: "confirm" | "server" | "off";
+  sendAsServers: boolean;
   sessionDays: number;
   maxAccounts: number;
   maxUploadMb: number;
@@ -309,6 +311,21 @@ export const SETTINGS: readonly SettingDef[] = [
     key: "vacation", env: "VACATION", type: "boolean", default: true,
     section: "Features", label: "Vacation responder",
     help: "Automatic replies while someone is away, sent by your mail server.",
+  },
+  {
+    key: "sendAs", env: "SEND_AS", type: "choice", default: "confirm",
+    choices: [
+      { value: "confirm", label: "Once a code emailed to the address is entered" },
+      { value: "server", label: "Once your mail server accepts it as a sender" },
+      { value: "off", label: "Only each mailbox's own address" },
+    ],
+    section: "Sending", label: "Sending as other addresses",
+    help: "When someone can send from an address other than their mailbox's (Settings > Accounts > Send mail as). Choose your mail server only if it refuses senders a login doesn't own, as Mailu and mailcow do. Your mail server can refuse an address either way.",
+  },
+  {
+    key: "sendAsServers", env: "SEND_AS_SERVERS", type: "boolean", default: false,
+    section: "Sending", label: "Other providers' mail servers",
+    help: "Let an address be sent through its own provider's mail server (SMTP), for an address at another provider, so the mail passes that provider's checks. This server then connects to the servers people enter. Each server's password is kept only in the browser session that entered it.",
   },
   {
     key: "sessionDays", env: "SESSION_DAYS", type: "integer", min: 1, max: 3650, unit: "days", default: 30,

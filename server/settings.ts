@@ -8,18 +8,11 @@ import { orIgnore, state } from "./state/db.ts";
 export const accountSettingsEvents = new EventEmitter();
 accountSettingsEvents.setMaxListeners(1000);
 
-export interface Identity {
-  name: string;
-  address: string;
-}
-
 export interface AccountSettings {
   /** Display name for outgoing mail. */
   name: string;
   /** HTML signature appended to new messages and replies. */
   signature: string;
-  /** Extra From addresses ("send mail as"), e.g. aliases the server accepts. */
-  aliases: Identity[];
   /** "ask": block remote images until allowed; "always": load them. */
   images: "ask" | "always";
   pageSize: 25 | 50 | 100;
@@ -43,7 +36,6 @@ export interface AccountSettings {
 export const DEFAULT_SETTINGS: AccountSettings = {
   name: "",
   signature: "",
-  aliases: [],
   images: "ask",
   pageSize: 50,
   timeZone: "",
@@ -88,7 +80,9 @@ export async function getSettings(accountId: number): Promise<AccountSettings> {
   } catch {
     stored = {};
   }
-  return { ...DEFAULT_SETTINGS, ...stored };
+  // The addresses sent as were kept here before 0.6; they're in identities.ts now.
+  const { aliases: _, ...rest } = stored as Partial<AccountSettings> & { aliases?: unknown };
+  return { ...DEFAULT_SETTINGS, ...rest };
 }
 
 const MAX_SIGNATURE = 20_000;
@@ -101,16 +95,6 @@ export async function updateSettings(accountId: number, patch: Record<string, un
     const sig = String(patch.signature ?? "");
     if (sig.length > MAX_SIGNATURE) return { error: "Signature is too long." };
     next.signature = sig;
-  }
-  if ("aliases" in patch) {
-    if (!Array.isArray(patch.aliases) || patch.aliases.length > 50) return { error: "Invalid aliases." };
-    const aliases: Identity[] = [];
-    for (const a of patch.aliases as Identity[]) {
-      const address = String(a?.address ?? "").trim().toLowerCase();
-      if (!/^[^\s@<>]+@[^\s@<>]+$/.test(address)) return { error: `"${address}" isn't an email address.` };
-      aliases.push({ name: String(a?.name ?? "").slice(0, 200).trim(), address });
-    }
-    next.aliases = aliases;
   }
   if ("images" in patch) next.images = patch.images === "always" ? "always" : "ask";
   if ("pageSize" in patch) {
@@ -170,12 +154,6 @@ export async function noteSeenZone(accountId: number, zone: string): Promise<voi
 export async function reminderZone(accountId: number): Promise<string> {
   const s = await getSettings(accountId);
   return s.timeZone || s.seenZone || "UTC";
-}
-
-/** Every address that is "me" for this account: the login address plus aliases. */
-export async function myAddresses(accountId: number, email: string): Promise<Set<string>> {
-  const s = await getSettings(accountId);
-  return new Set([email.toLowerCase(), ...s.aliases.map((a) => a.address.toLowerCase())]);
 }
 
 /** Senders whose remote images this account always shows. */

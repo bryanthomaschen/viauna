@@ -17,7 +17,7 @@ import {
   specialUseName,
   updateFlags,
 } from "../imap/store.ts";
-import { myAddresses } from "../settings.ts";
+import { myAddresses } from "../identities.ts";
 import { unpackKeywords } from "./keywords.ts";
 import type { View } from "./views.ts";
 

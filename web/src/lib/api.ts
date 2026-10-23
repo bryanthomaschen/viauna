@@ -28,6 +28,8 @@ import type {
   MessageRef,
   PasswordChange,
   RenderedMessage,
+  SendAddress,
+  SendAddresses,
   SessionAccount,
   SettingValue,
   Settings,
@@ -210,6 +212,15 @@ export const api = {
   changePassword: (a: number, current: string, next: string) =>
     request<{ ok: true; signedOut: number }>("POST", `${u(a)}/password`, { current, next }),
   saveSettings: (a: number, patch: Partial<Settings>) => request<{ settings: Settings }>("PUT", `${u(a)}/settings`, patch),
+  identities: (a: number) => request<SendAddresses>("GET", `${u(a)}/identities`),
+  addIdentity: (a: number, body: { name: string; address: string; server?: { host: string; port: number; security: string; login: string; password: string } }) =>
+    request<SendAddresses & { identity: SendAddress; warning: string | null }>("POST", `${u(a)}/identities`, body),
+  sendIdentityCode: (a: number, id: number | "own") => request<SendAddresses>("POST", `${u(a)}/identities/${id}/code`),
+  confirmIdentity: (a: number, id: number | "own", code: string) => request<SendAddresses>("POST", `${u(a)}/identities/${id}/confirm`, { code }),
+  checkIdentity: (a: number, id: number | "own") => request<SendAddresses & { confirmed: boolean }>("POST", `${u(a)}/identities/${id}/check`),
+  identityPassword: (a: number, id: number, password: string) => request<SendAddresses>("PUT", `${u(a)}/identities/${id}/password`, { password }),
+  renameIdentity: (a: number, id: number, name: string) => request<SendAddresses>("PATCH", `${u(a)}/identities/${id}`, { name }),
+  removeIdentity: (a: number, id: number) => request<SendAddresses>("DELETE", `${u(a)}/identities/${id}`),
   trustSender: (a: number, address: string) => request("POST", `${u(a)}/trusted-senders`, { address }),
 
   createLabel: (a: number, name: string, color?: string | null) => request<{ label: Label }>("POST", `${u(a)}/labels`, { name, color }),

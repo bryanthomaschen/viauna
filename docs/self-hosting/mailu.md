@@ -51,6 +51,10 @@ Notes:
   `PASSWORD_CHANGE: link` and
   `PASSWORD_CHANGE_URL: https://mail.example.com/admin/user/password`. See
   [Password changes](./passwords.md).
+- Mailu refuses a sender a login doesn't own (its own address, and the aliases its admin
+  pages give it), so `SEND_AS: server` lets Mailu's check confirm the addresses people add
+  in "Send mail as", without codes. See
+  [Sending as other addresses](../how-it-works/sending.md).
 - Filters and the vacation responder work as they are: Viauna reaches ManageSieve on
   `front`, port 4190. Mailu's own auto-reply (in its admin pages) is separate; with both
   on, people get two replies. See [Filters and vacation](./filters.md).

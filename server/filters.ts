@@ -9,7 +9,7 @@ import type { AccountInfo } from "./imap/runtime.ts";
 import { getMailboxes, specialUseName } from "./imap/store.ts";
 import { log } from "./log.ts";
 import { ManageSieve, SieveError } from "./managesieve.ts";
-import { myAddresses } from "./settings.ts";
+import { sendingAddresses } from "./identities.ts";
 import { EMPTY_MODEL, EMPTY_VACATION, type Filter, type SieveContext, type SieveModel, type Vacation, generate, readModel } from "./sieve.ts";
 
 export const SCRIPT = "viauna";
@@ -216,6 +216,27 @@ export async function loadFilters(account: AccountInfo, creds: Credentials): Pro
 }
 
 /**
+ * Writes the script again if the vacation responder's addresses in it aren't the mailbox's
+ * confirmed ones (identities.ts): after one is confirmed or removed, and once for a script
+ * saved before addresses were confirmed. Leaves a script another app changed alone.
+ */
+export async function refreshVacation(account: AccountInfo, creds: Credentials): Promise<boolean> {
+  if (unavailable(account) || !setting("vacation")) return false;
+  const sieve = await connect(account, creds);
+  let stale = false;
+  try {
+    const { model, changedElsewhere } = await current(sieve);
+    if (!model.vacation.on || changedElsewhere) return false;
+    const { ctx } = context(account, await sendingAddresses(account));
+    stale = (await sieve.getScript(SCRIPT)) !== generate(model, ctx).script;
+  } finally {
+    await sieve.logout();
+  }
+  if (stale) await saveFilters(account, creds, (m) => m);
+  return stale;
+}
+
+/**
  * Changes the model and saves the script: checked by the server first, then made the
  * active one. With nothing left, Viauna's script goes and the rules it included are
  * active again.
@@ -223,7 +244,7 @@ export async function loadFilters(account: AccountInfo, creds: Credentials): Pro
 export async function saveFilters(account: AccountInfo, creds: Credentials, change: (model: SieveModel, folders: Set<string>) => SieveModel): Promise<FiltersState> {
   const sieve = await connect(account, creds);
   try {
-    const { ctx, folders } = context(account, await myAddresses(account.id, account.email));
+    const { ctx, folders } = context(account, await sendingAddresses(account));
     const { model: before, active } = await current(sieve);
     const model = change(before, folders);
     if (model.filters.length > MAX_FILTERS) throw new FilterError(`A mailbox can have at most ${MAX_FILTERS} filters.`);

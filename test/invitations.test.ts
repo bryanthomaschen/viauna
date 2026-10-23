@@ -264,8 +264,12 @@ describe.each(ENGINES)("invitations on $name", ({ url }) => {
       const savedImap = config.imap;
       /** Another mailbox signed in through this server's own mail server, as the organiser (7) is. */
       const mailbox = async (id: number, email: string, login = email, aliases: string[] = []) => {
-        const settings = { timeZone: SG, aliases: aliases.map((address) => ({ address, name: "" })) };
+        const settings = { timeZone: SG };
         await state().insertInto("accounts").values({ id, login, email, imap: json, imap_hash: sha256(`${json}${id}`), smtp: "{}", settings: JSON.stringify(settings), created_at: 1 }).execute();
+        // Each alias confirmed by its code: the most an alias can be.
+        for (const [position, address] of aliases.entries()) {
+          await state().insertInto("identities").values({ account_id: id, address, name: "", position, confirmed_at: 1, confirmed_by: "code", created_at: 1 }).execute();
+        }
         await listCalendars(id, email);
         return { account: { id, email, login, imap: own, smtp: rt.account.smtp } } as unknown as AccountRuntime;
       };
@@ -301,9 +305,12 @@ describe.each(ENGINES)("invitations on $name", ({ url }) => {
       });
 
       it("counts an answer only from the address the mail server checked, not one typed in or an alias", async () => {
-        // Mallory signs in to her own mailbox while typing Kai's address; Max has it as an alias.
+        // Mallory signs in to her own mailbox while typing Kai's address, which nothing
+        // confirmed: it isn't hers to answer as at all.
         const mallory = await mailbox(10, "kai@example.test", "mallory@example.test");
-        await actOnInvitation(mallory, creds, await partOf(invite, "REQUEST"), "declined", null);
+        await expect(actOnInvitation(mallory, creds, await partOf(invite, "REQUEST"), "declined", null)).rejects.toThrow(/aren't on its guest list/);
+        // Max has it as an alias, confirmed: he answers as it by email, but it isn't the
+        // address the mail server checked, so nothing is counted directly.
         const max = await mailbox(11, "max@example.test", "max@example.test", ["kai@example.test"]);
         await actOnInvitation(max, creds, await partOf(invite, "REQUEST"), "declined", null);
         expect(await kaiOf(ev)).toBe("needs-action");

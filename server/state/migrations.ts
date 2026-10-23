@@ -338,6 +338,57 @@ export function migrations(dialect: Dialect): MigrationProvider {
           .execute();
       },
     },
+
+    // 0.6: the addresses a mailbox sends as, each confirmed before it's used: by a code
+    // emailed to it (only its keyed hash kept, with when it expires, the wrong tries and the
+    // codes sent today), or by the mail server accepting it as a sender. An address can have
+    // its provider's mail server, whose password stays in the session that entered it. The
+    // aliases kept in settings move here, not confirmed: nothing showed they were anyone's.
+    "0012_identities": {
+      async up(db: Kysely<any>) {
+        await table(db, "identities")
+          .addColumn("id", serial, serialKey)
+          .addColumn("account_id", "integer", (c) => c.notNull())
+          .addColumn("address", "varchar(320)", (c) => c.notNull())
+          .addColumn("name", "varchar(200)", (c) => c.notNull())
+          .addColumn("position", "integer", (c) => c.notNull())
+          .addColumn("confirmed_at", "bigint")
+          .addColumn("confirmed_by", "varchar(8)") // "code" or "server"
+          .addColumn("code_hash", "varchar(64)")
+          .addColumn("code_expires_at", "bigint")
+          .addColumn("code_tries", "integer", (c) => c.notNull().defaultTo(0))
+          .addColumn("code_sent_at", "bigint")
+          .addColumn("codes_day", "integer", (c) => c.notNull().defaultTo(0)) // days since the epoch
+          .addColumn("codes_sent", "integer", (c) => c.notNull().defaultTo(0)) // on that day
+          .addColumn("smtp", "text") // JSON: host, port, security, login
+          .addColumn("created_at", "bigint", (c) => c.notNull())
+          .addUniqueConstraint("identities_address", ["account_id", "address"])
+          .addForeignKeyConstraint("identities_account", ["account_id"], "accounts", ["id"], (fk) => fk.onDelete("cascade"))
+          .execute();
+        const accounts = await db.selectFrom("accounts").select(["id", "email", "settings"]).execute();
+        for (const a of accounts as { id: number; email: string; settings: string }[]) {
+          let settings: Record<string, unknown>;
+          try {
+            settings = JSON.parse(a.settings ?? "{}");
+          } catch {
+            continue;
+          }
+          const aliases = Array.isArray(settings.aliases) ? (settings.aliases as { name?: unknown; address?: unknown }[]) : [];
+          const seen = new Set([String(a.email).toLowerCase()]);
+          let position = 0;
+          for (const alias of aliases) {
+            const address = String(alias?.address ?? "").trim().toLowerCase();
+            if (!/^[^\s@<>]+@[^\s@<>]+$/.test(address) || address.length > 320 || seen.has(address)) continue;
+            seen.add(address);
+            await db.insertInto("identities")
+              .values({ account_id: a.id, address, name: String(alias?.name ?? "").slice(0, 200).trim(), position: position++, created_at: Date.now() })
+              .execute();
+          }
+          delete settings.aliases;
+          await db.updateTable("accounts").set({ settings: JSON.stringify(settings) }).where("id", "=", a.id).execute();
+        }
+      },
+    },
   };
   return { getMigrations: async () => all };
 }

@@ -526,7 +526,7 @@ export interface Person {
 
 const RESPONSES: Response[] = ["accepted", "declined", "tentative", "needs-action", "delegated"];
 
-const addressOf = (p: Property) => String(p.getFirstValue() ?? "").replace(/^mailto:/i, "").trim().toLowerCase();
+export const addressOf = (p: Property) => String(p.getFirstValue() ?? "").replace(/^mailto:/i, "").trim().toLowerCase();
 
 function personOf(p: Property, attendee: boolean): Person | null {
   const address = addressOf(p);

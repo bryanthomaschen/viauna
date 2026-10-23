@@ -72,8 +72,14 @@ Some settings follow your mailbox to every browser; others apply to this browser
 |---|---|
 | Your name, signature, send mail as, images, maximum page size | Theme, density, keyboard shortcuts, desktop notifications |
 
-- **Send mail as** adds addresses you can send from, such as aliases your mail server
-  lets you use.
+- **Send mail as** (Settings > Accounts) adds addresses you can send from, such as aliases
+  your mail server lets you use. Your mail server is asked first, and an address it won't
+  send as isn't added. Then a code is emailed to the address: enter it there, and you can
+  send from it. On some servers your mail server's yes is enough, and no code is sent.
+  Where your server allows it, an address at another provider can be sent through that
+  provider's own mail server: tick the box under the address and give its server, username
+  and password. That password stays in this browser only, so another browser asks for it
+  again. See [How it works: Sending as other addresses](../how-it-works/sending.md).
 - **Desktop notifications** appear for new mail and [calendar reminders](./calendar.md#reminders)
   while the tab is in the background.
 - **Theme** follows your device by default; choose Light or Dark to fix it.

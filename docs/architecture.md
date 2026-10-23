@@ -21,6 +21,7 @@ server/                Node (TypeScript, Hono)
   storage.ts           opens both stores at startup; upgrades older layouts
   db.ts                the mail index: SQLite schema and helpers (node:sqlite)
   settings.ts          per-mailbox settings, trusted senders
+  identities.ts        the addresses a mailbox sends as: asking the server, codes, own servers
   contacts.ts          the address book: storage, search, import and export, suggestions
   contacts-sync.ts     keeping contacts in step with a CardDAV server
   carddav.ts           a small CardDAV client: discovery, sync-collection, multiget, If-Match
@@ -55,6 +56,8 @@ server/                Node (TypeScript, Hono)
   mail/render.ts       sanitizing and rendering message HTML
   mail/fetch.ts        message download + disk cache
   mail/compose.ts      MIME building, SMTP send, drafts, uploads
+  mail/smtp.ts         handing a message to an SMTP server, as the mailbox or as an address
+  mail/smtp-probe.ts   asking an SMTP server whether it would send as an address, sending nothing
   mail/labels.ts       label definitions, rename/delete, correspondent search
   mail/keywords.ts     label names as IMAP keywords, and back
   mail/structure.ts    what a list needs from a message's structure: attachments, text part

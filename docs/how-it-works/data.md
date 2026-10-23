@@ -9,9 +9,13 @@ For backups, see [Upgrades and backups](../self-hosting/upgrading.md).
 The **state store** (`state.db`, or your `DATABASE_URL` database) holds:
 
 - accounts: each login and its mail servers, and the mailbox's settings (name,
-  signature, send-as addresses, images, page size, and the calendar's time zone, second
-  time zone, first day of the week and event length);
-- sessions, each with its mailboxes' encrypted passwords, when it started and was last
+  signature, images, page size, and the calendar's time zone, second time zone, first day
+  of the week and event length);
+- the addresses each mailbox sends as: whether and how each was confirmed, a code's keyed
+  hash while one is waiting, and an address's own mail server, never its password (see
+  [Sending as other addresses](./sending.md));
+- sessions, each with its mailboxes' encrypted passwords (and those for its addresses'
+  own mail servers), when it started and was last
   used, the client address it signed in from and the browser's user agent (see
   [Sessions](./sessions.md));
 - label names and colours, and senders whose images are always shown;
@@ -78,6 +82,11 @@ state store and unaffected.
   directory. See [Password changes](../self-hosting/passwords.md).
 - **To your SMTP server, as Viauna's own sender** (`SENDER_ADDRESS`), if set: each email
   reminder, addressed to the mailbox's own address.
+- **For an address someone adds to send as**: the question whether the mail server takes
+  it as a sender (a sign-in, the sender and a recipient, then nothing sent), and an email
+  with a code to that address, as the mailbox. An address at another provider goes to
+  that provider's SMTP server, signed in with its own login. See
+  [Sending as other addresses](./sending.md).
 - **To a browser's push service**, for each reminder due, if that browser has turned on
   reminders with Viauna closed: a message encrypted for the browser alone (the event's
   title, times and place), which the service (Google's, Mozilla's or Apple's) passes on

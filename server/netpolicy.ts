@@ -62,6 +62,17 @@ export async function connectTarget(endpoint: Endpoint): Promise<{ host: string;
   return { host: found[0].address, servername: endpoint.servername ?? (net.isIP(name) ? undefined : name) };
 }
 
+/** Whether a server name someone typed can be used: a valid name or IP that resolves to public addresses. Null if so, else why not. */
+export async function checkCustomHost(host: string): Promise<string | null> {
+  if (!/^[a-z0-9.-]{1,253}$/i.test(host) && !net.isIP(host)) return "That server name isn't valid.";
+  try {
+    await connectTarget({ host, port: 0, security: "tls", verify: true, custom: true });
+  } catch (err) {
+    return (err as Error).message;
+  }
+  return null;
+}
+
 export const BLOCKED = "That address isn't allowed: it's on a private network.";
 
 /**

@@ -22,7 +22,9 @@ neither does a cookie without the server secret. Changing or losing the server s
 makes every saved password unreadable: everyone signs in again.
 
 Several mailboxes in one browser share one session, each with its own encrypted password,
-up to `MAX_ACCOUNTS`.
+up to `MAX_ACCOUNTS`. The password for an address's own mail server
+([Sending as other addresses](./sending.md#an-address-at-another-provider)) is kept with the
+mailbox's, the same way: in the session that entered it, and nowhere else.
 
 ## How long you stay signed in
 

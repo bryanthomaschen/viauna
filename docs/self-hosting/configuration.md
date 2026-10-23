@@ -61,6 +61,13 @@ Settings that are on or off take `true` or `false`, `1` or `0`, `yes` or `no`, `
 | `FILTER_FORWARDING` | `false` | **Live.** Let a filter forward mail to another address. |
 | `VACATION` | `true` | **Live.** The vacation responder. |
 
+## Sending
+
+| Variable | Default | |
+|---|---|---|
+| `SEND_AS` | `confirm` | **Live.** When someone can send from an address other than their mailbox's (Settings > Accounts > Send mail as). `confirm`: once a code emailed to the address is entered. `server`: once your mail server accepts the address as the sender; choose it only if your mail server refuses senders a login doesn't own, as Mailu and mailcow do. `off`: only each mailbox's own address. Your mail server is asked first either way, and an address it refuses isn't added. See [Sending as other addresses](../how-it-works/sending.md). |
+| `SEND_AS_SERVERS` | `false` | **Live.** Let an address be sent through its own provider's mail server (SMTP), for an address at another provider, so the mail passes that provider's checks. This server then connects to the servers people enter (public addresses only, unless `ALLOW_PRIVATE_SERVERS` is on). Each server's password is kept only in the browser session that entered it. |
+
 ## Sessions and limits
 
 | Variable | Default | |

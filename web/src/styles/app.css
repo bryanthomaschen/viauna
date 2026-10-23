@@ -444,6 +444,26 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
 .setting .options label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .setting .text-input { max-width: 400px; }
 .setting td .text-input, .setting .vacation .text-input { max-width: none; }
+/* Send mail as: each address, what it still needs, and adding one. */
+.send-as { width: 100%; max-width: 560px; align-items: stretch !important; }
+.identities { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.identity { display: flex; align-items: flex-start; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.identity:first-child { padding-top: 0; }
+.identity-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.identity-who { font-size: 14px; line-height: 20px; overflow-wrap: anywhere; }
+.identity-who .muted, .identity-status, .identity-note { color: var(--text-2); }
+.identity-status, .identity-note { font-size: 13px; }
+.identity-note { flex-basis: 100%; }
+.identity-act { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.identity-act .text-input { flex: 1 1 160px; }
+.identity-act .identity-code { flex: 0 1 140px; letter-spacing: 1px; }
+.identity-tools { display: flex; margin: -10px -8px 0 0; }
+.add-identity { display: flex; flex-direction: column; gap: 8px; padding-top: 12px; }
+.add-identity-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.add-identity-server { display: grid; grid-template-columns: minmax(0, 1fr) 90px 120px; gap: 8px; }
+.add-identity .text-input { max-width: none; }
+.add-identity-check { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.send-as > .btn { align-self: flex-start; margin-top: 12px; }
 .setting table { border-collapse: collapse; width: 100%; max-width: 640px; }
 .setting td { padding: 6px 8px; border-bottom: 1px solid var(--border); }
 .sig-editor { width: 100%; max-width: 640px; border: 1px solid var(--border-strong); border-radius: 4px; }
@@ -626,6 +646,8 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
 /* The editor's rows: each label in one column, so every control starts at the same edge. */
 .event-form { display: flex; flex-direction: column; gap: 10px; }
 .event-form, .secret-address { --event-label: 96px; }
+/* A long event scrolls under Save and Cancel, which stay at the dialog's foot. */
+.event-editor > .buttons { position: sticky; bottom: -24px; z-index: 1; margin: 14px -24px -24px; padding: 12px 24px 24px; background: var(--surface); border-top: 1px solid var(--border); border-radius: 0 0 28px 28px; }
 /* Its fields, all disabled at once for an event from the web; no box of its own. */
 .event-fieldset { display: contents; }
 .feed-status { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin: 10px 0; font-size: 13px; }
@@ -646,8 +668,6 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
 .event-when > span, .event-field > span { color: var(--text-2); font-size: 14px; }
 /* What sits under the controls without a label of its own starts where they do. */
 .event-check, .event-indent { padding-left: calc(var(--event-label) + 8px); }
-/* A long event scrolls under Save and Cancel, which stay at the dialog's foot. */
-.event-editor > .buttons { position: sticky; bottom: -24px; z-index: 1; margin: 14px -24px -24px; padding: 12px 24px 24px; background: var(--surface); border-top: 1px solid var(--border); border-radius: 0 0 28px 28px; }
 .event-check { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; min-height: 28px; font-size: 14px; }
 .event-check label { display: flex; align-items: center; gap: 8px; }
 .event-check input[type="checkbox"] { margin: 0; }
@@ -800,6 +820,7 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
   .login-card { grid-template-columns: 1fr; gap: 8px; padding: 24px; }
   .login-form { padding-top: 8px; }
   .setting { grid-template-columns: 1fr; gap: 8px; }
+  .add-identity-pair, .add-identity-server { grid-template-columns: 1fr; }
   .admin-main { margin: 0; border-radius: 0; }
   .contacts-toolbar { flex-wrap: wrap; height: auto; padding: 8px; }
   /* A date's label above it, the date the full width. */

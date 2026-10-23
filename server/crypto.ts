@@ -63,6 +63,8 @@ function credentialKey(cookieKey: string, sessionHash: string, accountId: number
 export interface Credentials {
   user: string;
   pass: string;
+  /** Sign-ins for the own mail servers of the addresses the mailbox sends as, by identity id (identities.ts). */
+  servers?: Record<string, { user: string; pass: string }>;
 }
 
 export function encryptCredentials(creds: Credentials, cookieKey: string, sessionHash: string, accountId: number): Buffer {

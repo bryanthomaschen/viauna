@@ -20,6 +20,7 @@ export function refreshSettings(client: QueryClient) {
 /** Everything shown from one mailbox's own settings (page size, images, names). */
 export function refreshAccountSettings(client: QueryClient, index: number) {
   void client.invalidateQueries({ queryKey: ["settings", index] });
+  void client.invalidateQueries({ queryKey: ["identities", index] });
   void client.invalidateQueries({ queryKey: ["session"] });
   void client.invalidateQueries({ queryKey: ["threads", index] });
   void client.invalidateQueries({ queryKey: ["message", index] });

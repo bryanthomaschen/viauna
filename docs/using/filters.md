@@ -52,7 +52,7 @@ At the bottom of **Settings > General**, turn the vacation responder on, choose 
 day (and the last, if you know it), and write a subject and message. Your mail server
 replies to people who write to you, at most once every four days to each person, from
 the first day to the last. Mail sent to any of your addresses (see "Send mail as") is
-answered.
+answered, once each is confirmed.
 
 What your filters become on the mail server is in
 [How it works: Filters](../how-it-works/filters.md).

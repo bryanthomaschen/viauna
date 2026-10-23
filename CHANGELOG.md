@@ -94,9 +94,35 @@ write them, so they travel with an export and sync with your CardDAV server; a f
 didn't change stays exactly as another app wrote it. See
 [Contacts](https://bryanthomaschen.github.io/viauna/using/contacts).
 
+### Sending as other addresses
+
+**Send mail as** (Settings > Accounts) now checks that an address is yours before mail goes
+out from it. Your mail server is asked first, and an address it won't send as isn't added,
+with its words saying why. Then Viauna emails the address a code, from the mailbox; entering
+it confirms the address. Until then it's in the list, and a draft can be from it, but
+nothing is sent from it, no invitation is answered as it, and the vacation responder
+doesn't reply as it. Codes work for a day and five tries, at most five a day to an address.
+The address typed in beside a separate username at sign-in is confirmed the same way, by a
+code to itself; signing in with the address itself still confirms it.
+
+`SEND_AS` (or the admin page) chooses what confirms an address: a code (`confirm`, the
+default), your mail server accepting it as the sender (`server`, for servers that refuse
+senders a login doesn't own, as Mailu and mailcow do), or nothing but the mailbox's own
+address (`off`).
+
+With `SEND_AS_SERVERS` on (off by default), an address at another provider can be sent
+through that provider's own mail server, so the mail passes its checks; its password is kept
+only in the browser session that entered it, as the mailbox's is. Answers to invitations go
+from the address the invitation was sent to. See
+[Sending as other addresses](https://bryanthomaschen.github.io/viauna/how-it-works/sending).
+
 ### Also
 
 - Search: `rfc822msgid:` finds a message by its Message-ID.
+- Text boxes and lists are one size across Viauna, Settings' lists included, and the event
+  editor's labels share one column, with every box starting at one edge.
+- How conversations are grouped is in the docs:
+  [Conversations](https://bryanthomaschen.github.io/viauna/how-it-works/conversations).
 - The command menu scrolls with the mouse wheel when its commands don't fit; only the
   keyboard could reach the ones below. It also opens in the middle of the window, where
   it used to appear half its width to the right for a moment.
@@ -112,17 +138,20 @@ didn't change stays exactly as another app wrote it. See
 
 ### Upgrading from 0.5
 
-Nothing you have to do: the calendar's tables are made on the first start, and it's on. The same
+The "Send mail as" addresses each mailbox had are kept, but not confirmed: each needs its
+code (or, with `SEND_AS=server`, your mail server's yes) before mail goes out from it
+again, so tell the people who use them. A vacation responder that's on is written again
+with only the confirmed addresses the first time its mailbox is used. On Mailu, or another
+server that refuses senders a login doesn't own, `SEND_AS=server` confirms them without
+codes, as people use them.
+
+Otherwise, nothing you have to do: the calendar's tables are made on the first start, and it's on. The same
 start finds the labels, nicknames and dates in the contacts already kept. For reminders by
 email, give Viauna a mailbox to send from: see
 [Viauna's own sender](https://bryanthomaschen.github.io/viauna/self-hosting/configuration#viauna-s-own-sender).
 If you put a login of your own in front of Viauna, leave `/ical/`, `/sw.js`, the manifest
 and the icons out of it: see
 [Reverse proxy](https://bryanthomaschen.github.io/viauna/self-hosting/reverse-proxy). Calendars
-- Text boxes and lists are one size across Viauna, Settings' lists included, and the event
-  editor's labels share one column, with every box starting at one edge.
-- How conversations are grouped is in the docs:
-  [Conversations](https://bryanthomaschen.github.io/viauna/how-it-works/conversations).
 are kept in the state store and nowhere else, so back up `state.db` (or your
 `DATABASE_URL` database) as the
 [upgrading page](https://bryanthomaschen.github.io/viauna/self-hosting/upgrading#backing-up)

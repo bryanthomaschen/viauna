@@ -62,6 +62,7 @@ export default defineConfig({
           { text: "Overview", link: "/how-it-works/" },
           { text: "Mail sync", link: "/how-it-works/sync" },
           { text: "Conversations", link: "/how-it-works/conversations" },
+          { text: "Sending as other addresses", link: "/how-it-works/sending" },
           { text: "Live updates and settings", link: "/how-it-works/live-updates" },
           { text: "Sessions", link: "/how-it-works/sessions" },
           { text: "Your data", link: "/how-it-works/data" },

@@ -15,6 +15,7 @@ don't need any of it to use or run Viauna.
 | A folder you made in another app doesn't show | [Mail sync](./sync.md#which-folders-show) |
 | You search | [Mail sync](./sync.md#search) |
 | A reply joins its conversation, or starts a new one | [Conversations](./conversations.md) |
+| You add an address to send mail as | [Sending as other addresses](./sending.md) |
 | Something changes and open pages update | [Live updates](./live-updates.md) |
 | An admin changes a setting | [Live updates](./live-updates.md#settings-changes) |
 | You sign in, sign out, or change your password | [Sessions](./sessions.md) |

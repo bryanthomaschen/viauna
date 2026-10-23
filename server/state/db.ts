@@ -200,6 +200,24 @@ export interface PushSubscriptionTable {
   failures: Generated<number>;
 }
 
+export interface IdentityTable {
+  id: Generated<number>;
+  account_id: number;
+  address: string;
+  name: string;
+  position: number;
+  confirmed_at: number | null;
+  confirmed_by: string | null;
+  code_hash: string | null;
+  code_expires_at: number | null;
+  code_tries: Generated<number>;
+  code_sent_at: number | null;
+  codes_day: Generated<number>;
+  codes_sent: Generated<number>;
+  smtp: string | null;
+  created_at: number;
+}
+
 export interface StateSchema {
   accounts: AccountTable;
   sessions: SessionTable;
@@ -217,12 +235,14 @@ export interface StateSchema {
   calendars: CalendarTable;
   events: EventTable;
   push_subscriptions: PushSubscriptionTable;
+  identities: IdentityTable;
 }
 
 /** In dependency order, for copying from one store to another. */
 export const STATE_TABLES = [
   "accounts", "sessions", "session_accounts", "labels", "trusted_senders", "instance_settings", "admin_log",
   "contact_books", "contacts", "contact_emails", "contact_deletions", "contact_labels", "contact_dates", "calendars", "events", "push_subscriptions",
+  "identities",
 ] as const;
 
 export type Dialect = "sqlite" | "postgres" | "mysql";

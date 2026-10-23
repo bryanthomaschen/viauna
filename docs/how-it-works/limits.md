@@ -26,6 +26,15 @@ Limits built into Viauna. The ones you can change are settings: see
 | Matches per folder | The newest 3,000 |
 | The same search again | Answered from memory for 60 s |
 
+## Sending as other addresses
+
+| Limit | Value |
+|---|---|
+| Other addresses per mailbox | 20 |
+| Addresses added, servers asked or passwords tried | 10 per mailbox every 15 minutes |
+| A code | Works for 24 hours, and for 5 tries |
+| Codes sent | One a minute and 5 a day to an address; 20 a day from a mailbox |
+
 ## Filters and the vacation responder
 
 | Limit | Value |

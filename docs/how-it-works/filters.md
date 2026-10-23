@@ -78,7 +78,9 @@ Some consequences:
 ## The vacation responder
 
 It becomes `vacation :days 4`, with the subject, the message and `:addresses` listing the
-mailbox's address and its "Send mail as" addresses. The server remembers whom it
+mailbox's address and its confirmed "Send mail as" addresses (see
+[Sending as other addresses](./sending.md)); the script is written again when one is
+confirmed or removed. The server remembers whom it
 replied to, so each sender gets at most one reply every four days, and it replies only
 to mail sent to one of those addresses. The first and last days are checked with
 `currentdate`, at the UTC offset of the browser that saved them: across a change to or

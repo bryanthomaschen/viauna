@@ -4,17 +4,17 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { convert as htmlToText } from "html-to-text";
-import nodemailer from "nodemailer";
 import MailComposer from "nodemailer/lib/mail-composer";
 import { config } from "../config.ts";
 import type { Credentials } from "../crypto.ts";
 import { db } from "../db.ts";
 import type { AccountRuntime } from "../imap/runtime.ts";
 import { type Address, type MailboxRow, deleteMessages, getMailbox, insertFetched, specialMailboxes } from "../imap/store.ts";
-import { connectTarget } from "../netpolicy.ts";
-import { getSettings, myAddresses } from "../settings.ts";
+import { IdentityError, listIdentities, routeOf } from "../identities.ts";
+import { getSettings } from "../settings.ts";
 import { getParsed } from "./fetch.ts";
 import { attachmentList, escapeText, sanitizeForQuote } from "./render.ts";
+import { SmtpError, smtpSend } from "./smtp.ts";
 
 export type AttachmentRef =
   | { upload: string }
@@ -147,10 +147,11 @@ async function build(rt: AccountRuntime, sessionHash: string, input: ComposeInpu
   const accountId = rt.account.id;
   const settings = await getSettings(accountId);
   const fromAddress = String(input.from || rt.account.email).toLowerCase();
-  if (!(await myAddresses(accountId, rt.account.email)).has(fromAddress)) {
-    throw new ComposeError("You can only send from your own addresses (add aliases in Settings).");
-  }
-  const fromName = settings.aliases.find((a) => a.address === fromAddress)?.name || settings.name;
+  // A draft can be from any address in the list; a message only from a confirmed one.
+  const identity = (await listIdentities(rt.account, null)).find((i) => i.address === fromAddress);
+  if (!identity) throw new ComposeError("You can only send from your own addresses (add them in Settings > Accounts).");
+  if (!asDraft && !identity.usable) throw new ComposeError(notUsable(identity.address, identity.confirmed));
+  const fromName = identity.name || settings.name;
   const to = cleanAddresses(input.to);
   const cc = cleanAddresses(input.cc);
   const bcc = cleanAddresses(input.bcc);
@@ -286,35 +287,28 @@ async function addFlag(rt: AccountRuntime, ref: { mailboxId: number; uid: number
 
 // ------------------------------------------------------------------ public
 
-/** Sends a built message through the mailbox's SMTP server, as the mailbox, with its own password. */
+const notUsable = (address: string, confirmed: boolean) =>
+  confirmed
+    ? `${address} can't be sent from on this server now. See Settings > Accounts.`
+    : `Confirm ${address} in Settings > Accounts before sending from it.`;
+
+/**
+ * Sends a built message as its sender: through the mailbox's SMTP server with its own
+ * password, or through the sender's own provider's server (identities.ts).
+ */
 export async function sendRaw(rt: AccountRuntime, creds: Credentials, envelope: Built["envelope"], raw: Buffer) {
-  const smtp = rt.account.smtp;
-  let target: { host: string; servername?: string };
+  let route: Awaited<ReturnType<typeof routeOf>>;
   try {
-    target = await connectTarget(smtp);
+    route = await routeOf(rt.account, creds, envelope.from);
   } catch (err) {
-    throw new ComposeError((err as Error).message, 502);
+    throw new ComposeError((err as IdentityError).message);
   }
-  const transport = nodemailer.createTransport({
-    host: target.host,
-    port: smtp.port,
-    secure: smtp.security === "tls",
-    requireTLS: smtp.security === "starttls",
-    ignoreTLS: smtp.security === "none",
-    auth: { user: creds.user, pass: creds.pass },
-    tls: { servername: target.servername, rejectUnauthorized: smtp.verify },
-    connectionTimeout: 30_000,
-    greetingTimeout: 20_000,
-    socketTimeout: 120_000,
-  });
   try {
-    await transport.sendMail({ envelope, raw });
+    await smtpSend(route.endpoint, route.creds, envelope, raw);
   } catch (err) {
-    const e = err as { responseCode?: number; response?: string; message?: string; code?: string };
-    if (e.code === "EAUTH") throw new ComposeError("The mail server rejected your password for sending.", 502);
-    throw new ComposeError(`The message wasn't sent: ${e.response || e.message || "unknown error"}`, 502);
-  } finally {
-    transport.close();
+    const e = err as SmtpError;
+    if (e.auth) throw new ComposeError(route.endpoint === rt.account.smtp ? "The mail server rejected your password for sending." : `${envelope.from}'s mail server rejected its password. Enter it again in Settings > Accounts.`, 502);
+    throw new ComposeError(`The message wasn't sent: ${e.message}`, 502);
   }
 }
 
@@ -328,14 +322,18 @@ export async function sendCalendarMail(
   rt: AccountRuntime,
   creds: Credentials,
   mail: { to: Address[]; subject: string; text: string; html: string; method: "REQUEST" | "REPLY" | "CANCEL"; ics: string },
+  /** The mailbox's address it's from: the one the invitation was to, or the organiser's. */
+  sender = rt.account.email,
 ): Promise<void> {
   const settings = await getSettings(rt.account.id);
-  const from = rt.account.email.toLowerCase();
+  const from = sender.toLowerCase();
+  const identity = (await listIdentities(rt.account, null)).find((i) => i.address === from);
+  if (!identity?.usable) throw new ComposeError(identity ? notUsable(from, identity.confirmed) : notUsable(from, false));
   const to = cleanAddresses(mail.to);
   if (!to.length) return;
   const domain = from.split("@")[1] || "localhost";
   const node = new MailComposer({
-    from: { name: settings.name, address: from },
+    from: { name: identity.name || settings.name, address: from },
     to,
     subject: mail.subject.replace(/[\r\n]+/g, " ").slice(0, 998),
     text: mail.text,

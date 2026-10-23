@@ -32,6 +32,7 @@ export function AccountProvider({ index, accounts, children }: { index: number; 
     refetchInterval: (q) => (q.state.data?.status.ready ? false : 1500),
   });
   const settings = useQuery({ queryKey: ["settings", index], queryFn: () => api.settings(index), staleTime: 5 * 60_000 });
+  const sendAs = useQuery({ queryKey: ["identities", index], queryFn: () => api.identities(index), staleTime: 5 * 60_000 });
   const email = accounts[index]?.email ?? "";
 
   const value = useMemo<AccountContextValue>(() => {
@@ -40,7 +41,10 @@ export function AccountProvider({ index, accounts, children }: { index: number; 
     const special: Partial<Record<SpecialUse, Mailbox>> = {};
     for (const mb of boxes) if (mb.specialUse && !special[mb.specialUse]) special[mb.specialUse] = mb;
     const s = settings.data?.settings;
-    const identities: Identity[] = [{ name: s?.name ?? "", address: email }, ...(s?.aliases ?? [])];
+    // To write from: the mailbox's own address first, even before it's confirmed (sending
+    // then says to confirm it), and the other addresses once they're confirmed.
+    const others = (sendAs.data?.identities ?? []).filter((i) => !i.own && i.usable);
+    const identities: Identity[] = [{ name: s?.name ?? "", address: email }, ...others.map((i) => ({ name: i.name || s?.name || "", address: i.address }))];
     return {
       index,
       accounts,
@@ -57,7 +61,7 @@ export function AccountProvider({ index, accounts, children }: { index: number; 
       identities,
       me: new Set(identities.map((i) => i.address.toLowerCase())),
     };
-  }, [index, accounts, email, mailboxes.data, settings.data]);
+  }, [index, accounts, email, mailboxes.data, settings.data, sendAs.data]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

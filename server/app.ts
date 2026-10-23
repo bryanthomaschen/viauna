@@ -12,10 +12,12 @@ import {
   changePassword,
   credentialsFor,
   isSignedIn,
+  keepServerPassword,
   loadSession,
   signIn,
   signOutAccount,
   signOutAll,
+  take,
 } from "./auth.ts";
 import {
   CalendarError,
@@ -64,9 +66,21 @@ import { db } from "./db.ts";
 import { contactEvents, syncContacts, syncSoon, syncStatus, syncsContacts } from "./contacts-sync.ts";
 import { FeedError } from "./feeds.ts";
 import { type InvitationAction, actOnInvitation, answerEvent, calendarPart, notifyGuests, readItip, viewInvitation } from "./invitations.ts";
-import { FilterError, cleanFilter, cleanVacation, loadFilters, saveFilters, unavailable } from "./filters.ts";
+import { FilterError, cleanFilter, cleanVacation, loadFilters, refreshVacation, saveFilters, unavailable } from "./filters.ts";
+import {
+  IdentityError,
+  addIdentity,
+  checkAgain,
+  checkServerPassword,
+  confirmCode,
+  listIdentities,
+  myAddresses,
+  removeIdentity,
+  renameIdentity,
+  sendCode,
+} from "./identities.ts";
 import { MailboxAuthError, runtimeFor, stillProven } from "./imap/pool.ts";
-import { type AccountRuntime, type ChangeEvent, syncable } from "./imap/runtime.ts";
+import { type AccountInfo, type AccountRuntime, type ChangeEvent, syncable } from "./imap/runtime.ts";
 import { type MailboxRow, getMailbox, getMailboxes, specialUseName } from "./imap/store.ts";
 import { changeSettings, describeSettings, isAdmin, recentChanges, serverFacts, settingsEvents } from "./instance.ts";
 import { log } from "./log.ts";
@@ -81,7 +95,7 @@ import { passwordChangeFor } from "./password.ts";
 import { PushError, addSubscription, pushTo, removeSubscription, vapidPublicKey } from "./push.ts";
 import { type Notice, reminderEvents } from "./reminders.ts";
 import { emailReminders } from "./sender.ts";
-import { accountSettingsEvents, getSettings, isTrustedSender, myAddresses, noteSeenZone, trustSender, updateSettings } from "./settings.ts";
+import { accountSettingsEvents, getSettings, isTrustedSender, noteSeenZone, trustSender, updateSettings } from "./settings.ts";
 
 type Env = {
   Bindings: HttpBindings;
@@ -193,6 +207,7 @@ export function createApp() {
     if (err instanceof LabelError) return c.json({ error: err.message }, 400);
     if (err instanceof ContactError) return c.json({ error: err.message }, err.status as 400);
     if (err instanceof FilterError) return c.json({ error: err.message }, err.status as 400);
+    if (err instanceof IdentityError) return c.json({ error: err.message }, err.status);
     if (err instanceof CalendarError) return c.json({ error: err.message }, err.status as 400);
     if (err instanceof FeedError || err instanceof PushError) return c.json({ error: err.message }, 400);
     log.error("request failed", { path: c.req.path, error: (err as Error).message, stack: (err as Error).stack });
@@ -291,6 +306,16 @@ export function createApp() {
   // ---------------------------------------------------------------- per-account
 
   const acct = new Hono<Env>();
+  const vacationChecked = new Set<number>();
+  /** The vacation responder's addresses brought in line with the confirmed ones; never fails the request. */
+  const vacationAddresses = async (account: AccountInfo, creds: Credentials, onlyIfUnconfirmed = false) => {
+    try {
+      if (onlyIfUnconfirmed && (await listIdentities(account, null)).every((i) => i.usable)) return;
+      if (await refreshVacation(account, creds)) log.info("vacation addresses brought up to date", { account: account.id });
+    } catch (err) {
+      log.warn("vacation addresses not brought up to date", { account: account.id, error: (err as Error).message });
+    }
+  };
 
   acct.use("*", async (c, next) => {
     const auth = c.get("auth");
@@ -302,6 +327,12 @@ export function createApp() {
     c.set("sa", sa);
     c.set("creds", creds);
     c.set("rt", await runtimeFor(sa.account, creds));
+    // A vacation script saved before addresses were confirmed may still answer as any of
+    // them: once an account is in use, put that right (identities.ts, filters.ts).
+    if (!vacationChecked.has(sa.account.id)) {
+      vacationChecked.add(sa.account.id);
+      void vacationAddresses(sa.account, creds, true);
+    }
     await next();
   });
 
@@ -915,6 +946,77 @@ export function createApp() {
     const result = await updateSettings(c.get("rt").account.id, await c.req.json());
     if ("error" in result) return c.json(result, 400);
     return c.json({ settings: result });
+  });
+
+  // The addresses this mailbox sends as (identities.ts). Other tabs hear of a change as
+  // they do of the mailbox's settings.
+  const identityId = (c: Context<Env>) => (c.req.param("id") === "own" ? "own" : int(c.req.param("id")));
+  const identities = async (c: Context<Env>) => ({
+    identities: await listIdentities(c.get("rt").account, c.get("creds")),
+    sendAs: setting("sendAs"),
+    servers: setting("sendAsServers"),
+  });
+  const identitiesChanged = (c: Context<Env>) => accountSettingsEvents.emit("changed", c.get("rt").account.id);
+
+  acct.get("/identities", async (c) => c.json(await identities(c)));
+
+  acct.post("/identities", async (c) => {
+    const account = c.get("rt").account;
+    // Each one opens a connection to a mail server.
+    if (!take(`identity:${account.id}`, 10)) throw new IdentityError("Too many addresses tried. Wait a few minutes and try again.", 429);
+    const { identity, server, warning } = await addIdentity(account, c.get("creds"), await c.req.json().catch(() => ({})));
+    if (server && identity.id !== null) c.set("creds", await keepServerPassword(c.get("auth")!, c.get("sa"), identity.id, server));
+    identitiesChanged(c);
+    return c.json({ identity, warning, ...(await identities(c)) });
+  });
+
+  acct.post("/identities/:id/code", async (c) => {
+    await sendCode(c.get("rt").account, c.get("creds"), identityId(c));
+    identitiesChanged(c);
+    return c.json(await identities(c));
+  });
+
+  acct.post("/identities/:id/confirm", async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    await confirmCode(c.get("rt").account, identityId(c), body.code);
+    identitiesChanged(c);
+    void vacationAddresses(c.get("rt").account, c.get("creds"));
+    return c.json(await identities(c));
+  });
+
+  acct.post("/identities/:id/check", async (c) => {
+    const account = c.get("rt").account;
+    if (!take(`identity:${account.id}`, 10)) throw new IdentityError("Too many checks. Wait a few minutes and try again.", 429);
+    const confirmed = await checkAgain(account, c.get("creds"), identityId(c));
+    if (confirmed) {
+      identitiesChanged(c);
+      void vacationAddresses(account, c.get("creds"));
+    }
+    return c.json({ confirmed, ...(await identities(c)) });
+  });
+
+  acct.put("/identities/:id/password", async (c) => {
+    const account = c.get("rt").account;
+    if (!take(`identity:${account.id}`, 10)) throw new IdentityError("Too many tries. Wait a few minutes and try again.", 429);
+    const id = int(c.req.param("id"));
+    const signIn = await checkServerPassword(account, id, (await c.req.json().catch(() => ({}))).password);
+    c.set("creds", await keepServerPassword(c.get("auth")!, c.get("sa"), id, signIn));
+    return c.json(await identities(c));
+  });
+
+  acct.patch("/identities/:id", async (c) => {
+    await renameIdentity(c.get("rt").account, int(c.req.param("id")), (await c.req.json().catch(() => ({}))).name);
+    identitiesChanged(c);
+    return c.json(await identities(c));
+  });
+
+  acct.delete("/identities/:id", async (c) => {
+    const id = int(c.req.param("id"));
+    await removeIdentity(c.get("rt").account, id);
+    c.set("creds", await keepServerPassword(c.get("auth")!, c.get("sa"), id, null));
+    identitiesChanged(c);
+    void vacationAddresses(c.get("rt").account, c.get("creds"));
+    return c.json(await identities(c));
   });
 
   acct.post("/trusted-senders", async (c) => {

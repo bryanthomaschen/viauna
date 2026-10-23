@@ -5,10 +5,11 @@ import { ui, useAccount } from "../lib/account";
 import { api } from "../lib/api";
 import { browserZone, calendarsQuery, zoneOffset } from "../lib/calendar";
 import { useConfig } from "../lib/config";
+import { relative } from "../lib/format";
 import { disablePush, enablePush, pushOn, pushSupported, testPush } from "../lib/push";
 import { navigate, usePath } from "../lib/router";
 import { type Density, type Theme, prefs, toast } from "../lib/store";
-import type { Identity, Reminder, Settings } from "../lib/types";
+import type { Reminder, SendAddress, SendAddresses, SendAsPolicy, Settings } from "../lib/types";
 import { IconButton, Modal, confirmDeleteFolder, confirmRemoveLabel } from "./common";
 import { EditorArea, FormatBar, useMailEditor } from "./Editor";
 import { MOD_KEY } from "./CommandMenu";
@@ -320,13 +321,9 @@ function Accounts() {
   const save = useSave();
   const s = acct.settings;
   const [name, setName] = useState(s?.name ?? "");
-  const [aliases, setAliases] = useState<Identity[]>(s?.aliases ?? []);
   const [changingPassword, setChangingPassword] = useState(false);
   useEffect(() => {
-    if (s) {
-      setName(s.name);
-      setAliases(s.aliases);
-    }
+    if (s) setName(s.name);
   }, [s]);
   if (!s) return null;
   return (
@@ -338,29 +335,7 @@ function Accounts() {
           <button type="button" className="btn btn-primary" disabled={name === s.name} onClick={() => void save({ name })}>Save</button>
         </div>
       </div>
-      <div className="setting">
-        <div className="name">Send mail as<small>Other addresses this mailbox may send from — aliases your mail server accepts for this login.</small></div>
-        <div className="options" style={{ width: "100%" }}>
-          <table>
-            <tbody>
-              <tr><td>{s.name || "(no name)"}</td><td>{acct.email}</td><td style={{ color: "var(--text-3)" }}>default</td></tr>
-              {aliases.map((a, i) => (
-                <tr key={i}>
-                  <td><input className="text-input" placeholder="Name" value={a.name}
-                    onChange={(e) => setAliases(aliases.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} /></td>
-                  <td><input className="text-input" placeholder="address@example.com" value={a.address}
-                    onChange={(e) => setAliases(aliases.map((x, j) => (j === i ? { ...x, address: e.target.value } : x)))} /></td>
-                  <td><IconButton label="Remove" onClick={() => setAliases(aliases.filter((_, j) => j !== i))}><Trash2 size={18} /></IconButton></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button type="button" className="btn btn-outline" onClick={() => setAliases([...aliases, { name: s.name, address: "" }])}><Plus size={16} /> Add another address</button>
-            <button type="button" className="btn btn-primary" disabled={JSON.stringify(aliases) === JSON.stringify(s.aliases)} onClick={() => void save({ aliases })}>Save</button>
-          </div>
-        </div>
-      </div>
+      <SendMailAs />
       {acct.password && (
         <div className="setting">
           <div className="name">Password<small>The password for {acct.email}, here and in your other mail apps.</small></div>
@@ -384,6 +359,229 @@ function Accounts() {
         </div>
       </div>
     </>
+  );
+}
+
+/** The addresses this mailbox sends as: its own, and others, each confirmed before it's sent from. */
+function SendMailAs() {
+  const acct = useAccount();
+  const client = useQueryClient();
+  const q = useQuery({ queryKey: ["identities", acct.index], queryFn: () => api.identities(acct.index) });
+  const [adding, setAdding] = useState(false);
+  const data = q.data;
+  const update = (next: SendAddresses) => client.setQueryData(["identities", acct.index], next);
+  const help = !data
+    ? ""
+    : data.sendAs === "off"
+      ? "This server sends only from your mailbox's own address."
+      : data.sendAs === "server"
+        ? "Other addresses you send from. Your mail server must accept each one as yours."
+        : "Other addresses you send from. Each is confirmed once, with a code emailed to it.";
+  return (
+    <div className="setting">
+      <div className="name">Send mail as<small>{help}</small></div>
+      <div className="options send-as">
+        {q.error ? (
+          <p className="form-error">{q.error.message}</p>
+        ) : !data ? (
+          <div className="spinner" />
+        ) : (
+          <>
+            <ul className="identities">
+              {data.identities.map((i) => <IdentityRow key={i.id ?? "own"} identity={i} policy={data.sendAs} onChange={update} />)}
+            </ul>
+            {data.sendAs !== "off" &&
+              (adding ? (
+                <AddIdentity servers={data.servers} onDone={(next) => {
+                  if (next) update(next);
+                  setAdding(false);
+                }} />
+              ) : (
+                <button type="button" className="btn btn-outline" onClick={() => setAdding(true)}><Plus size={16} /> Add another address</button>
+              ))}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** One address: who it is, whether it can be sent from, and what it still needs. */
+function IdentityRow({ identity: i, policy, onChange }: { identity: SendAddress; policy: SendAsPolicy; onChange: (next: SendAddresses) => void }) {
+  const acct = useAccount();
+  const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const ref = i.id ?? "own";
+  const run = async (action: () => Promise<SendAddresses>, done?: string) => {
+    setBusy(true);
+    try {
+      onChange(await action());
+      if (done) toast(done);
+      return true;
+    } catch (err) {
+      toast((err as Error).message, { error: true });
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+  const name = i.own ? acct.settings?.name : i.name;
+  const status = i.own && i.confirmedBy === "login"
+    ? "Your mailbox's own address."
+    : i.usable
+      ? i.own ? "Your mailbox's own address, confirmed." : "Confirmed."
+      : i.confirmed
+        ? !i.own && policy === "off" ? "This server no longer sends from other addresses." : "This server no longer sends through other providers' mail servers."
+        : i.own
+          ? "You signed in with a separate username, so this address isn't confirmed yet."
+          : policy === "server" ? "Your mail server hasn't accepted it as yours." : "Not confirmed yet.";
+  const waiting = !i.confirmed && policy !== "server" && i.codeSentAt !== null;
+  const canCode = !i.confirmed && (policy !== "server" || i.own) && (policy !== "off" || i.own);
+  return (
+    <li className="identity">
+      <div className="identity-main">
+        {renaming !== null ? (
+          <form className="identity-act" onSubmit={(e) => {
+            e.preventDefault();
+            void run(() => api.renameIdentity(acct.index, i.id!, renaming)).then((ok) => ok && setRenaming(null));
+          }}>
+            <input className="text-input" aria-label={`Name for ${i.address}`} placeholder="Name" value={renaming} autoFocus maxLength={200} onChange={(e) => setRenaming(e.target.value)} />
+            <button type="submit" className="btn btn-primary" disabled={busy}>Save</button>
+            <button type="button" className="btn btn-text" onClick={() => setRenaming(null)}>Cancel</button>
+          </form>
+        ) : (
+          <div className="identity-who">{name ? <>{name} <span className="muted">&lt;{i.address}&gt;</span></> : i.address}</div>
+        )}
+        <div className="identity-status">
+          {status}
+          {waiting && ` A code went to it ${relative(i.codeSentAt!)}.`}
+          {i.server && ` Sent through ${i.server.host}:${i.server.port}.`}
+        </div>
+        {canCode && (
+          <form className="identity-act" onSubmit={(e) => {
+            e.preventDefault();
+            void run(() => api.confirmIdentity(acct.index, ref, code), `You can send as ${i.address} now.`).then((ok) => ok && setCode(""));
+          }}>
+            {waiting && (
+              <>
+                <input className="text-input identity-code" aria-label={`Code sent to ${i.address}`} placeholder="Code" inputMode="numeric" autoComplete="one-time-code"
+                  value={code} maxLength={12} onChange={(e) => setCode(e.target.value)} />
+                <button type="submit" className="btn btn-primary" aria-label={`Confirm ${i.address}`} disabled={busy || !code.trim()}>Confirm</button>
+              </>
+            )}
+            <button type="button" className={`btn ${waiting ? "btn-text" : "btn-outline"}`} disabled={busy} aria-label={`${waiting ? "Send a new code" : "Send a code"} to ${i.address}`}
+              onClick={() => void run(() => api.sendIdentityCode(acct.index, ref), `A code went to ${i.address}.`)}>
+              {waiting ? "Send a new code" : "Send a code"}
+            </button>
+          </form>
+        )}
+        {!i.confirmed && policy === "server" && (
+          <div className="identity-act">
+            <button type="button" className="btn btn-outline" disabled={busy} aria-label={`Ask your mail server again about ${i.address}`}
+              onClick={() => void run(async () => {
+                const r = await api.checkIdentity(acct.index, ref);
+                if (!r.confirmed) toast("Your mail server takes it now. Confirm it with a code.");
+                return r;
+              })}>Ask your mail server again</button>
+          </div>
+        )}
+        {i.server && !i.password && (
+          <form className="identity-act" onSubmit={(e) => {
+            e.preventDefault();
+            void run(() => api.identityPassword(acct.index, i.id!, password), "Its password is in this browser now.").then((ok) => ok && setPassword(""));
+          }}>
+            <span className="identity-note">To send from it in this browser, enter its mail server's password. It's kept for this browser only.</span>
+            <input className="text-input" type="password" aria-label={`Password for ${i.server.login} at ${i.server.host}`} placeholder="Password"
+              autoComplete="off" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <button type="submit" className="btn btn-primary" aria-label={`Use the password for ${i.address}`} disabled={busy || !password}>Use</button>
+          </form>
+        )}
+      </div>
+      {!i.own && i.id !== null && renaming === null && (
+        <div className="identity-tools">
+          <IconButton label={`Rename ${i.address}`} onClick={() => setRenaming(i.name)}><Pencil size={18} /></IconButton>
+          <IconButton label={`Remove ${i.address}`} disabled={busy} onClick={() => void run(() => api.removeIdentity(acct.index, i.id!), `${i.address} removed.`)}>
+            <Trash2 size={18} />
+          </IconButton>
+        </div>
+      )}
+    </li>
+  );
+}
+
+/** A new address: its name and address, and, where allowed, its provider's own mail server. */
+function AddIdentity({ servers, onDone }: { servers: boolean; onDone: (next: SendAddresses | null) => void }) {
+  const acct = useAccount();
+  const [name, setName] = useState(acct.settings?.name ?? "");
+  const [address, setAddress] = useState("");
+  const [own, setOwn] = useState(false);
+  const [host, setHost] = useState("");
+  const [port, setPort] = useState(465);
+  const [security, setSecurity] = useState<"tls" | "starttls">("tls");
+  const [login, setLogin] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      const r = await api.addIdentity(acct.index, {
+        name, address,
+        ...(own ? { server: { host, port, security, login: login.trim() || address.trim(), password } } : {}),
+      });
+      if (r.warning) toast(`${r.identity.address} is in the list, but ${r.warning[0].toLowerCase()}${r.warning.slice(1)}`, { error: true });
+      else toast(r.identity.confirmed ? `You can send as ${r.identity.address} now.` : `A code went to ${r.identity.address}. Enter it here when it arrives.`);
+      onDone(r);
+    } catch (err) {
+      setError((err as Error).message);
+      setBusy(false);
+    }
+  };
+  return (
+    <form className="add-identity" onSubmit={(e) => void submit(e)}>
+      <div className="add-identity-pair">
+        <input className="text-input" aria-label="Name" placeholder="Name" value={name} maxLength={200} onChange={(e) => setName(e.target.value)} />
+        <input className="text-input" type="email" aria-label="Address" placeholder="address@example.com" value={address} autoFocus required maxLength={320}
+          onChange={(e) => setAddress(e.target.value)} />
+      </div>
+      {servers && (
+        <label className="add-identity-check">
+          <input type="checkbox" checked={own} onChange={(e) => setOwn(e.target.checked)} />
+          Send through its own provider's mail server (for an address at another provider)
+        </label>
+      )}
+      {own && (
+        <>
+          <div className="add-identity-server">
+            <input className="text-input" aria-label="Mail server (SMTP)" placeholder="smtp.example.com" value={host} required onChange={(e) => setHost(e.target.value)} />
+            <input className="text-input" type="number" aria-label="Port" min={1} max={65535} value={port} required onChange={(e) => setPort(Number(e.target.value))} />
+            <select className="text-input" aria-label="Security" value={security} onChange={(e) => {
+              const next = e.target.value as "tls" | "starttls";
+              setSecurity(next);
+              setPort(next === "tls" ? 465 : 587);
+            }}>
+              <option value="tls">SSL/TLS</option>
+              <option value="starttls">STARTTLS</option>
+            </select>
+          </div>
+          <div className="add-identity-pair">
+            <input className="text-input" aria-label="Username" placeholder={address.trim() ? `Username, if not ${address.trim()}` : "Username"} value={login} autoComplete="off" onChange={(e) => setLogin(e.target.value)} />
+            <input className="text-input" type="password" aria-label="Password" placeholder="Password" value={password} required autoComplete="off"
+              onChange={(e) => setPassword(e.target.value)} />
+          </div>
+          <p className="identity-note">Its password is kept only in this browser's session, as your mailbox's is: other browsers ask for it again.</p>
+        </>
+      )}
+      {error && <div className="form-error" role="alert">{error}</div>}
+      <div className="identity-act">
+        <button type="submit" className="btn btn-primary" disabled={busy || !address.trim()}>{busy ? "Checking…" : "Add"}</button>
+        <button type="button" className="btn btn-text" onClick={() => onDone(null)}>Cancel</button>
+      </div>
+    </form>
   );
 }
 

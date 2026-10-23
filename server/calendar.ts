@@ -14,7 +14,8 @@ import { VERSION, setting } from "./config.ts";
 import { type ParsedFile, buildFile, busyOnly, parseFile } from "./calendar-file.ts";
 import { FEED_LIMITS, FeedError, feedUrl, fetchFeed } from "./feeds.ts";
 import { log } from "./log.ts";
-import { cleanReminders, getSettings, myAddresses } from "./settings.ts";
+import { sendingAddresses } from "./identities.ts";
+import { cleanReminders, getSettings } from "./settings.ts";
 import { contains, fold } from "./text.ts";
 import { randomToken, sha256 } from "./crypto.ts";
 import {
@@ -484,10 +485,10 @@ async function applyGuests(accountId: number, root: Root, input: unknown): Promi
   for (const e of root.getAllSubcomponents("vevent")) setGuests(e, guests, host);
 }
 
-/** The mailbox's own addresses (its own, and the ones it sends as): who "me" is in an invitation. */
+/** The addresses the mailbox can answer as (its own and the others it sends as, confirmed): who "me" is in an invitation. */
 export async function meOf(accountId: number): Promise<Set<string>> {
-  const account = await state().selectFrom("accounts").select("email").where("id", "=", accountId).executeTakeFirst();
-  return account ? myAddresses(accountId, account.email) : new Set();
+  const account = await state().selectFrom("accounts").select(["id", "login", "email"]).where("id", "=", accountId).executeTakeFirst();
+  return account ? sendingAddresses(account) : new Set();
 }
 
 function checkZone(zone: unknown): string {

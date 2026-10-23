@@ -3,8 +3,9 @@
 // its effect checked, including after clicking into a message or ticking a checkbox,
 // where keys used to go missing. Then the calendar, by mouse and keyboard: clicking and
 // dragging on the grid, Undo, its own keys, ticking calendars on and off, and an event made
-// from an email. And the admin page, offered only in an admin's mailbox. Needs the dev mail
-// server (`npm run dev:mail`), a build (`npm run build`) and Chromium (`npx playwright-core install
+// from an email. Adding an address to send as, with the code emailed to it. And the admin
+// page, offered only in an admin's mailbox. Needs the dev mail server (`npm run dev:mail`),
+// a build (`npm run build`) and Chromium (`npx playwright-core install
 // chromium-headless-shell`). Skipped unless VIAUNA_BROWSER=1.
 //
 //   VIAUNA_BROWSER=1 npx vitest run test/browser.test.ts
@@ -15,6 +16,7 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
+import { ImapFlow } from "imapflow";
 import { type Browser, type Page, type Route, chromium } from "playwright-core";
 import { afterAll, beforeAll, describe, it } from "vitest";
 
@@ -509,6 +511,44 @@ describe.skipIf(!enabled)("in a browser", { timeout: 30_000 }, () => {
         await changeSettings({ ADMIN_ADDRESSES: null }, COMMAND_LINE);
         await inbox();
       }
+    });
+  });
+
+  describe("sending as another address", () => {
+    it("adds it, emails it a code, and offers it to write from once the code is entered", async () => {
+      const alias = user.replace("@", "-alias@");
+      await page.goto(`${base}/u/0/settings`);
+      await page.getByRole("tab", { name: "Accounts" }).click();
+      await page.getByRole("button", { name: "Add another address" }).click();
+      await page.getByLabel("Address", { exact: true }).fill(alias);
+      await page.getByRole("button", { name: "Add", exact: true }).click();
+      await page.getByLabel(`Code sent to ${alias}`).waitFor({ timeout: T * 3 });
+      // The code, from the address's own mailbox: the dev mail server delivers to it.
+      const imap = new ImapFlow({ host: "127.0.0.1", port: 1143, secure: false, doSTARTTLS: false, auth: { user: alias, pass: "pass" }, logger: false });
+      await imap.connect();
+      let code = "";
+      try {
+        code = await until(async () => {
+          const lock = await imap.getMailboxLock("INBOX");
+          try {
+            const found = await imap.search({ subject: "is your code to send as" });
+            if (!found || !found.length) return "";
+            const message = await imap.fetchOne(String(found.at(-1)), { envelope: true });
+            return /^(\d{4}) (\d{4})/.exec((message && message.envelope?.subject) || "")?.slice(1).join("") ?? "";
+          } finally {
+            lock.release();
+          }
+        }, "the code to arrive", T * 3);
+      } finally {
+        await imap.logout().catch(() => {});
+      }
+      await page.getByLabel(`Code sent to ${alias}`).fill(code);
+      await page.getByRole("button", { name: `Confirm ${alias}` }).click();
+      await page.locator(".identity", { hasText: alias }).getByText("Confirmed.").waitFor({ timeout: T });
+      await page.goto(`${base}/u/0/inbox`);
+      await page.getByRole("button", { name: "Compose" }).first().click();
+      await until(async () => (await page.getByLabel("From").locator("option").allTextContents()).some((o) => o.includes(alias)), "the address in the From list");
+      await page.getByRole("button", { name: "Discard draft" }).click();
     });
   });
 

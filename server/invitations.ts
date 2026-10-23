@@ -28,6 +28,7 @@ import {
   type Person,
   type Property,
   type Response,
+  addressOf,
   applyPlain,
   instantIn,
   masterEvent,
@@ -295,7 +296,7 @@ async function sendReply(rt: AccountRuntime, creds: Credentials, root: Component
     html: `<p>${escape(who)} ${says} this invitation.</p><p><b>${escape(title)}</b><br>${escape(when)}</p>`,
     method: "REPLY",
     ics: buildItip("REPLY", replyObject(root, me, response), PRODID),
-  });
+  }, addressOf(mine));
   return true;
 }
 
@@ -573,7 +574,7 @@ export async function notifyGuests(rt: AccountRuntime, creds: Credentials, befor
       ].join("\n"),
       method,
       ics: buildItip(method, root, PRODID),
-    });
+    }, organizer.address);
     return 1;
   };
   let sent = 0;

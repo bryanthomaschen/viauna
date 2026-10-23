@@ -1,7 +1,6 @@
 // Sign-in is the mailbox's own IMAP login — Viauna has no user database of its own.
 // A browser session can hold several mailboxes (Gmail's account switcher), each
 // proven with its own password at sign-in.
-import net from "node:net";
 import type { Transaction } from "kysely";
 import { type Endpoint, type Security, config, endpointKey, setting } from "./config.ts";
 import {
@@ -15,7 +14,7 @@ import {
 import { verifyLogin } from "./imap/connection.ts";
 import { markProven, stopRuntime } from "./imap/pool.ts";
 import { ensureIndexAccount } from "./imap/store.ts";
-import { connectTarget } from "./netpolicy.ts";
+import { checkCustomHost } from "./netpolicy.ts";
 import type { AccountInfo } from "./imap/runtime.ts";
 import { log } from "./log.ts";
 import { passwordChangeFor, runPasswordChange } from "./password.ts";
@@ -90,6 +89,29 @@ export function credentialsFor(ctx: AuthContext, sa: SessionAccount): Credential
   return decryptCredentials(sa.credential, ctx.cookieKey, ctx.sessionHash, sa.account.id);
 }
 
+/**
+ * Keeps the password for an address's own mail server (identities.ts) with the mailbox's in
+ * this session, encrypted the same way, so only this browser can use it and it goes when
+ * the session does; null forgets it. Returns the session's credentials as they now are.
+ */
+export async function keepServerPassword(ctx: AuthContext, sa: SessionAccount, identityId: number, server: Credentials | null): Promise<Credentials> {
+  const creds = credentialsFor(ctx, sa);
+  if (!creds) throw new Error("This session's sign-in for the mailbox can't be read.");
+  const servers = { ...creds.servers };
+  if (server) servers[identityId] = { user: server.user, pass: server.pass };
+  else delete servers[identityId];
+  const next: Credentials = { ...creds, servers };
+  const credential = encryptCredentials(next, ctx.cookieKey, ctx.sessionHash, sa.account.id);
+  await state()
+    .updateTable("session_accounts")
+    .set({ credential })
+    .where("session_id", "=", ctx.sessionHash)
+    .where("account_id", "=", sa.account.id)
+    .execute();
+  sa.credential = credential;
+  return next;
+}
+
 // ------------------------------------------------------------------ rate limiting
 
 const attempts = new Map<string, { count: number; reset: number }>();
@@ -100,7 +122,7 @@ const WINDOW = 15 * 60_000;
  * can't all slip under the limit while the first is still waiting on the server.
  * Returns false when the key is over its limit.
  */
-function take(key: string, max: number): boolean {
+export function take(key: string, max: number): boolean {
   const now = Date.now();
   const entry = attempts.get(key);
   if (!entry || entry.reset < now) {
@@ -145,16 +167,6 @@ export type SignInResult =
   | { ok: false; status: number; error: string };
 
 /** A user-supplied server must be a public host, or it is a way to probe our network. */
-async function checkCustomHost(host: string): Promise<string | null> {
-  if (!/^[a-z0-9.-]{1,253}$/i.test(host) && !net.isIP(host)) return "That server name isn't valid.";
-  try {
-    await connectTarget({ host, port: 0, security: "tls", verify: true, custom: true });
-  } catch (err) {
-    return (err as Error).message;
-  }
-  return null;
-}
-
 function validPort(p: unknown): p is number {
   return typeof p === "number" && Number.isInteger(p) && p > 0 && p < 65536;
 }
@@ -345,7 +357,8 @@ export async function changePassword(
   giveBack(key);
   giveBack(`ip:${meta.ip}`);
 
-  const creds: Credentials = { user: login, pass: next };
+  // Other addresses' server passwords stay with this session; the others are signed out.
+  const creds: Credentials = { ...credentialsFor(ctx, sa), user: login, pass: next };
   const credential = encryptCredentials(creds, ctx.cookieKey, ctx.sessionHash, sa.account.id);
   const signedOut = await state().transaction().execute(async (trx) => {
     await trx
