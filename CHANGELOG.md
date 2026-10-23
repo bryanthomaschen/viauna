@@ -119,6 +119,10 @@ email, give Viauna a mailbox to send from: see
 If you put a login of your own in front of Viauna, leave `/ical/`, `/sw.js`, the manifest
 and the icons out of it: see
 [Reverse proxy](https://bryanthomaschen.github.io/viauna/self-hosting/reverse-proxy). Calendars
+- Text boxes and lists are one size across Viauna, Settings' lists included, and the event
+  editor's labels share one column, with every box starting at one edge.
+- How conversations are grouped is in the docs:
+  [Conversations](https://bryanthomaschen.github.io/viauna/how-it-works/conversations).
 are kept in the state store and nowhere else, so back up `state.db` (or your
 `DATABASE_URL` database) as the
 [upgrading page](https://bryanthomaschen.github.io/viauna/self-hosting/upgrading#backing-up)
