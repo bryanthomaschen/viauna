@@ -44,7 +44,7 @@ Settings that are on or off take `true` or `false`, `1` or `0`, `yes` or `no`, `
 | `TRUST_PROXY` | `false` | Trust `X-Forwarded-For` and `X-Forwarded-Host` from one reverse proxy in front of Viauna. The last `X-Forwarded-For` entry is taken as the client. |
 | `SECURE_COOKIES` | on, unless `PUBLIC_URL` starts with `http://` | Mark cookies `Secure`. |
 | `APP_NAME` | `Viauna` | **Live.** Shown in the title bar and on the sign-in page. |
-| `LINKS` | none | **Live.** Links in the apps menu (the four squares, top right), each for everyone or only in admins' mailboxes, opening in a new tab: your mail server's own pages, a help page. Easiest set on the admin page; in the environment, as JSON: `[{"label": "Mail settings", "url": "https://mail.example.com/admin", "for": "everyone"}, {"label": "Mail admin", "url": "https://mail.example.com/admin/domain/list", "for": "admins"}]`. At most 20; web addresses only. |
+| `LINKS` | none | **Live.** Links in the apps menu (the four squares, top right), each for everyone or only in admins' mailboxes, opening in a new tab: your mail server's own pages, a help page. Easiest set on the admin page; in the environment, as JSON: `[{"label": "Mail settings", "url": "https://mail.example.com/admin", "for": "everyone"}, {"label": "Mail admin", "url": "https://mail.example.com/admin/domain", "for": "admins"}]`. At most 20; web addresses only. |
 | `HOST`, `PORT` | `0.0.0.0`, `3000` in the image | Where to listen. Outside Docker the default host is `127.0.0.1`. |
 
 ## Features
