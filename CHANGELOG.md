@@ -9,6 +9,22 @@ its notes before moving to it. A patch release (0.2.0 to 0.2.1) only fixes thing
 
 ## Unreleased
 
+### Fixed
+
+On a phone:
+
+- Conversations can be selected: press and hold one, then tap others to add them. The list
+  has no checkboxes there, so before only **Select all** could pick any.
+- Settings no longer slides sideways on the Filters and Calendar tabs; the tabs scroll by
+  themselves. The admin page's links fit too.
+- An event's card opens at the foot of the screen, not off its left edge, and tapping a
+  time opens the full editor.
+- An open message's sender, date and buttons no longer overlap, and the Compose button
+  is gone from conversations, where it covered the reply, and from Settings and Contacts.
+- Every toolbar button is on the screen, down to 360 pixels wide; the filter editor's
+  choices, the calendar's title and the schedule's event names fit.
+- Esc closes the menu drawer.
+
 ## 0.6.0 - 2026-10-23
 
 A calendar for each mailbox, with repeating events, reminders and invitations any

@@ -20,6 +20,10 @@ another account**. Each one has its own address in the browser: `/u/0`, `/u/1` a
 A conversation is a message and its replies, including the ones you sent, which are filed
 in Sent. A reply that changes the subject starts a new conversation.
 
+Tick conversations' boxes to act on several at once. On a phone, where the list has no
+boxes, press and hold a conversation to select it, then tap others to add them; tap a
+selected one to leave it out.
+
 New mail appears in the Inbox within about a second, and in other folders within a
 minute. See [How it works: Mail sync](../how-it-works/sync.md).
 

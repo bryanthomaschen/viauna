@@ -59,7 +59,7 @@ import {
 import { CALENDAR_VIEWS, type CalendarView, type Route, calendarPath, navigate } from "../lib/router";
 import { prefs, toast } from "../lib/store";
 import type { Answer, CalendarInfo, EventSummary, Scope } from "../lib/types";
-import { IconButton } from "./common";
+import { IconButton, narrow, useNarrow } from "./common";
 import { deleteEvent, undoable } from "./EventDialog";
 import { Guests } from "./Invitation";
 import { useViewHandlers } from "./shortcuts";
@@ -74,7 +74,9 @@ const FC_VIEW: Record<CalendarView, string> = {
 };
 const VIEW_OF = Object.fromEntries(Object.entries(FC_VIEW).map(([k, v]) => [v, k])) as Record<string, CalendarView>;
 
-const narrow = () => matchMedia("(max-width: 720px)").matches;
+// A phone's toolbar has room for the month ("Oct 2026"), or in the day view, the day.
+const SHORT_TITLE = { month: "short", year: "numeric" } as const;
+const SHORT_DAY_TITLE = { weekday: "short", day: "numeric", month: "short" } as const;
 
 // Viauna's words are English, so the calendar's are too, in the browser's English if it has
 // one (en-GB writes "21 October"); times follow the browser's 12- or 24-hour clock.
@@ -294,6 +296,7 @@ function CalendarGrid({ route }: { route: Route }) {
   const [range, setRange] = useState<{ from: string; to: string; title: string } | null>(null);
   const [quick, setQuick] = useState<QuickState | null>(null);
   const [card, setCard] = useState<CardState | null>(null);
+  const phone = useNarrow();
   const minutes = acct.settings?.eventMinutes ?? 60;
   /** Where the last click on the grid was, for the card its selection opens. */
   const clickedAt = useRef<DOMRect | null>(null);
@@ -403,6 +406,12 @@ function CalendarGrid({ route }: { route: Route }) {
     const at = info.jsEvent ? new DOMRect(info.jsEvent.clientX, info.jsEvent.clientY, 0, 0) : (clickedAt.current ?? new DOMRect(innerWidth / 2, innerHeight / 3, 0, 0));
     clickedAt.current = null;
     setCard(null);
+    // A phone has no room for a card beside the time; the editor opens as the Create button's does.
+    if (narrow()) {
+      calApi()?.unselect();
+      newEvent({ allDay: info.allDay, start, end });
+      return;
+    }
     setQuick({ rect: at, allDay: info.allDay, start, end });
   };
 
@@ -472,7 +481,9 @@ function CalendarGrid({ route }: { route: Route }) {
         views={{
           timeGridFourDays: { type: "timeGrid", duration: { days: 4 } },
           listSchedule: { type: "list", duration: { days: 30 }, noEventsText: "Nothing in the next 30 days" },
+          ...(phone ? { timeGridDay: { titleFormat: SHORT_DAY_TITLE } } : {}),
         }}
+        {...(phone ? { titleFormat: SHORT_TITLE } : {})}
         headerToolbar={false}
         timeZone={zone}
         firstDay={weekStart}
@@ -488,6 +499,8 @@ function CalendarGrid({ route }: { route: Route }) {
         slotDuration="00:15:00"
         slotHeaderInterval="01:00:00"
         slotHeaderInnerClass="calendar-slot-label"
+        listItemEventTitleClass="calendar-list-title"
+        listDaysClass="calendar-list-days"
         {...(second
           ? {
               slotHeaderContent: (arg: SlotHeaderInfo) => on.current.secondHour(arg),
@@ -520,7 +533,7 @@ function CalendarGrid({ route }: { route: Route }) {
         eventResize={(info) => void on.current.onMoved(info)}
       />
     ),
-    [zone, weekStart, p.calendarWeekends, p.calendarWeekNumbers, second, secondFrom, scrollTime, fcEvents],
+    [zone, weekStart, p.calendarWeekends, p.calendarWeekNumbers, second, secondFrom, scrollTime, fcEvents, phone],
   );
 
   return (
@@ -529,7 +542,10 @@ function CalendarGrid({ route }: { route: Route }) {
         <button type="button" className="btn btn-outline" onClick={() => go(view, today(zone))}>Today</button>
         <IconButton label={`Previous ${view === "month" ? "month" : view === "day" ? "day" : "period"}`} onClick={() => step(-1)}><ChevronLeft size={20} /></IconButton>
         <IconButton label={`Next ${view === "month" ? "month" : view === "day" ? "day" : "period"}`} onClick={() => step(1)}><ChevronRight size={20} /></IconButton>
-        <h2 className="calendar-title" aria-live="polite">{range?.title ?? ""}</h2>
+        <h2 className="calendar-title" aria-live="polite">
+          {/* A phone's schedule names the month it starts in; its days say the rest. */}
+          {phone && view === "schedule" && range ? Temporal.PlainDate.from(range.from).toLocaleString(LOCALE, SHORT_TITLE) : range?.title ?? ""}
+        </h2>
         <div className="grow" />
         {events.isFetching && <div className="spinner" aria-label="Loading events" />}
         <DropdownMenu.Root>
@@ -570,12 +586,19 @@ function CalendarGrid({ route }: { route: Route }) {
   );
 }
 
-/** An anchor at a point or an element's box, for a card that opens where the click was. */
+/**
+ * An anchor at a point or an element's box, for a card that opens where the click was; on a
+ * phone, where the card is as wide as the screen, at the foot of the screen (see cardSide).
+ */
 function At({ rect }: { rect: DOMRect }) {
-  const virtual = useRef({ getBoundingClientRect: () => rect });
-  virtual.current.getBoundingClientRect = () => rect;
+  const at = () => (narrow() ? new DOMRect(innerWidth / 2, innerHeight - 8, 0, 0) : rect);
+  const virtual = useRef({ getBoundingClientRect: at });
+  virtual.current.getBoundingClientRect = at;
   return <Popover.Anchor virtualRef={virtual} />;
 }
+
+/** Which side of its anchor a card opens on: beside it, or on a phone, above the foot of the screen. */
+const cardSide = () => (narrow() ? { side: "top", align: "center" } as const : { side: "right", align: "start" } as const);
 
 /** Click or drag on the grid: a title, and Save; "More options" opens the full editor. */
 function QuickCreate({ state, calendars, onClose, onSaved }: { state: QuickState; calendars: CalendarInfo[]; onClose: () => void; onSaved: () => void }) {
@@ -612,7 +635,7 @@ function QuickCreate({ state, calendars, onClose, onSaved }: { state: QuickState
     <Popover.Root open onOpenChange={(o) => !o && onClose()}>
       <At rect={state.rect} />
       <Popover.Portal>
-        <Popover.Content className="popover event-card" side="right" align="start" sideOffset={8} collisionPadding={16} aria-label="New event">
+        <Popover.Content className="popover event-card" {...cardSide()} sideOffset={8} collisionPadding={16} aria-label="New event">
           <div className="event-card-tools">
             <IconButton label="Close" size="sm" onClick={onClose}><X size={18} /></IconButton>
           </div>
@@ -657,7 +680,7 @@ function ContactDateCard({ state, calendars, onClose }: { state: CardState; cale
     <Popover.Root open onOpenChange={(o) => !o && onClose()}>
       <At rect={state.rect} />
       <Popover.Portal>
-        <Popover.Content className="popover event-card" side="right" align="start" sideOffset={8} collisionPadding={16} aria-label={e.title}
+        <Popover.Content className="popover event-card" {...cardSide()} sideOffset={8} collisionPadding={16} aria-label={e.title}
           tabIndex={-1} onOpenAutoFocus={(ev) => { ev.preventDefault(); (ev.currentTarget as HTMLElement).focus(); }}>
           <div className="event-card-tools">
             <IconButton label="Close" size="sm" onClick={onClose}><X size={18} /></IconButton>
@@ -735,7 +758,7 @@ function EventCard({ state, calendars, onClose, onChanged }: { state: CardState;
     <Popover.Root open onOpenChange={(o) => !o && onClose()}>
       <At rect={state.rect} />
       <Popover.Portal>
-        <Popover.Content className="popover event-card" side="right" align="start" sideOffset={8} collisionPadding={16} aria-label={e.title || "Event"}
+        <Popover.Content className="popover event-card" {...cardSide()} sideOffset={8} collisionPadding={16} aria-label={e.title || "Event"}
           tabIndex={-1} onOpenAutoFocus={(ev) => { ev.preventDefault(); (ev.currentTarget as HTMLElement).focus(); }}>
           <div className="event-card-tools">
             {!e.readOnly && <IconButton label="Edit event" size="sm" onClick={edit}><Pencil size={18} /></IconButton>}

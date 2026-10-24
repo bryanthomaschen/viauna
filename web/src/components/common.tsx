@@ -309,6 +309,22 @@ function FolderDialog() {
   );
 }
 
+/** A phone's screen, as the stylesheet's narrow rules have it (`max-width: 720px`). */
+const NARROW = "(max-width: 720px)";
+export const narrow = () => matchMedia(NARROW).matches;
+
+/** Whether the screen is a phone's, after a resize too. */
+export function useNarrow() {
+  const [is, setIs] = useState(narrow);
+  useEffect(() => {
+    const media = matchMedia(NARROW);
+    const change = () => setIs(media.matches);
+    media.addEventListener("change", change);
+    return () => media.removeEventListener("change", change);
+  }, []);
+  return is;
+}
+
 /** Debounced value, for search-as-you-type inputs. */
 export function useDebounced<T>(value: T, ms: number): T {
   const [v, setV] = useState(value);

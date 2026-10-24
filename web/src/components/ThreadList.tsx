@@ -13,7 +13,7 @@ import { listDate, participantLine, textOn } from "../lib/format";
 import { type Folder, type Route, folderPath, navigate, threadPath, viewParam } from "../lib/router";
 import { toast } from "../lib/store";
 import type { Label, ThreadSummary } from "../lib/types";
-import { IconButton } from "./common";
+import { IconButton, useNarrow } from "./common";
 import { LabelPicker, MovePicker } from "./Pickers";
 import { steeringByKeyboard, useViewHandlers } from "./shortcuts";
 import { THREAD_DRAG } from "./Sidebar";
@@ -49,6 +49,9 @@ interface RowProps {
   folder: Folder;
   selected: boolean;
   focused: boolean;
+  /** A phone's list: no checkboxes, so a long press selects, and while anything is, a tap too. */
+  phone: boolean;
+  selecting: boolean;
   labels: Map<string, Label>;
   inboxId: number | undefined;
   onOpen: (t: ThreadSummary) => void;
@@ -57,8 +60,20 @@ interface RowProps {
   onDragStart: (e: DragEvent, id: number) => void;
 }
 
-const Row = memo(function Row({ t, folder, selected, focused, labels, inboxId, onOpen, onSelect, onAction, onDragStart }: RowProps) {
+const LONG_PRESS_MS = 450;
+
+const Row = memo(function Row({ t, folder, selected, focused, phone, selecting, labels, inboxId, onOpen, onSelect, onAction, onDragStart }: RowProps) {
   const { parts, count } = participantLine(t.participants, t.count);
+  // A finger held still on the row; moving it (a scroll) or lifting it early lets go.
+  const press = useRef<{ timer: number; x: number; y: number; done: boolean } | null>(null);
+  const letGo = () => {
+    const p = press.current;
+    if (p && !p.done) {
+      clearTimeout(p.timer);
+      press.current = null;
+    }
+  };
+  useEffect(() => letGo, []);
   const sentView = folder.kind === "sent";
   const showInbox = (folder.kind === "search" || folder.kind === "all" || folder.kind === "starred" || folder.kind === "label") && inboxId !== undefined && t.mailboxIds.includes(inboxId);
   const caps = folderCaps(folder, null);
@@ -67,11 +82,32 @@ const Row = memo(function Row({ t, folder, selected, focused, labels, inboxId, o
       className={`row ${t.unread ? "unread" : ""} ${selected ? "selected" : ""} ${focused ? "focused" : ""}`}
       role="row"
       aria-selected={selected}
-      draggable
+      draggable={!phone}
       onDragStart={(e) => onDragStart(e, t.id)}
+      onPointerDown={(e) => {
+        if (!phone || e.pointerType !== "touch" || (e.target as HTMLElement).closest("button, input")) return;
+        const timer = window.setTimeout(() => {
+          if (press.current) press.current.done = true;
+          onSelect(t.id, false);
+        }, LONG_PRESS_MS);
+        press.current = { timer, x: e.clientX, y: e.clientY, done: false };
+      }}
+      onPointerMove={(e) => {
+        const p = press.current;
+        if (p && !p.done && Math.hypot(e.clientX - p.x, e.clientY - p.y) > 10) letGo();
+      }}
+      onPointerUp={letGo}
+      onPointerCancel={letGo}
+      // A long press is a selection, not the browser's menu for the row.
+      onContextMenu={(e) => { if (press.current?.done) e.preventDefault(); }}
       onClick={(e) => {
         if ((e.target as HTMLElement).closest("button, input")) return;
-        onOpen(t);
+        if (press.current?.done) {
+          press.current = null;
+          return;
+        }
+        if (phone && selecting) onSelect(t.id, false);
+        else onOpen(t);
       }}
     >
       <div className="cells-left">
@@ -161,6 +197,7 @@ export function ThreadList({ route }: { route: Route }) {
   const data = query.data;
   const threads = data?.threads ?? NO_THREADS;
   const { cursor, selected } = listState.use();
+  const phone = useNarrow();
   const lastClicked = useRef<number | null>(null);
   const [menu, setMenu] = useState<"label" | "move" | null>(null);
 
@@ -318,7 +355,7 @@ export function ThreadList({ route }: { route: Route }) {
 
   return (
     <>
-      <div className="toolbar" role="toolbar" aria-label="Conversation actions">
+      <div className={`toolbar ${sel.length ? "selecting" : ""}`} role="toolbar" aria-label="Conversation actions">
         <div className="select-all">
           <IconButton label="Select" size="sm" onClick={() => (sel.length ? selectBy(() => false) : selectBy(() => true))}>
             <input type="checkbox" className="checkbox" readOnly tabIndex={-1} aria-hidden checked={allSelected}
@@ -414,8 +451,8 @@ export function ThreadList({ route }: { route: Route }) {
             {start + 1}–{Math.min(start + threads.length, total)} of {total.toLocaleString()}
           </span>
         )}
-        <IconButton label="Newer" disabled={route.page === 0} onClick={() => page(route.page - 1)}><ChevronLeft size={18} /></IconButton>
-        <IconButton label="Older" disabled={start + size >= total} onClick={() => page(route.page + 1)}><ChevronRight size={18} /></IconButton>
+        <IconButton label="Newer" className="pager" disabled={route.page === 0} onClick={() => page(route.page - 1)}><ChevronLeft size={18} /></IconButton>
+        <IconButton label="Older" className="pager" disabled={start + size >= total} onClick={() => page(route.page + 1)}><ChevronRight size={18} /></IconButton>
       </div>
 
       {!acct.ready ? (
@@ -427,7 +464,7 @@ export function ThreadList({ route }: { route: Route }) {
       ) : null}
       {acct.syncError && <div className="sync-banner">Can't reach the mail server right now ({acct.syncError}). Retrying…</div>}
 
-      <div className="list" role="grid" aria-label="Conversations" aria-busy={query.isFetching}>
+      <div className={`list ${sel.length ? "selecting" : ""}`} role="grid" aria-label="Conversations" aria-busy={query.isFetching}>
         {query.isPending ? (
           <div className="empty"><div className="spinner lg" /></div>
         ) : query.isError ? (
@@ -453,6 +490,8 @@ export function ThreadList({ route }: { route: Route }) {
                 folder={folder}
                 selected={selected.has(t.id)}
                 focused={i === cursor}
+                phone={phone}
+                selecting={sel.length > 0}
                 labels={acct.labelByKeyword}
                 inboxId={acct.special.inbox?.id}
                 onOpen={(x) => void open(x)}

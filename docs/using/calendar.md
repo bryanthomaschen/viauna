@@ -95,7 +95,8 @@ none works until they're on again.
 - **Click a time** on the calendar: a card asks for a title. **Save** it, or choose
   **More options** for everything else. The event lasts your default length (an hour,
   unless you changed it in Settings > Calendar). **Drag** across times to choose how
-  long. In the month view, a click makes an all-day event.
+  long. In the month view, a click makes an all-day event. On a phone, a tap on a time
+  opens the full editor instead.
 - **Create**, at the top left, opens the full editor, starting at the next half hour.
 - **From an email**: open the message's menu (the three dots) and choose
   **Create event**. The title is the subject, and the description has the start of the

@@ -388,6 +388,8 @@ function MessageCard({
               <span className="from-name">{displayName(from) || "(unknown sender)"}</span>
               {from?.name && <span className="from-addr">&lt;{from.address}&gt;</span>}
             </div>
+            {/* On a phone the date goes here, under the name, rather than beside it. */}
+            <div className="date-narrow">{fullDate(msg.date)}</div>
             <Popover.Root>
               <Popover.Trigger asChild>
                 <button type="button" className="to-line" onClick={(e) => e.stopPropagation()}>

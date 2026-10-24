@@ -3,8 +3,9 @@
 // its effect checked, including after clicking into a message or ticking a checkbox,
 // where keys used to go missing. Then the calendar, by mouse and keyboard: clicking and
 // dragging on the grid, Undo, its own keys, ticking calendars on and off, and an event made
-// from an email. Adding an address to send as, with the code emailed to it. And the admin
-// page, offered only in an admin's mailbox. Needs the dev mail server (`npm run dev:mail`),
+// from an email. Adding an address to send as, with the code emailed to it. The admin
+// page, offered only in an admin's mailbox. And a phone's screen, by touch: selecting with a
+// long press, and nothing wider than the screen. Needs the dev mail server (`npm run dev:mail`),
 // a build (`npm run build`) and Chromium (`npx playwright-core install
 // chromium-headless-shell`). Skipped unless VIAUNA_BROWSER=1.
 //
@@ -792,6 +793,117 @@ describe.skipIf(!enabled)("in a browser", { timeout: 30_000 }, () => {
       const link = description.match(/https?:\/\/\S+/)![0];
       await page.goto(link);
       await until(async () => (await rows()).length === 1, "the search for that message");
+    });
+  });
+
+  describe("on a phone", () => {
+    const W = 390;
+    const H = 844;
+    let desktop: Page;
+    beforeAll(async () => {
+      desktop = page;
+      page = await (await browser.newContext({ viewport: { width: W, height: H }, isMobile: true, hasTouch: true })).newPage();
+      await page.goto(`${base}/login`);
+      await page.getByLabel("Email address").fill(user);
+      await page.getByLabel("Password").fill("pass");
+      await page.getByRole("button", { name: "Next" }).click();
+      await page.waitForURL(/\/u\/0\/inbox/);
+    });
+    afterAll(async () => {
+      await page.context().close();
+      page = desktop;
+    });
+    /** A finger held on an element, longer than a tap. */
+    const longPress = async (selector: string, nth: number) => {
+      const box = (await page.locator(selector).nth(nth).boundingBox())!;
+      const cdp = await page.context().newCDPSession(page);
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }] });
+      await page.waitForTimeout(700);
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      await cdp.detach();
+    };
+    const selectedRows = () => page.locator(".row.selected").count();
+    /** How far a box reaches past its width: the page under it scrolling sideways. */
+    const sideways = (selector: string) => page.locator(selector).evaluate((el) => el.scrollWidth - el.clientWidth);
+
+    it("a long press selects, a tap then selects another rather than opening it, and with nothing selected a tap opens", async () => {
+      await page.goto(`${base}/u/0/inbox`);
+      await page.locator(".row").nth(1).waitFor();
+      await longPress(".row .summary", 0);
+      await until(async () => (await selectedRows()) === 1, "a long press to select the row");
+      await page.locator(".row .summary").nth(1).tap();
+      await until(async () => (await selectedRows()) === 2, "a tap to select a second row");
+      if (where() !== "/u/0/inbox") throw new Error(`a tap while selecting went to ${where()}`);
+      await page.getByRole("toolbar").getByRole("button", { name: "Archive" }).waitFor({ timeout: T });
+      if ((await sideways(".toolbar")) > 1) throw new Error("the selection's toolbar is wider than the screen");
+      await page.locator(".row .summary").nth(0).tap();
+      await page.locator(".row .summary").nth(1).tap();
+      await until(async () => (await selectedRows()) === 0, "taps to clear the selection");
+      await page.locator(".row .summary").nth(0).tap();
+      await until(() => page.locator(".msg").count(), "a tap to open the conversation");
+      if (await page.locator(".compose-fab").count()) throw new Error("the Compose button is over the conversation and its reply");
+      if ((await sideways(".toolbar")) > 1) throw new Error("the conversation's toolbar is wider than the screen");
+    });
+
+    it("no settings tab, nor the admin page with a long link, is wider than the screen", async () => {
+      for (const tab of ["General", "Accounts", "Labels", "Folders", "Filters", "Calendar"]) {
+        await page.goto(`${base}/u/0/settings`);
+        await page.getByRole("tab", { name: tab }).tap();
+        await page.waitForTimeout(200);
+        const over = await sideways(".settings");
+        if (over > 1) throw new Error(`Settings > ${tab} is ${over}px wider than the screen`);
+      }
+      const { COMMAND_LINE, changeSettings } = await import("../server/instance.ts");
+      await changeSettings({
+        ADMIN_ADDRESSES: user,
+        LINKS: [{ label: "Mail account settings", url: "https://mail.example.test/admin/user/settings/a-long-way-down", for: "everyone" }],
+      }, COMMAND_LINE);
+      try {
+        await page.goto(`${base}/u/0/admin`);
+        await page.locator(".links-table").waitFor({ timeout: T });
+        const over = await sideways(".admin-main");
+        if (over > 1) throw new Error(`the admin page is ${over}px wider than the screen`);
+      } finally {
+        await changeSettings({ ADMIN_ADDRESSES: null, LINKS: null }, COMMAND_LINE);
+      }
+    });
+
+    it("an event's card opens on the screen, and a tap on a time opens the editor at that time", async () => {
+      const zone = await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
+      await page.goto(`${base}/u/0/inbox`);
+      await page.evaluate(async (zone) => {
+        const { calendars } = await (await fetch("/api/u/0/calendar/calendars")).json();
+        const body = {
+          calendarId: calendars.find((c: { primary: boolean }) => c.primary).id, title: "Lunch on the phone", allDay: false,
+          start: "2030-02-06T12:00", end: "2030-02-06T13:00", zone, endZone: null, location: "", description: "", busy: true,
+          color: null, video: null, repeat: null, reminders: [], notify: false,
+        };
+        const r = await fetch(`/api/u/0/calendar/events?zone=${encodeURIComponent(zone)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        if (!r.ok) throw new Error(await r.text());
+      }, zone);
+      await page.goto(`${base}/u/0/calendar/day/2030-02-06`);
+      const lunch = page.locator(".calendar-grid [role=button]", { hasText: "Lunch on the phone" }).first();
+      await lunch.waitFor({ timeout: T });
+      await lunch.evaluate((el) => el.scrollIntoView({ block: "center" }));
+      await lunch.tap();
+      const card = page.locator(".event-card");
+      await until(() => card.count(), "the event's card");
+      await page.waitForTimeout(300);
+      const box = (await card.boundingBox())!;
+      if (box.x < 0 || box.y < 0 || box.x + box.width > W || box.y + box.height > H) throw new Error(`the card is at ${JSON.stringify(box)}, off a ${W}×${H} screen`);
+      await card.getByRole("button", { name: "Close" }).tap();
+      await until(async () => !(await card.count()), "the card to close");
+
+      const row = page.locator(".calendar-grid [data-time='09:00:00']").last();
+      await row.evaluate((el) => el.scrollIntoView({ block: "center" }));
+      const at = (await row.boundingBox())!;
+      await page.touchscreen.tap(at.x + at.width / 2, at.y + at.height / 2);
+      const dialog = page.getByRole("dialog", { name: "New event" });
+      await until(() => dialog.count(), "a tap on 09:00 to open the editor");
+      const times = await dialog.locator("input[type=time]").evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value));
+      if (times[0] !== "09:00") throw new Error(`the editor opened at ${times.join("–")}`);
+      if (await page.locator(".event-card").count()) throw new Error("a card opened as well as the editor");
+      await dialog.getByRole("button", { name: "Cancel" }).tap();
     });
   });
 });

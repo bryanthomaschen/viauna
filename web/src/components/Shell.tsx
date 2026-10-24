@@ -67,9 +67,14 @@ function useDocumentTitle(route: Route, appName: string) {
   }, [route, acct, unread, appName]);
 }
 
-/** The floating Compose button on phones, where the sidebar is a drawer; Create in the calendar. */
+/**
+ * The floating Compose button on phones, where the sidebar is a drawer; Create in the calendar.
+ * Only over a list: in a conversation it would cover the reply, and Settings and Contacts have
+ * their own buttons.
+ */
 function ComposeFab({ route }: { route: Route }) {
   const acct = useAccount();
+  if (route.name === "mail" ? route.thread !== null : route.name !== "calendar") return null;
   if (route.name === "calendar") {
     return (
       <button type="button" className="compose-btn compose-fab" onClick={() => ui.set((s) => ({ ...s, eventDialog: { initial: {} } }))}>
@@ -103,6 +108,15 @@ function ShellInner({ route, appName }: { route: Route; appName: string }) {
   useShortcuts(route);
   useCommandMenuKey();
   useDocumentTitle(route, appName);
+  // The phone's drawer closes with Escape, as a dialog does.
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const close = (e: KeyboardEvent) => {
+      if (e.key === "Escape") ui.set((s) => ({ ...s, sidebarOpen: false }));
+    };
+    addEventListener("keydown", close);
+    return () => removeEventListener("keydown", close);
+  }, [sidebarOpen]);
   return (
     <div className="app">
       <Header route={route} appName={appName} />

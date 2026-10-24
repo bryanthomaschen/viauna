@@ -8,12 +8,12 @@ import { useConfig } from "../lib/config";
 import { type Route, calendarPath, calendarSearchPath, folderPath, navigate } from "../lib/router";
 import { prefs } from "../lib/store";
 import { MOD_KEY } from "./CommandMenu";
-import { Avatar, IconButton } from "./common";
+import { Avatar, IconButton, narrow } from "./common";
 
 export function Header({ route, appName }: { route: Route; appName: string }) {
   const acct = useAccount();
   const toggleSidebar = () => {
-    if (matchMedia("(max-width: 720px)").matches) ui.set((s) => ({ ...s, sidebarOpen: !s.sidebarOpen }));
+    if (narrow()) ui.set((s) => ({ ...s, sidebarOpen: !s.sidebarOpen }));
     else prefs.set((p) => ({ ...p, sidebarCollapsed: !p.sidebarCollapsed }));
   };
   return (
