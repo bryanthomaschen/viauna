@@ -4,10 +4,11 @@
 // where keys used to go missing. Then the calendar, by mouse and keyboard: clicking and
 // dragging on the grid, Undo, its own keys, ticking calendars on and off, and an event made
 // from an email. Adding an address to send as, with the code emailed to it. The admin
-// page, offered only in an admin's mailbox. And a phone's screen, by touch: selecting with a
-// long press, and nothing wider than the screen. Needs the dev mail server (`npm run dev:mail`),
-// a build (`npm run build`) and Chromium (`npx playwright-core install
-// chromium-headless-shell`). Skipped unless VIAUNA_BROWSER=1.
+// page, offered only in an admin's mailbox. A menu in dark mode, which must stand out from
+// the list. And a phone's screen, by touch: selecting with a long press, and nothing wider
+// than the screen. Needs the dev mail server (`npm run dev:mail`), a build (`npm run build`)
+// and Chromium (`npx playwright-core install chromium-headless-shell`). Skipped unless
+// VIAUNA_BROWSER=1.
 //
 //   VIAUNA_BROWSER=1 npx vitest run test/browser.test.ts
 import { execFile } from "node:child_process";
@@ -471,6 +472,35 @@ describe.skipIf(!enabled)("in a browser", { timeout: 30_000 }, () => {
       }
     });
   });
+
+  describe("in dark mode", () => {
+    afterAll(() => page.emulateMedia({ colorScheme: null }));
+    /** WCAG's contrast ratio of two computed `rgb()` colours. */
+    const contrast = (a: string, b: string) => {
+      const lum = (rgb: string) => {
+        const [r, g, bl] = rgb.match(/\d+/g)!.slice(0, 3).map((v) => {
+          const c = Number(v) / 255;
+          return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+        });
+        return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+      };
+      const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+      return (hi + 0.05) / (lo + 0.05);
+    };
+
+    it("a menu stands out from the list it opens over", async () => {
+      // Shadows barely show on a dark page, so the menu's own colour has to differ.
+      await page.emulateMedia({ colorScheme: "dark" });
+      await inbox();
+      await page.locator(".toolbar").getByRole("button", { name: "More" }).first().click();
+      await until(pickerOpen, "the More menu");
+      const [menu, list] = await page.evaluate(() => [".menu", ".main"].map((s) => getComputedStyle(document.querySelector(s)!).backgroundColor));
+      await press("Escape");
+      const ratio = contrast(menu, list);
+      if (ratio < 1.2) throw new Error(`the menu (${menu}) is as dark as the list (${list}): contrast ${ratio.toFixed(2)}`);
+    });
+  });
+
   describe("the admin page", () => {
     it("is in the menu only in an admin's mailbox, acts as that mailbox, and adds links for everyone or admins", async () => {
       // A second mailbox, the admin, signed in beside the first, which isn't one.

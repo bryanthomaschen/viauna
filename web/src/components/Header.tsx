@@ -172,7 +172,7 @@ function AdvancedSearch({ onSearch, onClose }: { onSearch: (q: string) => void; 
       .filter(Boolean)
       .join(" ");
   const field = (key: keyof typeof f, label: string) => (
-    <div className="row">
+    <div className="adv-row">
       <label htmlFor={`adv-${key}`}>{label}</label>
       <input id={`adv-${key}`} type="text" value={f[key] as string} onChange={(e) => setF({ ...f, [key]: e.target.value })}
         onKeyDown={(e) => e.key === "Enter" && onSearch(build())} />
@@ -185,7 +185,7 @@ function AdvancedSearch({ onSearch, onClose }: { onSearch: (q: string) => void; 
       {field("subject", "Subject")}
       {field("words", "Has the words")}
       {field("without", "Doesn't have")}
-      <div className="row">
+      <div className="adv-row">
         <label htmlFor="adv-within">Date within</label>
         <select id="adv-within" value={f.within} onChange={(e) => setF({ ...f, within: e.target.value })}>
           <option value="">Any time</option>
@@ -196,7 +196,7 @@ function AdvancedSearch({ onSearch, onClose }: { onSearch: (q: string) => void; 
           <option value="1y">1 year</option>
         </select>
       </div>
-      <div className="row">
+      <div className="adv-row">
         <span />
         <label style={{ display: "flex", gap: 8, alignItems: "center", color: "var(--text)" }}>
           <input type="checkbox" checked={f.attachment} onChange={(e) => setF({ ...f, attachment: e.target.checked })} /> Has attachment

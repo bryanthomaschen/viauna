@@ -25,6 +25,13 @@ On a phone:
   choices, the calendar's title and the schedule's event names fit.
 - Esc closes the menu drawer.
 
+Elsewhere:
+
+- In dark mode, menus, pop-ups and dialogs are a lighter grey than the mail behind them,
+  and the page behind a dialog dims. A menu such as **More** was the same colour as the
+  message list, so it was hard to see that it had opened.
+- The search options' fields no longer look like rows of the message list.
+
 ## 0.6.0 - 2026-10-23
 
 A calendar for each mailbox, with repeating events, reminders and invitations any

@@ -7,6 +7,8 @@
   --surface-2: #f2f6fc;          /* read rows, quiet panels */
   --surface-3: #eaf1fb;          /* search field */
   --surface-hover: #e9eef6;
+  --surface-raised: #ffffff;     /* menus, popovers, dialogs: above the mail list */
+  --surface-raised-hover: #e9eef6;
   --nav-active: #d3e3fd;
   --compose-btn: #c2e7ff;
   --compose-btn-hover: #b3dcf8;
@@ -41,6 +43,8 @@
   --surface-2: #1a1b1c;
   --surface-3: #282a2c;
   --surface-hover: #2d2f31;
+  --surface-raised: #303134;     /* shadows barely show on dark, so tone alone lifts these */
+  --surface-raised-hover: #3c3e41;
   --nav-active: #004a77;
   --compose-btn: #004a77;
   --compose-btn-hover: #005a91;
@@ -60,6 +64,7 @@
   --shadow-1: 0 1px 2px 0 rgba(0, 0, 0, 0.6), 0 1px 3px 1px rgba(0, 0, 0, 0.3);
   --shadow-2: 0 1px 3px 0 rgba(0, 0, 0, 0.6), 0 4px 8px 3px rgba(0, 0, 0, 0.3);
   --shadow-row: inset 1px 0 0 #3c4043, inset -1px 0 0 #3c4043, 0 1px 2px 0 rgba(0, 0, 0, 0.6);
+  --scrim: rgba(0, 0, 0, 0.6);
   --toast: #e3e3e3;
   --toast-text: #1f1f1f;
   color-scheme: dark;
@@ -101,8 +106,8 @@ a { color: var(--primary); }
 .search-field:focus-within { background: var(--surface); box-shadow: var(--shadow-1); }
 .search-field input { flex: 1; border: 0; outline: 0; background: transparent; font-size: 16px; padding: 0 8px; min-width: 0; }
 .search-field input::placeholder { color: var(--text-2); }
-.search-panel { position: absolute; top: 52px; left: 0; right: 0; background: var(--surface); border-radius: 8px; box-shadow: var(--shadow-2); padding: 20px 24px; z-index: 30; }
-.search-panel .row { display: grid; grid-template-columns: 140px 1fr; align-items: center; margin-bottom: 10px; }
+.search-panel { position: absolute; top: 52px; left: 0; right: 0; background: var(--surface-raised); border-radius: 8px; box-shadow: var(--shadow-2); padding: 20px 24px; z-index: 30; }
+.search-panel .adv-row { display: grid; grid-template-columns: 140px 1fr; align-items: center; margin-bottom: 10px; }
 .search-panel label { color: var(--text-2); font-size: 13px; }
 .search-panel input[type="text"], .search-panel select { border: 0; border-bottom: 1px solid var(--border-strong); background: transparent; padding: 6px 0; outline: none; }
 .search-panel input[type="text"]:focus, .search-panel select:focus { border-bottom: 2px solid var(--primary); padding-bottom: 5px; }
@@ -313,9 +318,9 @@ a { color: var(--primary); }
 .rcpt-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rcpt-chip button { display: inline-grid; place-items: center; width: 18px; height: 18px; border: 0; border-radius: 50%; background: none; cursor: pointer; padding: 0; color: var(--text-2); }
 .rcpt-chip button:hover { background: color-mix(in srgb, var(--text) 10%, transparent); }
-.suggest { position: absolute; top: 100%; left: 0; min-width: 320px; max-width: 100%; background: var(--surface); border-radius: 8px; box-shadow: var(--shadow-2); padding: 6px 0; z-index: 70; }
+.suggest { position: absolute; top: 100%; left: 0; min-width: 320px; max-width: 100%; background: var(--surface-raised); border-radius: 8px; box-shadow: var(--shadow-2); padding: 6px 0; z-index: 70; }
 .suggest-item { display: flex; align-items: center; gap: 12px; padding: 6px 16px; cursor: pointer; }
-.suggest-item.active, .suggest-item:hover { background: var(--surface-hover); }
+.suggest-item.active, .suggest-item:hover { background: var(--surface-raised-hover); }
 .suggest-item .n { font-size: 14px; }
 .suggest-item .e { font-size: 12px; color: var(--text-3); }
 
@@ -349,9 +354,9 @@ a { color: var(--primary); }
 
 /* ------------------------------------------------------------ menus & dialogs */
 
-.menu { min-width: 200px; max-width: 320px; background: var(--surface); border-radius: 4px; box-shadow: var(--shadow-2); padding: 6px 0; z-index: 80; font-size: 14px; color: var(--text); animation: fade .08s ease-out; }
+.menu { min-width: 200px; max-width: 320px; background: var(--surface-raised); border-radius: 4px; box-shadow: var(--shadow-2); padding: 6px 0; z-index: 80; font-size: 14px; color: var(--text); animation: fade .08s ease-out; }
 .menu-item { display: flex; align-items: center; gap: 12px; height: 32px; padding: 0 16px; cursor: pointer; outline: none; user-select: none; }
-.menu-item[data-highlighted], .menu-item:hover { background: var(--surface-hover); }
+.menu-item[data-highlighted], .menu-item:hover { background: var(--surface-raised-hover); }
 .menu-item[data-disabled] { opacity: .45; cursor: default; }
 .menu-item svg { color: var(--text-2); flex-shrink: 0; }
 .menu-sep { height: 1px; background: var(--border); margin: 6px 0; }
@@ -361,7 +366,7 @@ a { color: var(--primary); }
 .menu-scroll { max-height: 320px; overflow-y: auto; }
 @keyframes fade { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: none; } }
 
-.popover { background: var(--surface); border-radius: 8px; box-shadow: var(--shadow-2); z-index: 80; animation: fade .08s ease-out; }
+.popover { background: var(--surface-raised); border-radius: 8px; box-shadow: var(--shadow-2); z-index: 80; animation: fade .08s ease-out; }
 .account-pop { width: 360px; padding: 16px; border-radius: 24px; background: var(--surface-3); }
 .account-pop .current { text-align: center; padding: 8px 0 16px; }
 .account-pop .current .email { font-size: 14px; color: var(--text-2); margin-bottom: 12px; }
@@ -374,7 +379,7 @@ a { color: var(--primary); }
 .account-pop .foot { display: flex; justify-content: center; gap: 8px; padding-top: 12px; }
 
 .dialog-overlay { position: fixed; inset: 0; background: var(--scrim); z-index: 90; animation: fade .1s; }
-.dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 64px); overflow-y: auto; background: var(--surface); border-radius: 28px; padding: 24px; z-index: 91; box-shadow: var(--shadow-2); }
+.dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 64px); overflow-y: auto; background: var(--surface-raised); border-radius: 28px; padding: 24px; z-index: 91; box-shadow: var(--shadow-2); }
 .dialog h2 { margin: 0 0 16px; font-size: 22px; font-weight: 400; }
 .dialog-text { margin: 0; color: var(--text-2); line-height: 1.5; }
 .dialog .buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; }
@@ -396,7 +401,7 @@ textarea.text-input:focus { padding: 9px 13px; }
 
 /* The command menu (CommandMenu.tsx, cmdk). Centred by its margins, not a transform, which the
    opening animation (fade) would replace: the menu opened half its width to the right. */
-.cmdk { position: fixed; top: 12vh; left: 0; right: 0; margin: 0 auto; width: min(640px, calc(100vw - 32px)); max-height: 70vh; display: flex; flex-direction: column; background: var(--surface); color: var(--text); border-radius: 16px; box-shadow: var(--shadow-2); z-index: 91; overflow: hidden; animation: fade .08s ease-out; }
+.cmdk { position: fixed; top: 12vh; left: 0; right: 0; margin: 0 auto; width: min(640px, calc(100vw - 32px)); max-height: 70vh; display: flex; flex-direction: column; background: var(--surface-raised); color: var(--text); border-radius: 16px; box-shadow: var(--shadow-2); z-index: 91; overflow: hidden; animation: fade .08s ease-out; }
 /* cmdk puts its root between the dialog and the list: both shrink to the 70vh, so the list scrolls. */
 .cmdk [cmdk-root] { display: flex; flex-direction: column; min-height: 0; }
 .cmdk-input { display: flex; align-items: center; gap: 12px; padding: 0 16px; border-bottom: 1px solid var(--border); color: var(--text-2); }
@@ -405,7 +410,7 @@ textarea.text-input:focus { padding: 9px 13px; }
 .cmdk [cmdk-group-heading] { padding: 10px 16px 4px; font-size: 12px; font-weight: 500; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cmdk [cmdk-item] { display: flex; align-items: center; gap: 12px; min-height: 36px; padding: 0 16px; margin: 0 6px; border-radius: 8px; cursor: pointer; font-size: 14px; user-select: none; }
 .cmdk [cmdk-item] svg { color: var(--text-2); flex-shrink: 0; }
-.cmdk [cmdk-item][data-selected="true"] { background: var(--surface-hover); }
+.cmdk [cmdk-item][data-selected="true"] { background: var(--surface-raised-hover); }
 .cmdk-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4px; background: var(--chip); color: var(--chip-text); border: 1px solid var(--border); }
 
@@ -541,7 +546,7 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
   --fc-monarch-selected-down: color-mix(in srgb, var(--nav-active) 80%, var(--text));
   --fc-monarch-outline: var(--primary);
   --fc-monarch-ring-color: var(--primary);
-  --fc-monarch-popover: var(--surface);
+  --fc-monarch-popover: var(--surface-raised);
   --fc-monarch-popover-foreground: var(--text);
   --fc-monarch-background: var(--surface);
   --fc-monarch-faint: color-mix(in srgb, var(--text) 4%, transparent);
@@ -659,7 +664,7 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
 .event-form { display: flex; flex-direction: column; gap: 10px; }
 .event-form, .secret-address { --event-label: 96px; }
 /* A long event scrolls under Save and Cancel, which stay at the dialog's foot. */
-.event-editor > .buttons { position: sticky; bottom: -24px; z-index: 1; margin: 14px -24px -24px; padding: 12px 24px 24px; background: var(--surface); border-top: 1px solid var(--border); border-radius: 0 0 28px 28px; }
+.event-editor > .buttons { position: sticky; bottom: -24px; z-index: 1; margin: 14px -24px -24px; padding: 12px 24px 24px; background: var(--surface-raised); border-top: 1px solid var(--border); border-radius: 0 0 28px 28px; }
 /* Its fields, all disabled at once for an event from the web; no box of its own. */
 .event-fieldset { display: contents; }
 .feed-status { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin: 10px 0; font-size: 13px; }
@@ -689,7 +694,7 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
 .custom-row .text-input { width: auto; }
 .custom-row input[type="number"] { width: 72px; }
 .weekday-row { gap: 6px; }
-.weekday { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border-strong); background: var(--surface); cursor: pointer; font-size: 12px; font-weight: 500; color: var(--text-2); }
+.weekday { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border-strong); background: var(--surface-raised); cursor: pointer; font-size: 12px; font-weight: 500; color: var(--text-2); }
 .weekday.on { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
 .custom-repeat > select.text-input { width: auto; align-self: flex-start; }
 .custom-ends { display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
