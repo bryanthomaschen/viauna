@@ -463,6 +463,33 @@ describe.skipIf(!enabled)("in a browser", { timeout: 30_000 }, () => {
       await press("Escape");
     });
 
+    it("the search options close with Esc or a click outside, and search from their fields", async () => {
+      await inbox();
+      const options = page.getByRole("dialog", { name: "Search options" });
+      const open = async () => {
+        await page.getByRole("button", { name: "Show search options" }).click();
+        await until(() => options.count(), "the search options");
+        // Radix starts listening for clicks outside a task after opening, so the click that
+        // opened it doesn't close it; a test's next click can come sooner than a person's.
+        await page.waitForTimeout(100);
+      };
+      const focused = () => page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? document.activeElement?.tagName);
+      await open();
+      await press("Escape");
+      await until(async () => !(await options.count()), "Esc to close the search options");
+      if ((await focused()) !== "Show search options") throw new Error(`focus went to ${await focused()}, not back to the button`);
+      await open();
+      await page.mouse.click(120, 760); // the sidebar, below its folders
+      await until(async () => !(await options.count()), "a click outside to close the search options");
+      await open();
+      await options.getByLabel("Subject").fill("hike");
+      await press("Enter");
+      await until(() => where() === "/u/0/search/subject%3Ahike", "the search");
+      await until(async () => !(await options.count()), "the search options to close");
+      // Focus isn't handed back to the button after a search, so keys go to the results.
+      if ((await focused()) !== "BODY") throw new Error(`focus is on ${await focused()} after the search`);
+    });
+
     it("g then i, s, t, d, a go to folders", async () => {
       for (const [k, re] of [["s", /\/starred$/], ["t", /\/sent$/], ["d", /\/drafts$/], ["a", /\/all$/], ["i", /\/inbox$/]] as const) {
         await blur();

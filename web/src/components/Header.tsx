@@ -103,6 +103,7 @@ function SearchBox({ route }: { route: Route }) {
   const current = events ? (route.calendar?.search ?? "") : route.folder.kind === "search" ? route.folder.query : "";
   const [q, setQ] = useState(current);
   const [advanced, setAdvanced] = useState(false);
+  const searched = useRef(false);
   const input = useRef<HTMLInputElement>(null);
   const focusTick = ui.use((s) => s.searchFocus);
 
@@ -122,37 +123,54 @@ function SearchBox({ route }: { route: Route }) {
   };
 
   return (
-    <div className="search">
-      <form className="search-field" role="search" onSubmit={submit}>
-        <IconButton label="Search" type="submit">
-          <Search size={20} />
-        </IconButton>
-        <input
-          ref={input}
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder={events ? "Search calendar" : "Search mail"}
-          aria-label={events ? "Search calendar" : "Search mail"}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") {
-              setQ(current);
-              input.current?.blur();
-            }
-          }}
-        />
-        {q && (
-          <IconButton label="Clear search" onClick={() => { setQ(""); if (current) navigate(events ? calendarPath(acct.index) : folderPath(acct.index, { kind: "inbox" })); }}>
-            <X size={20} />
-          </IconButton>
-        )}
-        {!events && (
-          <IconButton label="Show search options" onClick={() => setAdvanced((a) => !a)}>
-            <SlidersHorizontal size={20} />
-          </IconButton>
-        )}
-      </form>
-      {advanced && <AdvancedSearch onSearch={(query) => { setQ(query); submit(undefined, query); }} onClose={() => setAdvanced(false)} />}
-    </div>
+    <Popover.Root open={advanced} onOpenChange={setAdvanced}>
+      <Popover.Anchor asChild>
+        <div className="search">
+          <form className="search-field" role="search" onSubmit={submit}>
+            <IconButton label="Search" type="submit">
+              <Search size={20} />
+            </IconButton>
+            <input
+              ref={input}
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder={events ? "Search calendar" : "Search mail"}
+              aria-label={events ? "Search calendar" : "Search mail"}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setQ(current);
+                  input.current?.blur();
+                }
+              }}
+            />
+            {q && (
+              <IconButton label="Clear search" onClick={() => { setQ(""); if (current) navigate(events ? calendarPath(acct.index) : folderPath(acct.index, { kind: "inbox" })); }}>
+                <X size={20} />
+              </IconButton>
+            )}
+            {!events && (
+              <Popover.Trigger asChild>
+                <IconButton label="Show search options">
+                  <SlidersHorizontal size={20} />
+                </IconButton>
+              </Popover.Trigger>
+            )}
+          </form>
+        </div>
+      </Popover.Anchor>
+      <Popover.Portal>
+        {/* Esc and a click outside close it, as they do any pop-up. After a search, focus
+            isn't handed back to the button, so keys go to the results, as after a search
+            typed in the box. */}
+        <Popover.Content className="search-panel" align="start" sideOffset={4} aria-label="Search options"
+          onCloseAutoFocus={(e) => {
+            if (searched.current) e.preventDefault();
+            searched.current = false;
+          }}>
+          <AdvancedSearch onSearch={(query) => { searched.current = true; setQ(query); submit(undefined, query); }} onClose={() => setAdvanced(false)} />
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
   );
 }
 
@@ -179,7 +197,7 @@ function AdvancedSearch({ onSearch, onClose }: { onSearch: (q: string) => void; 
     </div>
   );
   return (
-    <div className="search-panel" role="dialog" aria-label="Search options">
+    <>
       {field("from", "From")}
       {field("to", "To")}
       {field("subject", "Subject")}
@@ -206,7 +224,7 @@ function AdvancedSearch({ onSearch, onClose }: { onSearch: (q: string) => void; 
         <button type="button" className="btn btn-text" onClick={onClose}>Cancel</button>
         <button type="button" className="btn btn-primary" onClick={() => onSearch(build())}>Search</button>
       </div>
-    </div>
+    </>
   );
 }
 

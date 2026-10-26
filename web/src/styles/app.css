@@ -109,7 +109,7 @@ a { color: var(--primary); }
 .search-field:focus-within { background: var(--surface); box-shadow: var(--shadow-1); }
 .search-field input { flex: 1; border: 0; outline: 0; background: transparent; font-size: 16px; padding: 0 8px; min-width: 0; }
 .search-field input::placeholder { color: var(--text-2); }
-.search-panel { position: absolute; top: 52px; left: 0; right: 0; background: var(--surface-raised); border-radius: 8px; box-shadow: var(--shadow-2); padding: 20px 24px; z-index: 30; }
+.search-panel { width: var(--radix-popover-trigger-width); background: var(--surface-raised); border-radius: 8px; box-shadow: var(--shadow-2); padding: 20px 24px; z-index: 30; }
 .search-panel .adv-row { display: grid; grid-template-columns: 140px 1fr; align-items: center; margin-bottom: 10px; }
 .search-panel label { color: var(--text-2); font-size: 13px; }
 .search-panel input[type="text"], .search-panel select { border: 0; border-bottom: 1px solid var(--border-strong); background: transparent; padding: 6px 0; outline: none; }

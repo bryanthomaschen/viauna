@@ -31,7 +31,8 @@ Elsewhere:
   grey than the mail behind them; the page behind a dialog dims. A menu such as **More**
   was the same colour as the message list, so it was hard to see that it had opened. A
   button stays highlighted while its menu is open.
-- The search options' fields no longer look like rows of the message list.
+- The search options' fields no longer look like rows of the message list, and the panel
+  closes with Esc or a click outside it. It opens with **From** ready to type in.
 - Closing a menu with a click outside it no longer shows its button's tooltip (such as
   **More**). Tooltips still show when a button is reached with the keyboard.
 
