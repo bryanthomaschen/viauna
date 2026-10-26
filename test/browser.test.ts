@@ -501,6 +501,29 @@ describe.skipIf(!enabled)("in a browser", { timeout: 30_000 }, () => {
     });
   });
 
+  describe("a button's tooltip", () => {
+    const more = () => page.locator(".toolbar").getByRole("button", { name: "More" }).first();
+    const tooltip = () => page.locator(".tooltip").count();
+
+    it("doesn't show when its menu, closed by a click outside, gives the button back its focus", async () => {
+      await inbox();
+      await more().click();
+      await until(pickerOpen, "the More menu");
+      await page.mouse.click(700, 500);
+      await until(async () => !(await pickerOpen()), "the menu to close");
+      await page.waitForTimeout(800);
+      if (await tooltip()) throw new Error("the tooltip showed after the menu closed");
+    });
+
+    it("still shows when the button is reached by keyboard", async () => {
+      await inbox();
+      await page.getByRole("button", { name: "Refresh" }).focus();
+      await press("Tab");
+      await until(tooltip, "the tooltip on More");
+      await blur();
+    });
+  });
+
   describe("the admin page", () => {
     it("is in the menu only in an admin's mailbox, acts as that mailbox, and adds links for everyone or admins", async () => {
       // A second mailbox, the admin, signed in beside the first, which isn't one.

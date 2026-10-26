@@ -23,12 +23,25 @@ export function Avatar({ person, size = 40 }: { person: Address | undefined; siz
 
 type IconButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & { label: string; size?: "sm" | "xs"; children: ReactNode };
 
+/** Whether the user's last act was a key, rather than a click or tap. :focus-visible can't
+ * tell: a menu opened by a click takes focus by script, which Chromium counts as keyboard
+ * focus, and so does the button it hands focus back to. */
+let byKeyboard = false;
+addEventListener("keydown", () => (byKeyboard = true), true);
+addEventListener("pointerdown", () => (byKeyboard = false), true);
+
 /** A round icon button with a tooltip; the label is also its accessible name. */
-export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton({ label, size, children, className, ...rest }, ref) {
+export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton({ label, size, children, className, onFocus, ...rest }, ref) {
   return (
     <Tooltip.Root delayDuration={500}>
       <Tooltip.Trigger asChild>
-        <button ref={ref} type="button" aria-label={label} className={`icon-btn ${size ?? ""} ${className ?? ""}`} {...rest}>
+        <button ref={ref} type="button" aria-label={label} className={`icon-btn ${size ?? ""} ${className ?? ""}`} {...rest}
+          onFocus={(e) => {
+            onFocus?.(e);
+            // The tooltip opens on focus, which a closing menu or dialog hands back to its
+            // button after a click too. Only focus from the keyboard should show it.
+            if (!byKeyboard) e.preventDefault();
+          }}>
           {children}
         </button>
       </Tooltip.Trigger>

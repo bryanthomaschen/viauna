@@ -31,6 +31,8 @@ Elsewhere:
   and the page behind a dialog dims. A menu such as **More** was the same colour as the
   message list, so it was hard to see that it had opened.
 - The search options' fields no longer look like rows of the message list.
+- Closing a menu with a click outside it no longer shows its button's tooltip (such as
+  **More**). Tooltips still show when a button is reached with the keyboard.
 
 ## 0.6.0 - 2026-10-23
 
