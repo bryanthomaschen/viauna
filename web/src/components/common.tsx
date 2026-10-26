@@ -2,7 +2,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
-import { type ButtonHTMLAttributes, type ReactNode, forwardRef, useEffect, useState } from "react";
+import { type ButtonHTMLAttributes, type PointerEvent, type ReactNode, forwardRef, useEffect, useState } from "react";
 import { type ConfirmRequest, ui, useAccount } from "../lib/account";
 import { api } from "../lib/api";
 import { avatarColor, initial } from "../lib/format";
@@ -52,6 +52,23 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       </Tooltip.Portal>
     </Tooltip.Root>
   );
+});
+
+let pressed: { target: EventTarget | null; x: number; y: number } = { target: null, x: 0, y: 0 };
+addEventListener("pointerdown", (e) => (pressed = { target: e.target, x: e.clientX, y: e.clientY }), true);
+
+/** Where a menu opens, spread into its Content, for a button `size` pixels high: its corner
+ * 10px below and before the button's centre, over the button's foot, so the first item is
+ * just below the pointer that clicked it. A menu opens as its button is pressed, and
+ * letting go over an item chooses it, as a press dragged onto one should. Letting go where
+ * the press began is a click on the button, though, even with the menu now under it. */
+export const menuPlacement = (size = 40) => ({
+  sideOffset: 10 - size / 2,
+  alignOffset: size / 2 - 10,
+  onPointerUpCapture: (e: PointerEvent<HTMLElement>) => {
+    const opening = !e.currentTarget.contains(pressed.target as Node | null);
+    if (opening && Math.hypot(e.clientX - pressed.x, e.clientY - pressed.y) < 8) e.preventDefault();
+  },
 });
 
 export function Toasts() {

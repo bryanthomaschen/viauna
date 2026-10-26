@@ -5,7 +5,8 @@
 // dragging on the grid, Undo, its own keys, ticking calendars on and off, and an event made
 // from an email. Adding an address to send as, with the code emailed to it. The admin
 // page, offered only in an admin's mailbox. A menu in dark mode, which must stand out from
-// the list. And a phone's screen, by touch: selecting with a long press, and nothing wider
+// the list, and where a menu opens: over its button, without the click that opened it
+// choosing an item. And a phone's screen, by touch: selecting with a long press, and nothing wider
 // than the screen. Needs the dev mail server (`npm run dev:mail`), a build (`npm run build`)
 // and Chromium (`npx playwright-core install chromium-headless-shell`). Skipped unless
 // VIAUNA_BROWSER=1.
@@ -525,6 +526,43 @@ describe.skipIf(!enabled)("in a browser", { timeout: 30_000 }, () => {
       await press("Escape");
       const ratio = contrast(menu, list);
       if (ratio < 1.2) throw new Error(`the menu (${menu}) is as dark as the list (${list}): contrast ${ratio.toFixed(2)}`);
+    });
+  });
+
+  describe("a menu", () => {
+    it("opens over the foot of its button, its first item just below the pointer, and the click that opened it chooses nothing", async () => {
+      await inbox();
+      const more = page.locator(".toolbar").getByRole("button", { name: "More" }).first();
+      const button = (await more.boundingBox())!;
+      const unread = await page.locator(".row.unread").count();
+      if (!unread) throw new Error("no unread conversation, so Mark all as read can't be chosen");
+      // Pressed at the button's foot, where the menu then lies: letting go there is still a click on the button.
+      await page.mouse.click(button.x + button.width / 2, button.y + button.height - 1);
+      await until(pickerOpen, "the More menu");
+      await page.waitForTimeout(300);
+      if (!(await page.locator(".menu[data-state=open]").count())) throw new Error("letting go of the click that opened the menu chose its first item");
+      const menu = (await page.locator(".menu").boundingBox())!;
+      const first = (await page.locator(".menu .menu-item").first().boundingBox())!;
+      await press("Escape");
+      if (await page.locator(".row.unread").count() !== unread) throw new Error("the click that opened the menu marked mail as read");
+      const foot = button.y + button.height;
+      const centre = { x: button.x + button.width / 2, y: button.y + button.height / 2 };
+      if (!(menu.y < foot)) throw new Error(`the menu (top ${menu.y}) opens below its button (foot ${foot}), not over it`);
+      if (first.y - centre.y > 20) throw new Error(`the first item is ${first.y - centre.y}px below the button's centre`);
+      if (!(menu.x > button.x && menu.x < centre.x)) throw new Error(`the menu's edge (${menu.x}) isn't set in under the pointer (button ${button.x}–${centre.x})`);
+    });
+
+    it("chooses the item a press is dragged onto", async () => {
+      await inbox();
+      const chevron = (await page.getByRole("button", { name: "Select options" }).boundingBox())!;
+      await page.mouse.move(chevron.x + chevron.width / 2, chevron.y + chevron.height / 2);
+      await page.mouse.down();
+      await until(pickerOpen, "the select menu");
+      const all = (await page.locator(".menu .menu-item", { hasText: /^All$/ }).boundingBox())!;
+      await page.mouse.move(all.x + all.width / 2, all.y + all.height / 2, { steps: 5 });
+      await page.mouse.up();
+      await until(async () => !(await pickerOpen()) && (await page.locator(".row.selected").count()) === (await page.locator(".row").count()), "every conversation to be selected");
+      await page.getByRole("button", { name: "Select", exact: true }).click();
     });
   });
 

@@ -11,7 +11,7 @@ import { longDate, relative } from "../lib/format";
 import { contactsPath, navigate } from "../lib/router";
 import { toast } from "../lib/store";
 import type { ContactFields, ContactSync, TidyProposal } from "../lib/types";
-import { Avatar, IconButton, Modal, useDebounced } from "./common";
+import { Avatar, IconButton, Modal, menuPlacement, useDebounced } from "./common";
 
 const EMPTY: ContactFields = {
   firstName: "", lastName: "", nickname: "", emails: [], phones: [], organization: "", title: "", birthday: "", dates: [], labels: [], notes: "",
@@ -110,7 +110,7 @@ export function ContactsView({ label }: { label: string | null }) {
               </button>
             </DropdownMenu.Trigger>
             <DropdownMenu.Portal>
-              <DropdownMenu.Content className="menu label-menu" align="start" sideOffset={4}>
+              <DropdownMenu.Content className="menu label-menu" align="start" {...menuPlacement(36)}>
                 <DropdownMenu.Item className="menu-item" onSelect={() => navigate(contactsPath(acct.index))}>All contacts</DropdownMenu.Item>
                 <DropdownMenu.Separator className="menu-sep" />
                 {labels.map((l) => (
@@ -138,7 +138,7 @@ export function ContactsView({ label }: { label: string | null }) {
             <IconButton label="More"><EllipsisVertical size={20} /></IconButton>
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
-            <DropdownMenu.Content className="menu" align="end" sideOffset={4}>
+            <DropdownMenu.Content className="menu" align="end" {...menuPlacement()}>
               <DropdownMenu.Item className="menu-item" onSelect={() => open({ birthday: true })}><Plus size={18} /> Add a birthday</DropdownMenu.Item>
               <DropdownMenu.Item className="menu-item" onSelect={() => setTidying(true)}><Sparkles size={18} /> Tidy up names</DropdownMenu.Item>
               {label && (

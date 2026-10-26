@@ -13,7 +13,7 @@ import { listDate, participantLine, textOn } from "../lib/format";
 import { type Folder, type Route, folderPath, navigate, threadPath, viewParam } from "../lib/router";
 import { toast } from "../lib/store";
 import type { Label, ThreadSummary } from "../lib/types";
-import { IconButton, useNarrow } from "./common";
+import { IconButton, menuPlacement, useNarrow } from "./common";
 import { LabelPicker, MovePicker } from "./Pickers";
 import { steeringByKeyboard, useViewHandlers } from "./shortcuts";
 import { THREAD_DRAG } from "./Sidebar";
@@ -366,7 +366,7 @@ export function ThreadList({ route }: { route: Route }) {
               <button type="button" className="icon-btn xs" aria-label="Select options"><ChevronDown size={16} /></button>
             </DropdownMenu.Trigger>
             <DropdownMenu.Portal>
-              <DropdownMenu.Content className="menu" align="start" sideOffset={4}>
+              <DropdownMenu.Content className="menu" align="start" {...menuPlacement(24)}>
                 {([
                   ["All", () => true],
                   ["None", () => false],
@@ -394,7 +394,7 @@ export function ThreadList({ route }: { route: Route }) {
                 <IconButton label="More"><EllipsisVertical size={18} /></IconButton>
               </DropdownMenu.Trigger>
               <DropdownMenu.Portal>
-                <DropdownMenu.Content className="menu" align="start" sideOffset={4}>
+                <DropdownMenu.Content className="menu" align="start" {...menuPlacement()}>
                   <DropdownMenu.Item className="menu-item" disabled={!threads.some((t) => t.unread)}
                     onSelect={() => act({ action: "read", threads: threads.filter((t) => t.unread).map((t) => t.id) })}>
                     <MailOpen size={18} /> Mark all as read
@@ -437,7 +437,7 @@ export function ThreadList({ route }: { route: Route }) {
                 <IconButton label="More"><EllipsisVertical size={18} /></IconButton>
               </DropdownMenu.Trigger>
               <DropdownMenu.Portal>
-                <DropdownMenu.Content className="menu" align="start" sideOffset={4}>
+                <DropdownMenu.Content className="menu" align="start" {...menuPlacement()}>
                   <DropdownMenu.Item className="menu-item" onSelect={() => act({ action: "star", threads: sel })}><Star size={18} /> Add star</DropdownMenu.Item>
                   <DropdownMenu.Item className="menu-item" onSelect={() => act({ action: "unstar", threads: sel })}><Star size={18} /> Remove star</DropdownMenu.Item>
                 </DropdownMenu.Content>

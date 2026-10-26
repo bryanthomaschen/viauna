@@ -9,7 +9,7 @@ import { openCompose } from "../lib/compose";
 import { type Folder as FolderRoute, type Route, folderPath, navigate, sameFolder } from "../lib/router";
 import { readLocal, writeLocal } from "../lib/store";
 import type { Mailbox } from "../lib/types";
-import { IconButton, confirmDeleteFolder, confirmRemoveLabel } from "./common";
+import { IconButton, confirmDeleteFolder, confirmRemoveLabel, menuPlacement } from "./common";
 
 export const THREAD_DRAG = "application/x-viauna-threads";
 
@@ -81,7 +81,7 @@ function NavItem({
             </button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
-            <DropdownMenu.Content className="menu" align="start" sideOffset={4}>
+            <DropdownMenu.Content className="menu" align="start" {...menuPlacement(24)}>
               {menu}
             </DropdownMenu.Content>
           </DropdownMenu.Portal>

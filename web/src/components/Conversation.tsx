@@ -15,7 +15,7 @@ import { displayName, fileSize, fullDate, listDate } from "../lib/format";
 import { type Route, folderPath, navigate, threadPath, viewParam } from "../lib/router";
 import { toast } from "../lib/store";
 import type { Address, AttachmentInfo, Conversation, MessageMeta, MessageRef } from "../lib/types";
-import { Avatar, IconButton } from "./common";
+import { Avatar, IconButton, menuPlacement } from "./common";
 import { EmailFrame } from "./EmailFrame";
 import { InvitationCard } from "./Invitation";
 import { LabelPicker, MovePicker } from "./Pickers";
@@ -424,7 +424,7 @@ function MessageCard({
                 <IconButton label="More" size="sm"><EllipsisVertical size={18} /></IconButton>
               </DropdownMenu.Trigger>
               <DropdownMenu.Portal>
-                <DropdownMenu.Content className="menu" align="end" sideOffset={4}>
+                <DropdownMenu.Content className="menu" align="end" {...menuPlacement(32)}>
                   <DropdownMenu.Item className="menu-item" onSelect={() => onReply("reply")}><Reply size={18} /> Reply</DropdownMenu.Item>
                   <DropdownMenu.Item className="menu-item" onSelect={() => onReply("replyAll")}><ReplyAll size={18} /> Reply all</DropdownMenu.Item>
                   <DropdownMenu.Item className="menu-item" onSelect={() => onReply("forward")}><Forward size={18} /> Forward</DropdownMenu.Item>

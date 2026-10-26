@@ -35,6 +35,9 @@ Elsewhere:
   closes with Esc or a click outside it. It opens with **From** ready to type in.
 - Closing a menu with a click outside it no longer shows its button's tooltip (such as
   **More**). Tooltips still show when a button is reached with the keyboard.
+- A menu opens over the foot of its button, with its first item just below the pointer, so
+  **Mark all as read** and the like are a short move from the click that opened the menu.
+  That click never chooses an item; pressing the button and dragging onto one still does.
 
 ## 0.6.0 - 2026-10-23
 

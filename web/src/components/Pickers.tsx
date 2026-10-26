@@ -4,6 +4,7 @@ import { Folder, Inbox, Plus, Square, SquareCheck, SquareMinus } from "lucide-re
 import { type ReactNode, useMemo, useState } from "react";
 import { ui, useAccount } from "../lib/account";
 import type { Mailbox } from "../lib/types";
+import { menuPlacement } from "./common";
 
 export function LabelPicker({
   trigger,
@@ -29,7 +30,7 @@ export function LabelPicker({
     <Popover.Root open={open} onOpenChange={(o) => { onOpenChange?.(o); if (!o) setQ(""); }}>
       <Popover.Trigger asChild>{trigger}</Popover.Trigger>
       <Popover.Portal>
-        <Popover.Content className="menu" align="start" sideOffset={4} onOpenAutoFocus={(e) => e.preventDefault()}>
+        <Popover.Content className="menu" align="start" {...menuPlacement()} onOpenAutoFocus={(e) => e.preventDefault()}>
           <div className="menu-label">Label as:</div>
           <div className="menu-search">
             <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search labels" aria-label="Search labels"
@@ -96,7 +97,7 @@ export function MovePicker({
     <Popover.Root open={open} onOpenChange={(o) => { onOpenChange?.(o); if (!o) setQ(""); }}>
       <Popover.Trigger asChild>{trigger}</Popover.Trigger>
       <Popover.Portal>
-        <Popover.Content className="menu" align="start" sideOffset={4}>
+        <Popover.Content className="menu" align="start" {...menuPlacement()}>
           <div className="menu-label">Move to:</div>
           <div className="menu-search">
             <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search folders" aria-label="Search folders"

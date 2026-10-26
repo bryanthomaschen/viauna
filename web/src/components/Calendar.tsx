@@ -59,7 +59,7 @@ import {
 import { CALENDAR_VIEWS, type CalendarView, type Route, calendarPath, navigate } from "../lib/router";
 import { prefs, toast } from "../lib/store";
 import type { Answer, CalendarInfo, EventSummary, Scope } from "../lib/types";
-import { IconButton, narrow, useNarrow } from "./common";
+import { IconButton, menuPlacement, narrow, useNarrow } from "./common";
 import { deleteEvent, undoable } from "./EventDialog";
 import { Guests } from "./Invitation";
 import { useViewHandlers } from "./shortcuts";
@@ -164,7 +164,7 @@ export function CalendarSidebar({ route, collapsed, open }: { route: Route; coll
           </button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
-          <DropdownMenu.Content className="menu" align="start" sideOffset={4}>
+          <DropdownMenu.Content className="menu" align="start" {...menuPlacement(24)}>
             <DropdownMenu.Item className="menu-item" onSelect={() => only(c)}><Eye size={18} /> Show only this one</DropdownMenu.Item>
             <DropdownMenu.Item className="menu-item" onSelect={() => ui.set((s) => ({ ...s, calendarDialog: { calendar: c } }))}>
               <Settings size={18} /> {c.kind === "feed" ? "Settings" : "Name and colour"}
@@ -216,7 +216,7 @@ export function CalendarSidebar({ route, collapsed, open }: { route: Route; coll
             <IconButton label="Add a calendar" size="sm"><Plus size={18} /></IconButton>
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
-            <DropdownMenu.Content className="menu" align="end" sideOffset={4}>
+            <DropdownMenu.Content className="menu" align="end" {...menuPlacement(32)}>
               <DropdownMenu.Item className="menu-item" onSelect={() => ui.set((s) => ({ ...s, calendarDialog: {} }))}><Plus size={18} /> New calendar</DropdownMenu.Item>
               <DropdownMenu.Item className="menu-item" onSelect={() => ui.set((s) => ({ ...s, importDialog: true }))}><Upload size={18} /> Import from a file (.ics)</DropdownMenu.Item>
               {feeds && (
@@ -555,7 +555,7 @@ function CalendarGrid({ route }: { route: Route }) {
             </button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
-            <DropdownMenu.Content className="menu" align="end" sideOffset={4}>
+            <DropdownMenu.Content className="menu" align="end" {...menuPlacement(36)}>
               {CALENDAR_VIEWS.map((v) => (
                 <DropdownMenu.Item key={v} className="menu-item" onSelect={() => go(v, date)}>
                   <span style={{ flex: 1 }}>{VIEW_LABELS[v]}</span>
