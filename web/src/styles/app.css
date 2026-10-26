@@ -1,6 +1,9 @@
 /* Viauna — layout and look. Material-3-style tokens; light and dark themes. */
 
-:root {
+/* Menus keep the light theme in dark mode, as tooltips do: a light menu can't be mistaken
+   for the dark mail under it. */
+:root,
+:root[data-theme="dark"] .menu {
   --font: Roboto, "Helvetica Neue", Arial, sans-serif;
   --page: #f6f8fc;
   --surface: #ffffff;
@@ -115,6 +118,7 @@ a { color: var(--primary); }
 
 .icon-btn { display: inline-grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 50%; background: transparent; color: var(--text-2); cursor: pointer; flex-shrink: 0; }
 .icon-btn:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
+.icon-btn[data-state="open"] { background: color-mix(in srgb, var(--text) 16%, transparent); }
 .icon-btn:active { background: color-mix(in srgb, var(--text) 12%, transparent); }
 .icon-btn:disabled { opacity: .38; cursor: default; background: transparent; }
 .icon-btn.sm { width: 32px; height: 32px; }

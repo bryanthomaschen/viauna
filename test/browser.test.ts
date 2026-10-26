@@ -489,7 +489,7 @@ describe.skipIf(!enabled)("in a browser", { timeout: 30_000 }, () => {
     };
 
     it("a menu stands out from the list it opens over", async () => {
-      // Shadows barely show on a dark page, so the menu's own colour has to differ.
+      // Shadows barely show on a dark page, so the menu's own colour has to differ (it's light).
       await page.emulateMedia({ colorScheme: "dark" });
       await inbox();
       await page.locator(".toolbar").getByRole("button", { name: "More" }).first().click();
