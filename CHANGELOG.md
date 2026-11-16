@@ -9,6 +9,8 @@ its notes before moving to it. A patch release (0.2.0 to 0.2.1) only fixes thing
 
 ## Unreleased
 
+## 0.6.1 - 2026-11-16
+
 ### Security
 
 - A From header written in an unusual but valid way (a comment inside a comment, or a `;`

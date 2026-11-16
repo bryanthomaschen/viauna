@@ -62,7 +62,7 @@ Viauna serves plain HTTP and relies on the proxy for TLS.
 | Tag | |
 |---|---|
 | `0.6` | The newest 0.6.x release. Recommended: each pull brings fixes, never a new version's changes. |
-| `0.6.0` | Exactly that release. |
+| `0.6.1` | Exactly that release. |
 | `latest` | The newest release, whatever its version. |
 | `edge` | The current `main` branch: unreleased and less tested. These docs describe the latest release; for `edge`, read [`docs/` on GitHub](https://github.com/bryanthomaschen/viauna/tree/main/docs). |
 
