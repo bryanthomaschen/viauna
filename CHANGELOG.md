@@ -9,6 +9,21 @@ its notes before moving to it. A patch release (0.2.0 to 0.2.1) only fixes thing
 
 ## Unreleased
 
+### Security
+
+- A From header written in an unusual but valid way (a comment inside a comment, or a `;`
+  inside a name) could be read as an address hidden inside it. Viauna uses that address to
+  decide whether a message is from a sender whose images you always show, so a stranger
+  could have the images in their message load as if they came from someone you trust. The
+  sender shown on the message was never affected. Fixed by updating the library that reads
+  messages (mailparser 3.9.47, with nodemailer 10.1.7).
+- The web server libraries (hono 4.13.18, @hono/node-server 2.1.8) and the parser for
+  CardDAV replies (fast-xml-parser 5.12.1) are updated for their published security
+  fixes. Viauna 0.6.0 was checked against each: none let a request past sign-in, and the
+  rest are in parts Viauna doesn't use. One change you may notice: a request whose path
+  has a backslash (`\`) is now refused with 400, so it can't slip past a reverse proxy's
+  rules for that path.
+
 ### Fixed
 
 On a phone:
