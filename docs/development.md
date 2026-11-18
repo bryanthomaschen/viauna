@@ -118,3 +118,9 @@ cd docs
 npm install
 npm run dev           # http://127.0.0.1:5173/viauna/
 ```
+
+`docs/package.json` overrides VitePress's Vite with Vite 6. VitePress 1.6.4, the latest
+stable release, asks for Vite 5, whose development server has published security fixes
+only in Vite 6. The built site is the same either way: same pages and scripts, and the
+stylesheet only drops rules for VitePress components the site doesn't use. Remove the
+override once VitePress 2 is out of alpha.
