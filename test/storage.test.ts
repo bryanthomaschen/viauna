@@ -42,6 +42,17 @@ describe.each(ENGINES)("state store on $name", ({ url }) => {
     expect(await state().selectFrom("accounts").selectAll().execute()).toEqual([]);
   });
 
+  it("keeps a password-change choice made on the admin page, under MAILBOX_ADMIN (0.7)", async () => {
+    // As 0.6 left it: the choice and its record under the old key, 0013 not yet run.
+    await state().insertInto("instance_settings").values({ name: "passwordChange", value: '"link"', updated_at: 1, updated_by: "admin@example.test" }).execute();
+    await state().insertInto("admin_log").values({ at: 1, actor: "admin@example.test", setting: "passwordChange", old_value: null, new_value: '"link"' }).execute();
+    await (store.db as any).deleteFrom("viauna_migrations").where("name", "=", "0013_mailbox_admin").execute();
+    const again = await openState(url, path.join(dir, "state.db"));
+    await again.db.destroy();
+    expect(await state().selectFrom("instance_settings").select(["name", "value"]).execute()).toEqual([{ name: "mailboxAdmin", value: '"link"' }]);
+    expect(await state().selectFrom("admin_log").select("setting").execute()).toEqual([{ setting: "mailboxAdmin" }]);
+  });
+
   it("keeps 64-bit times, binary credentials and exact text", async () => {
     const credential = Buffer.from(Array.from({ length: 64 }, (_, i) => (i * 37) % 256));
     await state().insertInto("accounts").values([account(1, "Bob@example.test"), account(2, "bob@example.test")]).execute();

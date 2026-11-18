@@ -389,6 +389,15 @@ export function migrations(dialect: Dialect): MigrationProvider {
         }
       },
     },
+
+    // 0.7: PASSWORD_CHANGE became MAILBOX_ADMIN (changes and resets), so a choice made on
+    // the admin page, and its record in Recent changes, move to the setting's new key.
+    "0013_mailbox_admin": {
+      async up(db: Kysely<any>) {
+        await db.updateTable("instance_settings").set({ name: "mailboxAdmin" }).where("name", "=", "passwordChange").execute();
+        await db.updateTable("admin_log").set({ setting: "mailboxAdmin" }).where("setting", "=", "passwordChange").execute();
+      },
+    },
   };
   return { getMigrations: async () => all };
 }
