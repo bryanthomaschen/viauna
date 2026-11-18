@@ -63,6 +63,18 @@ long as the data volume and the secret are kept.
 The version you're running is shown at the foot of the sign-in page, and by
 `docker exec viauna viauna version`.
 
+### From 0.6 to 0.7
+
+- **`PASSWORD_CHANGE` is now `MAILBOX_ADMIN`**, and each `PASSWORD_CHANGE_*` variable is
+  `MAILBOX_ADMIN_*` with the same ending (the [list](./configuration.md#renamed-in-0-7)).
+  The old names keep working until 1.0, with a warning at startup and on the admin page,
+  and so does a choice made on the admin page.
+- **A command or webhook is now asked what it can do**, and can reset forgotten passwords.
+  Each request has an `action`: `changePassword` (what your script did before), and now
+  `setPassword` and `capabilities`. One set up under its old name is only ever sent
+  password changes, so it keeps working unchanged. Rename its variable once it handles
+  `action`; see [Passwords](./passwords.md#the-requests).
+
 ### From 0.5 to 0.6
 
 - **Back up `state.db` first** (or your `DATABASE_URL` database): calendars, like contacts,

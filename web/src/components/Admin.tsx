@@ -234,10 +234,10 @@ function ChoiceControl({ s, save, locked, server }: { s: AdminSetting; save: Sav
   const current = pending ?? s.value;
   // Where each goes is set only in the environment; until it is, it can't be chosen.
   const needs: Record<string, string | null> = {
-    link: server.passwordUrl ? null : "PASSWORD_CHANGE_URL",
-    command: server.passwordCommand ? null : "PASSWORD_CHANGE_COMMAND",
-    webhook: server.passwordWebhook ? null : "PASSWORD_CHANGE_WEBHOOK",
-    ldap: server.passwordLdap ? null : "PASSWORD_CHANGE_LDAP_URL",
+    link: server.mailboxAdminUrl ? null : "MAILBOX_ADMIN_URL",
+    command: server.mailboxAdminCommand ? null : "MAILBOX_ADMIN_COMMAND",
+    webhook: server.mailboxAdminWebhook ? null : "MAILBOX_ADMIN_WEBHOOK",
+    ldap: server.mailboxAdminLdap ? null : "MAILBOX_ADMIN_LDAP_URL",
   };
   return (
     <>
@@ -379,10 +379,10 @@ function Facts({ server }: { server: ServerFacts }) {
     ["Public address", server.publicUrl ?? "Not set (recommended: requests are then checked against it)", "PUBLIC_URL"],
     ["Behind a reverse proxy", server.trustProxy ? "Yes" : "No", "TRUST_PROXY"],
     ["Private addresses for other servers", server.allowPrivateServers ? "Allowed" : "Not allowed", "ALLOW_PRIVATE_SERVERS"],
-    ["Password page", server.passwordUrl ?? "Not set", "PASSWORD_CHANGE_URL"],
-    ["Password change command", server.passwordCommand ? "Set" : "Not set", "PASSWORD_CHANGE_COMMAND"],
-    ["Password change webhook", server.passwordWebhook ? "Set" : "Not set", "PASSWORD_CHANGE_WEBHOOK"],
-    ["Password change directory", server.passwordLdap ?? "Not set", "PASSWORD_CHANGE_LDAP_URL"],
+    ["Password page", server.mailboxAdminUrl ?? "Not set", "MAILBOX_ADMIN_URL"],
+    ["Password command", server.mailboxAdminCommand ? "Set" : "Not set", "MAILBOX_ADMIN_COMMAND"],
+    ["Password webhook", server.mailboxAdminWebhook ? "Set" : "Not set", "MAILBOX_ADMIN_WEBHOOK"],
+    ["Password directory", server.mailboxAdminLdap ?? "Not set", "MAILBOX_ADMIN_LDAP_URL"],
     ["Contacts server (CardDAV)", server.carddav ?? "Not set: contacts stay in Viauna", "CARDDAV_URL"],
     ["Sender, for reminders by email", server.sender ?? "Not set: reminders aren't emailed", "SENDER_ADDRESS"],
   ];
@@ -391,6 +391,18 @@ function Facts({ server }: { server: ServerFacts }) {
       <p className="setting-note" style={{ margin: 0 }}>
         These are read from the environment when Viauna starts, so they can't be changed here: change them there, then restart Viauna.
       </p>
+      {server.renamed.length > 0 && (
+        <p className="setting-note" role="note" style={{ margin: 0 }}>
+          Set under names Viauna 0.7 replaced, which work until 1.0. Rename them:{" "}
+          {server.renamed.map((r, i) => (
+            <span key={r.old}>
+              {i > 0 && ", "}
+              <code>{r.old}</code> to <code>{r.now}</code>
+            </span>
+          ))}
+          .
+        </p>
+      )}
       <table className="admin-facts">
         <tbody>
           {rows.map(([label, value, env]) => (

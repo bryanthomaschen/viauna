@@ -428,10 +428,12 @@ export interface ServerFacts {
   publicUrl: string | null;
   trustProxy: boolean;
   allowPrivateServers: boolean;
-  passwordUrl: string | null;
-  passwordCommand: boolean;
-  passwordWebhook: boolean;
-  passwordLdap: string | null;
+  mailboxAdminUrl: string | null;
+  mailboxAdminCommand: boolean;
+  mailboxAdminWebhook: boolean;
+  mailboxAdminLdap: string | null;
+  /** Variables still set under a name 0.7 replaced (PASSWORD_CHANGE_*), to rename. */
+  renamed: { old: string; now: string }[];
   carddav: string | null;
   /** Viauna's own sender, for reminders by email: its address and server; null if not set up. */
   sender: string | null;

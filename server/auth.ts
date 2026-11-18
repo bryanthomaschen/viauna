@@ -330,7 +330,7 @@ export async function changePassword(
   input: { current?: unknown; next?: unknown },
   meta: { ip: string },
 ): Promise<PasswordChangeResult> {
-  const how = passwordChangeFor(sa.account);
+  const how = await passwordChangeFor(sa.account);
   if (!how || how.method !== "form") return { ok: false, status: 400, error: "Password changes aren't available here." };
   const current = typeof input.current === "string" ? input.current : "";
   const next = typeof input.next === "string" ? input.next : "";
@@ -388,7 +388,7 @@ export async function changePassword(
   // The running sync still logs in with the old password; start it afresh. The new
   // one is proven on first use, like any other.
   await stopRuntime(sa.account.id);
-  log.info("password changed", { account: sa.account.id, method: setting("passwordChange"), otherSessionsSignedOut: signedOut });
+  log.info("password changed", { account: sa.account.id, method: setting("mailboxAdmin"), otherSessionsSignedOut: signedOut });
   return { ok: true, signedOut };
 }
 

@@ -87,7 +87,7 @@ Most changes apply to the next request. Some only to what happens next:
 | `FILTERS`, `VACATION` | Hidden in Viauna at once. Rules already on the mail server keep running until they're changed. |
 | `FILTER_FORWARDING` | On: at once. Off: filters that forward keep forwarding until the mailbox's filters are next saved. |
 | `APP_NAME` | Pages at once. The mail server sees the new name (in the IMAP `ID` Viauna sends) on new connections. |
-| `PASSWORD_CHANGE` | At once. |
+| `MAILBOX_ADMIN` | At once. A command or webhook is asked what it can do on its next use. |
 | Anything set in the environment | At the next restart. |
 
 There's no button yet to sign everyone out after narrowing who can sign in. Changing

@@ -95,22 +95,35 @@ environment only.
 | `SENDER_LOGIN`, `SENDER_PASSWORD` | `SENDER_ADDRESS`, — | How Viauna signs in to the SMTP server as the sender. Without a password, it sends without signing in, for a server that relays for Viauna's address. |
 | `SENDER_SMTP_HOST`, `SENDER_SMTP_PORT`, `SENDER_SMTP_SECURITY`, `SENDER_SMTP_TLS_SERVERNAME`, `SENDER_SMTP_TLS_VERIFY` | `SMTP_HOST`'s, and with it its port, security, certificate name and checking; for another host, `465`, `tls`, —, `true` | Where it sends from, if not where people send. |
 
-## Admins and password changes
+## Admins and passwords
 
 | Variable | Default | |
 |---|---|---|
 | `ADMIN_ADDRESSES` | — | **Live.** Comma-separated mailboxes that can open the admin page. They must sign in through `IMAP_HOST`. Set here, the list can't be changed from the page or the command line. See [The admin page](../administration/admin-page.md). |
-| `PASSWORD_CHANGE` | `off` | **Live.** How people change their password: `off`, `link`, `command`, `webhook` or `ldap`; each needs its variables below. See [Password changes](./passwords.md). |
-| `PASSWORD_CHANGE_URL` | — | For `link`: your mail server's password page. `{email}` is filled in with the person's address, and `{login}`, `{user}` and `{domain}` with their login, the part before the `@` and the part after, all URL-encoded. Environment only. |
-| `PASSWORD_CHANGE_COMMAND` | — | For `command`: run with the request as JSON on its standard input. Environment only. |
-| `PASSWORD_CHANGE_WEBHOOK` | — | For `webhook`: POSTed the request as JSON. Environment only. |
-| `PASSWORD_CHANGE_WEBHOOK_SECRET` | — | Signs each webhook request. Required with `PASSWORD_CHANGE_WEBHOOK`. Environment only. |
-| `PASSWORD_CHANGE_LDAP_URL` | — | For `ldap`: your directory, as `ldaps://host` or `ldap://host` (then upgraded with StartTLS), with a port if needed but no path. Environment only, like the rest of these. |
-| `PASSWORD_CHANGE_LDAP_USER_DN` | — | The person's entry, as a template containing `{user}` or `{login}`, such as `uid={user},ou=people,dc=example,dc=com`. Or find it with a search; set one or the other, not both: |
-| `PASSWORD_CHANGE_LDAP_SEARCH_BASE`, `PASSWORD_CHANGE_LDAP_SEARCH_FILTER` | —, `(mail={login})` | Where to search for the entry, and the filter that finds it, containing `{user}` or `{login}`. |
-| `PASSWORD_CHANGE_LDAP_BIND_DN`, `PASSWORD_CHANGE_LDAP_BIND_PASSWORD` | — | A service account for the search, if anonymous searches aren't allowed. Set both or neither. |
-| `PASSWORD_CHANGE_LDAP_STARTTLS` | `true` | For `ldap://`: upgrade with StartTLS. `false` sends passwords unencrypted. |
-| `PASSWORD_CHANGE_LDAP_TLS_VERIFY` | `true` | Check the directory's certificate. |
+| `MAILBOX_ADMIN` | `off` | **Live.** How Viauna changes and resets passwords on your mail server: `off`, `link` (changes only), `command`, `webhook` or `ldap`; each needs its variables below. See [Passwords](./passwords.md). |
+| `MAILBOX_ADMIN_URL` | — | For `link`: your mail server's password page. `{email}` is filled in with the person's address, and `{login}`, `{user}` and `{domain}` with their login, the part before the `@` and the part after, all URL-encoded. Environment only. |
+| `MAILBOX_ADMIN_COMMAND` | — | For `command`: run with each request as JSON on its standard input. Environment only. |
+| `MAILBOX_ADMIN_WEBHOOK` | — | For `webhook`: POSTed each request as JSON. Environment only. |
+| `MAILBOX_ADMIN_WEBHOOK_SECRET` | — | Signs each webhook request. Required with `MAILBOX_ADMIN_WEBHOOK`. Environment only. |
+| `MAILBOX_ADMIN_LDAP_URL` | — | For `ldap`: your directory, as `ldaps://host` or `ldap://host` (then upgraded with StartTLS), with a port if needed but no path. Environment only, like the rest of these. |
+| `MAILBOX_ADMIN_LDAP_USER_DN` | — | The person's entry, as a template containing `{user}` or `{login}`, such as `uid={user},ou=people,dc=example,dc=com`. Or find it with a search; set one or the other, not both: |
+| `MAILBOX_ADMIN_LDAP_SEARCH_BASE`, `MAILBOX_ADMIN_LDAP_SEARCH_FILTER` | —, `(mail={login})` | Where to search for the entry, and the filter that finds it, containing `{user}` or `{login}`. |
+| `MAILBOX_ADMIN_LDAP_BIND_DN`, `MAILBOX_ADMIN_LDAP_BIND_PASSWORD` | — | A service account: for the search, if anonymous searches aren't allowed, and for resets. Set both or neither. |
+| `MAILBOX_ADMIN_LDAP_RESET` | `false` | Reset forgotten passwords too, bound as the service account, which the directory must allow to change passwords. |
+| `MAILBOX_ADMIN_LDAP_STARTTLS` | `true` | For `ldap://`: upgrade with StartTLS. `false` sends passwords unencrypted. |
+| `MAILBOX_ADMIN_LDAP_TLS_VERIFY` | `true` | Check the directory's certificate. |
+
+### Renamed in 0.7
+
+`PASSWORD_CHANGE` became `MAILBOX_ADMIN`, and every `PASSWORD_CHANGE_*` variable became
+`MAILBOX_ADMIN_*` with the same ending: `PASSWORD_CHANGE_URL`, `PASSWORD_CHANGE_COMMAND`,
+`PASSWORD_CHANGE_WEBHOOK`, `PASSWORD_CHANGE_WEBHOOK_SECRET`, `PASSWORD_CHANGE_LDAP_URL`,
+`PASSWORD_CHANGE_LDAP_USER_DN`, `PASSWORD_CHANGE_LDAP_SEARCH_BASE`,
+`PASSWORD_CHANGE_LDAP_SEARCH_FILTER`, `PASSWORD_CHANGE_LDAP_BIND_DN`,
+`PASSWORD_CHANGE_LDAP_BIND_PASSWORD`, `PASSWORD_CHANGE_LDAP_STARTTLS` and
+`PASSWORD_CHANGE_LDAP_TLS_VERIFY`. The old names still work until 1.0, with a warning at
+startup and on the admin page. A command or webhook set under its old name is only ever
+sent password changes: see [upgrading](./upgrading.md).
 
 ## Data and logging
 

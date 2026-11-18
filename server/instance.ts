@@ -16,6 +16,7 @@ import {
   lockedBy,
   onOwnServer,
   parseSetting,
+  renamedEnv,
   setOverrides,
   setting,
   settingDef,
@@ -225,7 +226,8 @@ export function isAdmin(account: AccountInfo): boolean {
 const describeLdap = (t: LdapTarget | undefined) =>
   t &&
   `${t.url}${t.startTls ? " with StartTLS" : t.url.startsWith("ldap:") ? ", unencrypted" : ""}${t.verify ? "" : ", certificate not checked"}: ` +
-    (t.userDn ? `binds as ${t.userDn}` : `finds ${t.search!.filter} under ${t.search!.base}${t.search!.bindDn ? ` as ${t.search!.bindDn}` : ""}`);
+    (t.userDn ? `binds as ${t.userDn}` : `finds ${t.search!.filter} under ${t.search!.base}${t.search!.bindDn ? ` as ${t.search!.bindDn}` : ""}`) +
+    (t.reset ? `; resets as ${t.reset.dn}` : "");
 
 const describeEndpoint = (e: Endpoint | null) =>
   e && `${e.host}:${e.port}, ${{ tls: "TLS", starttls: "STARTTLS", none: "unencrypted" }[e.security]}${e.verify ? "" : ", certificate not checked"}`;
@@ -245,10 +247,12 @@ export function serverFacts() {
     publicUrl: config.publicUrl ?? null,
     trustProxy: config.trustProxy,
     allowPrivateServers: config.allowPrivateServers,
-    passwordUrl: config.passwordChangeUrl ?? null,
-    passwordCommand: !!config.passwordCommand,
-    passwordWebhook: !!config.passwordWebhook,
-    passwordLdap: describeLdap(config.passwordLdap),
+    mailboxAdminUrl: config.mailboxAdminUrl ?? null,
+    mailboxAdminCommand: !!config.mailboxAdminCommand,
+    mailboxAdminWebhook: !!config.mailboxAdminWebhook,
+    mailboxAdminLdap: describeLdap(config.mailboxAdminLdap),
+    /** Variables still set under the names 0.7 replaced, to rename. */
+    renamed: renamedEnv.map((r) => ({ ...r })),
     carddav: config.carddavUrl ?? null,
     sender: config.sender && `${config.sender.address}, via ${describeEndpoint(config.sender.smtp)}${config.sender.password ? `, as ${config.sender.login}` : ", without signing in"}`,
   };

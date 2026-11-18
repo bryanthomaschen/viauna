@@ -178,7 +178,7 @@ describe.skipIf(!enabled)("against a real IMAP server", { timeout: 30_000 }, () 
     await call("POST", "/api/auth/logout", { index: 1 });
     expect((await call("GET", "/api/session")).json.accounts).toHaveLength(1);
     expect(page.json.settings.find((s: any) => s.env === "APP_NAME")).toMatchObject({ value: "Viauna", source: "default" });
-    expect(page.json.server).toMatchObject({ imap: "127.0.0.1:1143, unencrypted", passwordCommand: true, passwordWebhook: false });
+    expect(page.json.server).toMatchObject({ imap: "127.0.0.1:1143, unencrypted", mailboxAdminCommand: true, mailboxAdminWebhook: false });
     expect(page.json.changes[0]).toMatchObject({ actor: "command line", env: "ADMIN_ADDRESSES", newValue: [user] });
 
     const saved = await call("PUT", "/api/admin/0/settings", { appName: "Team Mail" });
@@ -495,7 +495,7 @@ describe.skipIf(!enabled)("against a real IMAP server", { timeout: 30_000 }, () 
 
     const changed = await call("POST", "/api/u/0/password", { current: "pass", next: "a new password" });
     expect(changed.json).toEqual({ ok: true, signedOut: 1 });
-    expect(JSON.parse(fs.readFileSync(pwOut, "utf8"))).toEqual({ login: user, email: user, currentPassword: "pass", newPassword: "a new password" });
+    expect(JSON.parse(fs.readFileSync(pwOut, "utf8"))).toEqual({ action: "changePassword", login: user, email: user, currentPassword: "pass", newPassword: "a new password" });
     expect(await signedIn(otherCookie)).toBe(0);
     expect(await signedIn(cookie)).toBe(1);
   });

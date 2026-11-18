@@ -2,11 +2,12 @@ import { serve } from "@hono/node-server";
 import { createApp } from "./app.ts";
 import { startFeedRefresher } from "./calendar.ts";
 import { startReminders } from "./reminders.ts";
-import { config } from "./config.ts";
+import { config, renamedEnv } from "./config.ts";
 import { getServerSecret } from "./crypto.ts";
 import { stopAll } from "./imap/pool.ts";
 import { loadInstanceSettings } from "./instance.ts";
 import { log } from "./log.ts";
+import { capabilities } from "./password.ts";
 import { listenForSettings } from "./settings-bus.ts";
 import { closeStorage, initStorage } from "./storage.ts";
 
@@ -18,6 +19,10 @@ const stopListening = await listenForSettings(loadInstanceSettings);
 if (!config.imap && !config.allowCustomServers) {
   log.warn("no mail server configured: set IMAP_HOST and SMTP_HOST (or ALLOW_CUSTOM_SERVERS=true)");
 }
+// 0.7 renamed PASSWORD_CHANGE* to MAILBOX_ADMIN*; the old names work until 1.0.
+for (const { old, now } of renamedEnv) log.warn(`${old} is now ${now}: the old name still works, until 1.0`);
+// Ask the password command or webhook what it can do, so the first page doesn't wait.
+void capabilities().catch(() => {});
 
 // Calendars from the web are fetched again when they're due, and reminders sent.
 const stopFeeds = startFeedRefresher();

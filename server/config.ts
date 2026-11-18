@@ -32,6 +32,27 @@ function env(name: string, fallback?: string): string | undefined {
   return value === undefined || value === "" ? fallback : value;
 }
 
+/** Variables set under a name 0.6 used, which 0.7 renamed: index.ts warns about each. */
+export const renamedEnv: { old: string; now: string }[] = [];
+
+function noteRenamed(old: string, now: string) {
+  if (!renamedEnv.some((r) => r.old === old)) renamedEnv.push({ old, now });
+}
+
+/**
+ * The name to read for a MAILBOX_ADMIN_* variable: that one, or the PASSWORD_CHANGE_* one
+ * it replaced in 0.7 if only that is set (read until 1.0). Errors then name what was set.
+ */
+function adminName(suffix: string): string {
+  const now = `MAILBOX_ADMIN_${suffix}`;
+  const old = `PASSWORD_CHANGE_${suffix}`;
+  if (env(now) === undefined && env(old) !== undefined) {
+    noteRenamed(old, now);
+    return old;
+  }
+  return now;
+}
+
 const TRUE = ["1", "true", "yes", "on"];
 const FALSE = ["0", "false", "no", "off"];
 
@@ -65,7 +86,7 @@ function webAddress(name: string): string | undefined {
   return value;
 }
 
-/** Where a password change over LDAP goes (password.ts). */
+/** Where a password change or reset over LDAP goes (password.ts). */
 export interface LdapTarget {
   url: string;
   /** For an ldap:// address: upgrade with StartTLS before sending any password. */
@@ -76,30 +97,39 @@ export interface LdapTarget {
   userDn?: string;
   /** Or found by a search, as the service account if one is given. */
   search?: { base: string; filter: string; bindDn?: string; bindPassword?: string };
+  /** Resets (no current password) are made as this service account, if allowed at all. */
+  reset?: { dn: string; password: string };
 }
 
 function ldapTarget(): LdapTarget | undefined {
-  const url = env("PASSWORD_CHANGE_LDAP_URL");
+  const urlName = adminName("LDAP_URL");
+  const url = env(urlName);
   if (url === undefined) return undefined;
   const scheme = /^(ldaps?):\/\/[^/?#\s]+\/?$/i.exec(url)?.[1]?.toLowerCase();
-  if (!scheme) throw new Error(`PASSWORD_CHANGE_LDAP_URL must be an ldap:// or ldaps:// address with no path, got "${url}"`);
+  if (!scheme) throw new Error(`${urlName} must be an ldap:// or ldaps:// address with no path, got "${url}"`);
   const placeholder = /\{(user|login)\}/;
-  const userDn = env("PASSWORD_CHANGE_LDAP_USER_DN");
-  const base = env("PASSWORD_CHANGE_LDAP_SEARCH_BASE");
-  if (!userDn === !base) {
-    throw new Error("With PASSWORD_CHANGE_LDAP_URL, set either PASSWORD_CHANGE_LDAP_USER_DN or PASSWORD_CHANGE_LDAP_SEARCH_BASE");
-  }
-  if (userDn && !placeholder.test(userDn)) throw new Error("PASSWORD_CHANGE_LDAP_USER_DN must contain {user} or {login}");
-  const filter = env("PASSWORD_CHANGE_LDAP_SEARCH_FILTER", "(mail={login})")!;
-  if (base && !placeholder.test(filter)) throw new Error("PASSWORD_CHANGE_LDAP_SEARCH_FILTER must contain {user} or {login}");
-  const bindDn = env("PASSWORD_CHANGE_LDAP_BIND_DN");
-  const bindPassword = env("PASSWORD_CHANGE_LDAP_BIND_PASSWORD");
-  if (!bindDn !== !bindPassword) throw new Error("PASSWORD_CHANGE_LDAP_BIND_DN and PASSWORD_CHANGE_LDAP_BIND_PASSWORD go together");
+  // A variable that isn't set is named in errors as the URL's was: old names, or new.
+  const prefix = urlName.slice(0, -"LDAP_URL".length);
+  const named = (suffix: string) => (env(adminName(suffix)) !== undefined ? adminName(suffix) : prefix + suffix);
+  const [dnName, baseName, filterName, bindDnName, bindPasswordName] = ["LDAP_USER_DN", "LDAP_SEARCH_BASE", "LDAP_SEARCH_FILTER", "LDAP_BIND_DN", "LDAP_BIND_PASSWORD"].map(named);
+  const userDn = env(dnName);
+  const base = env(baseName);
+  if (!userDn === !base) throw new Error(`With ${urlName}, set either ${dnName} or ${baseName}`);
+  if (userDn && !placeholder.test(userDn)) throw new Error(`${dnName} must contain {user} or {login}`);
+  const filter = env(filterName, "(mail={login})")!;
+  if (base && !placeholder.test(filter)) throw new Error(`${filterName} must contain {user} or {login}`);
+  const bindDn = env(bindDnName);
+  const bindPassword = env(bindPasswordName);
+  if (!bindDn !== !bindPassword) throw new Error(`${bindDnName} and ${bindPasswordName} go together`);
+  // New in 0.7, so no old name: resets need a service account allowed to change passwords.
+  const reset = bool("MAILBOX_ADMIN_LDAP_RESET", false);
+  if (reset && !bindDn) throw new Error(`MAILBOX_ADMIN_LDAP_RESET needs ${bindDnName} and ${bindPasswordName}: resets are made as that account`);
   return {
     url,
-    startTls: scheme === "ldap" && bool("PASSWORD_CHANGE_LDAP_STARTTLS", true),
-    verify: bool("PASSWORD_CHANGE_LDAP_TLS_VERIFY", true),
+    startTls: scheme === "ldap" && bool(adminName("LDAP_STARTTLS"), true),
+    verify: bool(adminName("LDAP_TLS_VERIFY"), true),
     ...(userDn ? { userDn } : { search: { base: base!, filter, bindDn, bindPassword } }),
+    ...(reset ? { reset: { dn: bindDn!, password: bindPassword! } } : {}),
   };
 }
 
@@ -219,6 +249,8 @@ interface Common<K extends string, V extends SettingValue> {
   key: K;
   /** The environment variable that sets it, and locks it. */
   env: string;
+  /** The name it had before a rename, still read (index.ts warns) until 1.0. */
+  oldEnv?: string;
   default: V;
   section: string;
   label: string;
@@ -230,7 +262,7 @@ export type SettingDef =
   | (Common<"sessionDays" | "maxAccounts" | "maxUploadMb" | "cacheMb", number> & { type: "integer"; min: number; max: number; unit: string })
   | (Common<"appName", string> & { type: "text"; max: number; required?: boolean })
   | (Common<"admins" | "allowedDomains", string[]> & { type: "list"; item: "address" | "domain" })
-  | (Common<"passwordChange" | "sendAs", string> & { type: "choice"; choices: { value: string; label: string }[] })
+  | (Common<"mailboxAdmin" | "sendAs", string> & { type: "choice"; choices: { value: string; label: string }[] })
   | (Common<"links", Link[]> & { type: "links" });
 
 export type SettingKey = SettingDef["key"];
@@ -256,7 +288,7 @@ export interface SettingValues {
   cacheMb: number;
   appName: string;
   links: Link[];
-  passwordChange: "off" | "link" | "command" | "webhook" | "ldap";
+  mailboxAdmin: "off" | "link" | "command" | "webhook" | "ldap";
 }
 
 /** In the order the admin page and `viauna settings` show them. */
@@ -367,16 +399,16 @@ export const SETTINGS: readonly SettingDef[] = [
     help: "Links in the apps menu (the four squares, top right), for everyone or only in admins' mailboxes: your mail server's own pages, a help page, an intranet. Each opens in a new tab.",
   },
   {
-    key: "passwordChange", env: "PASSWORD_CHANGE", type: "choice", default: "off",
+    key: "mailboxAdmin", env: "MAILBOX_ADMIN", oldEnv: "PASSWORD_CHANGE", type: "choice", default: "off",
     choices: [
       { value: "off", label: "Off" },
-      { value: "link", label: "A link to your mail server's own page" },
+      { value: "link", label: "A link to your mail server's own page (changes only)" },
       { value: "command", label: "A command you provide" },
       { value: "webhook", label: "A webhook you provide" },
       { value: "ldap", label: "Your LDAP directory" },
     ],
-    section: "Password changes", label: "Change password",
-    help: "How people change their mailbox password, from Settings > Accounts. Where each one goes is set in the environment.",
+    section: "Passwords", label: "Changing and resetting passwords",
+    help: "How Viauna changes a mailbox's password (Settings > Accounts), and resets a forgotten one if the command, webhook or directory can, on your mail server. Where each one goes is set in the environment.",
   },
 ];
 
@@ -385,7 +417,8 @@ const DOMAIN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*
 const ADDRESS = /^[^\s@,]+@[^\s@,]+$/;
 
 export function settingDef(name: string): SettingDef | undefined {
-  return SETTINGS.find((d) => d.key === name || d.env === name.toUpperCase());
+  const upper = name.toUpperCase();
+  return SETTINGS.find((d) => d.key === name || d.env === upper || d.oldEnv === upper);
 }
 
 /**
@@ -463,20 +496,31 @@ export function parseSetting(def: SettingDef, input: unknown): { value: SettingV
 
 /** Settings given in the environment: they win, and can't be changed while running. */
 let fromEnv = new Map<SettingKey, SettingValue>();
+/** The variable each of those came from: its name, or the one it had before a rename. */
+let envNames = new Map<SettingKey, string>();
 /** Settings changed from the admin page or the command line (instance.ts keeps it current). */
 let overrides = new Map<SettingKey, SettingValue>();
 
 /** Reads the changeable settings from the environment; throws on an invalid value. */
 export function readEnvironment(source: NodeJS.ProcessEnv = process.env) {
   const next = new Map<SettingKey, SettingValue>();
+  const names = new Map<SettingKey, string>();
   for (const def of SETTINGS) {
-    const raw = source[def.env];
+    let name = def.env;
+    let raw = source[name];
+    if ((raw === undefined || raw === "") && def.oldEnv) {
+      name = def.oldEnv;
+      raw = source[name];
+      if (raw !== undefined && raw !== "") noteRenamed(def.oldEnv, def.env);
+    }
     if (raw === undefined || raw === "") continue;
     const parsed = parseSetting(def, raw);
-    if ("error" in parsed) throw new Error(`${def.env}=${JSON.stringify(raw)}: ${parsed.error}`);
+    if ("error" in parsed) throw new Error(`${name}=${JSON.stringify(raw)}: ${parsed.error}`);
     next.set(def.key, parsed.value);
+    names.set(def.key, name);
   }
   fromEnv = next;
+  envNames = names;
 }
 
 export function setOverrides(values: Map<SettingKey, SettingValue>) {
@@ -485,7 +529,7 @@ export function setOverrides(values: Map<SettingKey, SettingValue>) {
 
 /** The environment variable that locks this setting, if it's set. */
 export function lockedBy(key: SettingKey): string | null {
-  return fromEnv.has(key) ? SETTINGS.find((d) => d.key === key)!.env : null;
+  return envNames.get(key) ?? null;
 }
 
 export function setting<K extends SettingKey>(key: K): SettingValues[K] {
@@ -523,17 +567,25 @@ export const config = {
   /** Custom servers and calendar feeds may not resolve to private/loopback addresses unless this is on. */
   allowPrivateServers: bool("ALLOW_PRIVATE_SERVERS", false),
 
-  // Where password changes go (password.ts). Set only here: a page that could change
-  // them could send everyone to a page or a program that collects passwords.
+  // Where password changes and resets go (password.ts). Set only here: a page that could
+  // change them could send everyone to a page or a program that collects passwords.
   /** The mail server's own password page; {email} is replaced with the address. */
-  passwordChangeUrl: webAddress("PASSWORD_CHANGE_URL"),
-  /** Run with a JSON request on stdin to change a password. */
-  passwordCommand: env("PASSWORD_CHANGE_COMMAND"),
-  /** POSTed a signed JSON request to change a password. */
-  passwordWebhook: env("PASSWORD_CHANGE_WEBHOOK"),
-  passwordWebhookSecret: env("PASSWORD_CHANGE_WEBHOOK_SECRET"),
+  mailboxAdminUrl: webAddress(adminName("URL")),
+  /** Run with a JSON request on stdin: change or reset a password, or say which it can. */
+  mailboxAdminCommand: env(adminName("COMMAND")),
+  /** POSTed the same requests, signed. */
+  mailboxAdminWebhook: env(adminName("WEBHOOK")),
+  mailboxAdminWebhookSecret: env(adminName("WEBHOOK_SECRET")),
+  /**
+   * The command or webhook was set under its 0.6 name (PASSWORD_CHANGE_*): written for
+   * password changes only, so it's never asked anything else (password.ts).
+   */
+  mailboxAdminLegacy: {
+    command: adminName("COMMAND").startsWith("PASSWORD_CHANGE_"),
+    webhook: adminName("WEBHOOK").startsWith("PASSWORD_CHANGE_"),
+  },
   /** A directory that changes the password with the LDAP Password Modify operation. */
-  passwordLdap: ldapTarget(),
+  mailboxAdminLdap: ldapTarget(),
 
   /**
    * The CardDAV server contacts sync with (contacts-sync.ts), signed in as each mailbox
@@ -569,8 +621,9 @@ export const config = {
   },
 };
 
-if (config.passwordWebhook && !config.passwordWebhookSecret) {
-  throw new Error("PASSWORD_CHANGE_WEBHOOK needs PASSWORD_CHANGE_WEBHOOK_SECRET, so the webhook can tell Viauna's requests from anyone else's");
+if (config.mailboxAdminWebhook && !config.mailboxAdminWebhookSecret) {
+  const name = adminName("WEBHOOK");
+  throw new Error(`${name} needs ${name}_SECRET, so the webhook can tell Viauna's requests from anyone else's`);
 }
 
 export type Config = typeof config;

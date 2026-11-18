@@ -938,7 +938,7 @@ export function createApp() {
 
   acct.get("/settings", async (c) => {
     const rt = c.get("rt");
-    return c.json({ settings: await getSettings(rt.account.id), email: rt.account.email, password: passwordChangeFor(rt.account) });
+    return c.json({ settings: await getSettings(rt.account.id), email: rt.account.email, password: await passwordChangeFor(rt.account) });
   });
 
   acct.post("/password", async (c) => {

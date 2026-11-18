@@ -79,7 +79,8 @@ state store and unaffected.
   [Calendars from the web](./calendar.md#calendars-from-the-web).
 - **For a password change**: the login, the address, and the current and new passwords,
   to your command (on its standard input), your webhook (a signed POST) or your LDAP
-  directory. See [Password changes](../self-hosting/passwords.md).
+  directory; for a reset, the same without the current password. Your command or webhook
+  is also asked which of those it does. See [Passwords](../self-hosting/passwords.md).
 - **To your SMTP server, as Viauna's own sender** (`SENDER_ADDRESS`), if set: each email
   reminder, addressed to the mailbox's own address.
 - **For an address someone adds to send as**: the question whether the mail server takes

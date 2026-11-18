@@ -72,7 +72,7 @@ What the page can change:
 | Session length, accounts per browser, largest attachment, message cache | `SESSION_DAYS`, `MAX_ACCOUNTS`, `MAX_UPLOAD_MB`, `CACHE_MB` | |
 | Name | `APP_NAME` | |
 | Links | `LINKS` | Links in the apps menu, each for everyone or for admins only: a label, a web address, and who sees it. |
-| Password changes | `PASSWORD_CHANGE` | Off, or one of the ways the environment set up. See [Password changes](../self-hosting/passwords.md). |
+| Changing and resetting passwords | `MAILBOX_ADMIN` (`PASSWORD_CHANGE` before 0.7) | Off, or one of the ways the environment set up. See [Passwords](../self-hosting/passwords.md). |
 
 ### What the page can never change
 
@@ -85,9 +85,9 @@ Some settings are read only from the environment, at startup:
   each account's identity, so changing it would make every account a new, empty one;
 - `LOG_LEVEL`;
 - anything that could run code, reach your internal network, or send people's passwords
-  somewhere: `ALLOW_PRIVATE_SERVERS`, where password changes go
-  (`PASSWORD_CHANGE_URL`, `PASSWORD_CHANGE_COMMAND`, `PASSWORD_CHANGE_WEBHOOK`,
-  `PASSWORD_CHANGE_LDAP_*`), and the contacts server (`CARDDAV_URL`), which each
+  somewhere: `ALLOW_PRIVATE_SERVERS`, where password changes and resets go
+  (`MAILBOX_ADMIN_URL`, `MAILBOX_ADMIN_COMMAND`, `MAILBOX_ADMIN_WEBHOOK`,
+  `MAILBOX_ADMIN_LDAP_*`), and the contacts server (`CARDDAV_URL`), which each
   mailbox signs in to with its password.
 
 That last group is deliberate. Someone who steals an admin's session can change what the

@@ -46,7 +46,7 @@ export default defineConfig({
           { text: "Getting started", link: "/self-hosting/getting-started" },
           { text: "Reverse proxy", link: "/self-hosting/reverse-proxy" },
           { text: "Configuration", link: "/self-hosting/configuration" },
-          { text: "Password changes", link: "/self-hosting/passwords" },
+          { text: "Passwords", link: "/self-hosting/passwords" },
           { text: "Contacts and CardDAV", link: "/self-hosting/contacts" },
           { text: "Filters and vacation", link: "/self-hosting/filters" },
           { text: "Databases", link: "/self-hosting/databases" },

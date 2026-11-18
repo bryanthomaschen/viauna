@@ -54,13 +54,15 @@ describe("parsing a setting", () => {
     expect(parseSetting(def("APP_NAME"), "  Mail  ")).toEqual({ value: "Mail" });
     expect(parseSetting(def("APP_NAME"), " ")).toHaveProperty("error");
     expect(parseSetting(def("APP_NAME"), "a\nb")).toHaveProperty("error");
-    expect(parseSetting(def("PASSWORD_CHANGE"), "link")).toEqual({ value: "link" });
+    expect(parseSetting(def("MAILBOX_ADMIN"), "link")).toEqual({ value: "link" });
+    // Its name before 0.7 still finds it.
+    expect(def("PASSWORD_CHANGE")).toBe(def("MAILBOX_ADMIN"));
     expect(parseSetting(def("PASSWORD_CHANGE"), "ldap")).toEqual({ value: "ldap" });
     expect(parseSetting(def("PASSWORD_CHANGE"), "carrier pigeon")).toHaveProperty("error");
   });
 
   it("keeps where passwords go out of reach of the admin page", () => {
-    for (const env of ["PASSWORD_CHANGE_URL", "PASSWORD_CHANGE_COMMAND", "PASSWORD_CHANGE_WEBHOOK", "ALLOW_PRIVATE_SERVERS", "IMAP_HOST", "DATABASE_URL"]) {
+    for (const env of ["MAILBOX_ADMIN_URL", "MAILBOX_ADMIN_COMMAND", "MAILBOX_ADMIN_WEBHOOK", "MAILBOX_ADMIN_LDAP_RESET", "PASSWORD_CHANGE_URL", "PASSWORD_CHANGE_COMMAND", "PASSWORD_CHANGE_WEBHOOK", "ALLOW_PRIVATE_SERVERS", "IMAP_HOST", "DATABASE_URL"]) {
       expect(settingDef(env)).toBeUndefined();
     }
   });

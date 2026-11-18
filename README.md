@@ -107,7 +107,7 @@ Everything is on **[the docs site](https://bryanthomaschen.github.io/viauna/)**,
 - **Self-hosting**: [getting started](docs/self-hosting/getting-started.md) ·
   [reverse proxy](docs/self-hosting/reverse-proxy.md) ·
   [configuration](docs/self-hosting/configuration.md) ·
-  [password changes](docs/self-hosting/passwords.md) ·
+  [passwords](docs/self-hosting/passwords.md) ·
   [contacts and CardDAV](docs/self-hosting/contacts.md) ·
   [filters and vacation](docs/self-hosting/filters.md) ·
   [databases](docs/self-hosting/databases.md) ·

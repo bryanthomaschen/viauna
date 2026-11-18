@@ -9,6 +9,18 @@ its notes before moving to it. A patch release (0.2.0 to 0.2.1) only fixes thing
 
 ## Unreleased
 
+### Passwords
+
+- **`PASSWORD_CHANGE` is now `MAILBOX_ADMIN`**, and each `PASSWORD_CHANGE_*` variable is
+  `MAILBOX_ADMIN_*` with the same ending, since it will reset forgotten passwords too. The
+  old names keep working until 1.0, with a warning at startup and on the admin page.
+- **Every request to a password command or webhook has an `action`**: `changePassword`,
+  `setPassword` (a reset, with no current password) or `capabilities`, which Viauna asks
+  hourly so it offers only what your script does. One set up under its old name is never
+  asked, and only ever sent password changes, so it keeps working unchanged.
+- **An LDAP directory can reset passwords** with `MAILBOX_ADMIN_LDAP_RESET`, as the service
+  account, which the directory must allow to change passwords.
+
 ## 0.6.1 - 2026-11-16
 
 ### Security

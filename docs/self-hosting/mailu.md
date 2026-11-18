@@ -48,9 +48,9 @@ Notes:
   client does, so Mailu's spam training on those moves applies.
 - To let people change their password from Viauna, link to Mailu's own page, which
   checks the current password and refuses breached ones:
-  `PASSWORD_CHANGE: link` and
-  `PASSWORD_CHANGE_URL: https://mail.example.com/admin/user/password`. See
-  [Password changes](./passwords.md).
+  `MAILBOX_ADMIN: link` and
+  `MAILBOX_ADMIN_URL: https://mail.example.com/admin/user/password`. See
+  [Passwords](./passwords.md).
 - Mailu refuses a sender a login doesn't own (its own address, and the aliases its admin
   pages give it), so `SEND_AS: server` lets Mailu's check confirm the addresses people add
   in "Send mail as", without codes. See
