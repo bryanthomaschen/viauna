@@ -60,6 +60,17 @@ describe.skipIf(!enabled)("in a browser", { timeout: 30_000 }, () => {
   const rows = () => page.evaluate(() => [...document.querySelectorAll(".row")].map((r) => r.querySelector(".summary")?.textContent ?? ""));
   const blur = () => page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   const pickerOpen = () => page.locator("[data-radix-popper-content-wrapper] .menu").count();
+  /** Waits until an open menu or pop-up would notice a click outside it. Radix starts
+   * listening for one a task after opening (a setTimeout in its DismissableLayer), and a busy
+   * browser runs waiting input before waiting timers, so a click sent as soon as the menu
+   * shows can come first: it's missed, the menu stays open, and the focus drops to the page.
+   * (CI failed so now and then; a page whose timers run late fails so every time.) The menu
+   * taking the focus means its effects, that timer's among them, have run, and a timer set
+   * after that runs after theirs. */
+  const listeningOutside = async () => {
+    await until(() => page.evaluate(() => !!document.activeElement?.closest("[data-radix-popper-content-wrapper]")), "the pop-up to take the focus");
+    await page.evaluate(() => new Promise((r) => setTimeout(r, 0)));
+  };
   const menuOpen = () => page.locator("[cmdk-dialog]").count();
   const focusedMessage = () => page.evaluate(() => [...document.querySelectorAll(".msg")].findIndex((m) => m.classList.contains("focused")));
 
@@ -470,15 +481,14 @@ describe.skipIf(!enabled)("in a browser", { timeout: 30_000 }, () => {
       const open = async () => {
         await page.getByRole("button", { name: "Show search options" }).click();
         await until(() => options.count(), "the search options");
-        // Radix starts listening for clicks outside a task after opening, so the click that
-        // opened it doesn't close it; a test's next click can come sooner than a person's.
-        await page.waitForTimeout(100);
+        await listeningOutside();
       };
       const focused = () => page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? document.activeElement?.tagName);
       await open();
       await press("Escape");
       await until(async () => !(await options.count()), "Esc to close the search options");
-      if ((await focused()) !== "Show search options") throw new Error(`focus went to ${await focused()}, not back to the button`);
+      // Radix hands the focus back a task after closing (a setTimeout in its FocusScope).
+      await until(async () => (await focused()) === "Show search options", "the focus to go back to the button");
       await open();
       await page.mouse.click(120, 760); // the sidebar, below its folders
       await until(async () => !(await options.count()), "a click outside to close the search options");
@@ -574,6 +584,7 @@ describe.skipIf(!enabled)("in a browser", { timeout: 30_000 }, () => {
       await inbox();
       await more().click();
       await until(pickerOpen, "the More menu");
+      await listeningOutside();
       await page.mouse.click(700, 500);
       await until(async () => !(await pickerOpen()), "the menu to close");
       await page.waitForTimeout(800);
