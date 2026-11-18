@@ -1,12 +1,14 @@
 # Mailbox administration (design)
 
 > [!NOTE]
-> A proposal: nothing here is built. This folder isn't part of the docs site; when a
-> feature ships, its pages go in `docs/` and this note says so.
+> Being built for 0.7: changing and resetting passwords, recovery, and admin reset links.
+> Closing and reopening mailboxes, and everything under "Later", is still a proposal. This
+> folder isn't part of the docs site; when a feature ships, its pages go in `docs/` and
+> this note says so.
 
 Viauna can't act on a mailbox itself, only on what's in it. Resetting a forgotten
 password, or closing a mailbox someone has stopped using, happens on the mail server, in
-the mail server's own admin pages. This note proposes a small set of **mailbox actions**
+the mail server's own admin pages. This note describes a small set of **mailbox actions**
 that Viauna asks a backend to carry out, so that:
 
 - an admin has one admin page to start from, Viauna's, instead of having to know which
@@ -14,6 +16,21 @@ that Viauna asks a backend to carry out, so that:
 - people can get back into a mailbox whose password they've forgotten (recovery);
 - a mailbox can be closed (its mail kept, new mail refused) and reopened later;
 - later, mail apps can get app passwords, which a second factor needs.
+
+## Decided
+
+- **0.7 is "Getting back in"**: recovery and admin reset links. Teams and devices move to
+  0.8.
+- **First recovery methods: a recovery email address and backup codes.** An authenticator
+  app comes with the second factor, which uses the same setup.
+- **An admin resets a password with a one-time link**, not by typing one: the person
+  chooses their own, which the admin never sees or has to pass on. It ships with recovery,
+  since on the first day nobody has recovery set up.
+- **New passwords are checked against known data breaches**
+  ([Have I Been Pwned](https://haveibeenpwned.com/API/v3#PwnedPasswords)'s range API:
+  only the first five characters of the password's SHA-1 leave the server).
+- **`PASSWORD_CHANGE` is folded into `MAILBOX_ADMIN`**: one backend changes and resets
+  passwords.
 
 ## Why actions, and not a standard protocol
 
@@ -48,25 +65,27 @@ applies, a webhook or a command for everything else, as the
 
 ## The actions
 
-| Action | Sent | The backend must | Used by |
-|---|---|---|---|
-| `capabilities` | — | Answer with the actions below that it supports | Viauna, at startup and then hourly, to show only those |
-| `status` | `login` | Say whether the mailbox exists, and whether it's open | The admin page |
-| `setPassword` | `login`, `newPassword`, `reason` | Set the password **without** the current one, in effect before answering | Recovery (`reason: "reset"`); an admin (`"admin"`) |
-| `close` | `login` | Refuse new mail to the mailbox while the sender is still connected, and refuse its sign-ins. Keep its mail. | The admin page |
-| `reopen` | `login` | Undo `close` | The admin page |
+| Action | Sent | The backend must | Used by | When |
+|---|---|---|---|---|
+| `capabilities` | — | Answer `{"actions": [...]}`: those below that it supports | Viauna, at startup and then hourly, to offer only those | 0.7 |
+| `changePassword` | `login`, `email`, `currentPassword`, `newPassword` | Change it (Viauna has already checked the current one with the mail server) | Settings > Accounts | 0.7 (was `PASSWORD_CHANGE`) |
+| `setPassword` | `login`, `email`, `newPassword`, `reason`, `by` | Set the password **without** the current one, in effect before answering | Recovery (`reason: "reset"`); an admin's reset link (`"admin"`) | 0.7 |
+| `status` | `login` | Say whether the mailbox exists, and whether it's open | The admin page | Later |
+| `close` | `login` | Refuse new mail to the mailbox while the sender is still connected, and refuse its sign-ins. Keep its mail. | The admin page | Later |
+| `reopen` | `login` | Undo `close` | The admin page | Later |
 
-Changing your own password (the current one and a new one) stays as it is, under
-[`PASSWORD_CHANGE`](../docs/self-hosting/passwords.md).
+Every request:
 
-Every action:
-
-- may be repeated: closing a closed mailbox succeeds;
+- carries `action`, so one webhook or command handles them all;
 - names the mailbox by `login`, what the mail server checks at sign-in, and also sends
   `email`, the address shown in Viauna;
-- sends `by`: the admin's login, or `"recovery"`;
-- is answered within 15 seconds: 2xx means done; anything else means not done, with an
-  optional `{"error": "...", "permanent": true}` shown to the admin.
+- for `setPassword`, sends `by`: the admin's login, or `"recovery"`;
+- is answered within 15 seconds (30 for a command): 2xx (exit 0) means done; anything
+  else means not done, with an optional `{"error": "..."}` shown to the person.
+
+A backend that doesn't answer `capabilities` is taken to offer `changePassword` only.
+Set up under the old `PASSWORD_CHANGE_*` names, Viauna never asks: those scripts were
+written for password changes, and an unexpected `setPassword` mustn't reach them.
 
 **`close` must do both halves, or not be offered.** On many servers, turning a user off
 only blocks sign-ins: mail still arrives, into a mailbox nobody can read. Refusing while
@@ -82,65 +101,69 @@ mail server's own pages keep those; the admin page links to them.
 
 ## Backends
 
-`MAILBOX_ADMIN`: `off` (the default), `webhook`, `command` or `ldap`. Where each one goes
-(the URL, the command, the directory) is set only in the environment, as for
-`PASSWORD_CHANGE`, so a stolen admin session can't point it elsewhere.
+`MAILBOX_ADMIN`: `off` (the default), `link`, `command`, `webhook` or `ldap`, the same
+choices as `PASSWORD_CHANGE`, which it replaces. Where each one goes (the page, the
+command, the URL, the directory) is set only in the environment, so a stolen admin
+session can't point it elsewhere. Every `PASSWORD_CHANGE_*` variable becomes
+`MAILBOX_ADMIN_*` with the same suffix; the old names are still read until 1.0, with a
+warning at startup.
 
-- **Webhook** (`MAILBOX_ADMIN_WEBHOOK`, `MAILBOX_ADMIN_WEBHOOK_SECRET`): as for password
-  changes, a JSON POST signed with `X-Viauna-Timestamp` and `X-Viauna-Signature`, with no
-  redirects followed. Its own URL and secret, since it can do more. The body:
-  `{"action": "close", "login": "ann@example.com", "email": "ann@example.com", "by": "admin@example.com"}`.
+- **Link** (`MAILBOX_ADMIN_URL`): the mail server's own password page. Changes only: a
+  page can't reset a password Viauna has no way to vouch for.
+- **Webhook** (`MAILBOX_ADMIN_WEBHOOK`, `MAILBOX_ADMIN_WEBHOOK_SECRET`): a JSON POST
+  signed with `X-Viauna-Timestamp` and `X-Viauna-Signature`, with no redirects followed.
 - **Command** (`MAILBOX_ADMIN_COMMAND`): the same JSON on standard input, never in the
-  arguments; exit 0 means done.
-- **LDAP**: `setPassword` with the Password Modify operation
-  ([RFC 3062](https://www.rfc-editor.org/rfc/rfc3062)); `close`, `reopen` and `status` by
-  writing and reading an attribute the mail server checks, which the operator names, with
-  its open and closed values (for example `nsAccountLock`, or a `mailEnabled` attribute).
-  Unlike password changes, this binds as a service account allowed to change other
-  people's entries. That's a lasting credential in Viauna, so the directory should limit
-  it to those two attributes. Operators who'd rather not have it can use a webhook.
+  arguments; exit 0 means done, and for `capabilities` its standard output is the answer.
+- **LDAP**: `changePassword` as today, bound as the person. `setPassword` only with
+  `MAILBOX_ADMIN_LDAP_RESET=true`: bound as the service account
+  (`MAILBOX_ADMIN_LDAP_BIND_DN`), with the Password Modify operation naming the person's
+  entry ([RFC 3062](https://www.rfc-editor.org/rfc/rfc3062)). That's a lasting credential
+  in Viauna, so the directory should let it change passwords and nothing else; operators
+  who'd rather not have it can use a webhook.
 
 An SQL backend, for servers whose Postfix and Dovecot read accounts from a database,
 could come later. Until then, a command does it with a database user allowed only those
 updates.
 
-## Who can do what
-
-- **Admin actions** (`status`, `close`, `reopen`, `setPassword` with `"admin"`): only
-  [Viauna admins](../docs/administration/admin-page.md), only for mailboxes on the
-  server's own mail server (`IMAP_HOST`), and within `ALLOWED_DOMAINS` when it's set.
-  Each is recorded in **Recent changes** (who, when, which mailbox; never a password). An
-  admin can't close their own mailbox.
-- **After `close` or `setPassword`**, Viauna signs that mailbox out of every session at
-  once, instead of waiting for the
-  [10-minute password check](../docs/how-it-works/sessions.md#passwords-are-checked-again).
-- **Limits**, like password changes: a few tries per mailbox and per client address every
-  15 minutes. Every failure counts, including those the backend refused.
-
 ## Recovery (a forgotten password)
 
 People set up recovery while signed in, in **Settings > Accounts**, entering their
-password again. There are three methods, kept in Viauna's database for that mailbox:
+password again:
 
-- **a recovery email address**, confirmed with a code sent to it;
-- **an authenticator app** (TOTP, [RFC 6238](https://www.rfc-editor.org/rfc/rfc6238));
-- **backup codes**: ten, each usable once, stored hashed.
+- **a recovery email address**, confirmed with a code sent to it. Viauna sends these
+  messages from its own sender (`SENDER_ADDRESS`), since the person can't sign in to send
+  from their mailbox; without one, only backup codes are offered.
+- **backup codes**: ten, each usable once, shown once, stored only as keyed hashes; a
+  printable sheet. Making new ones voids the old.
 
-On the sign-in page, **Forgot password?** asks for the address. If that mailbox has a
-method set up, it's asked for. Once verified, the person chooses a new password (the same
-rules as changing it), and Viauna sends `setPassword` with `"reset"`. Then:
+On the sign-in page, **Forgot password?** asks for the address, then for a code: one
+emailed to the recovery address, or a backup code. Then the person chooses a new
+password (at least 8 characters, not in a known breach), and Viauna sends `setPassword`
+with `"reset"`. Then:
 
 - every session of that mailbox is signed out, and mail apps ask for the new password;
 - a notice goes to the mailbox and to the recovery address, from `SENDER_ADDRESS`.
 
-The page answers the same whether or not the address exists or has a method, so it can't
-be used to find out which do. It's offered only when the backend supports `setPassword`,
-and only for mailboxes on `IMAP_HOST`. A mailbox is only as safe as its weakest recovery
-method: whoever controls the recovery address can reset the password.
+The pages answer the same whether or not the address exists or has recovery set up, so
+they can't be used to find out which do. Codes expire (15 minutes for one emailed at a
+reset), allow a few wrong tries, and are counted per mailbox and per client address. It's
+offered only when the backend supports `setPassword`, only for mailboxes on `IMAP_HOST`,
+and only while `PASSWORD_RECOVERY` is on (the default). A mailbox is only as safe as its
+weakest recovery method: whoever controls the recovery address can reset the password.
+
+## An admin's reset link
+
+On the admin page, **Reset a password** takes a mailbox address and makes a link, good
+for 24 hours and one use, which the admin hands over however they like (in person, by
+phone, in a chat). The link opens a page where the person chooses a new password; Viauna
+sends `setPassword` with `"admin"` and `by` set to the admin, signs the mailbox out
+everywhere, and sends the mailbox a notice. The token is in the link's `#fragment`, so it
+never reaches a server log or another site. The mailbox needn't have used Viauna before.
+Making a link is recorded in **Recent changes** (who, when, which mailbox).
 
 ## A second factor for signing in to Viauna
 
-The same authenticator app and backup codes, asked for after the password at sign-in.
+An authenticator app and the same backup codes, asked for after the password at sign-in.
 
 Mail apps (IMAP, SMTP) can't ask for a code, so this protects signing in to Viauna, not
 the mailbox. To protect the mailbox, its server must refuse the real password from mail
@@ -150,37 +173,59 @@ over IMAP and SMTP with the mailbox's password
 ([sessions](../docs/how-it-works/sessions.md#your-password-at-rest)), so on such a server
 it would need an app password of its own for each mailbox. That's left open.
 
+## Later recovery methods
+
+- **Authenticator app**, with the second factor.
+- **A trusted contact**: someone the person names, often on the same server, gets a code
+  and reads it to them after recognising their voice. Suits families, and servers with no
+  admin desk.
+- **Approval from a signed-in device**: someone still signed in on their phone approves
+  the reset there. Only from sessions old enough, with a notice, or a stolen session
+  could take over the account.
+- **A waiting period** for weaker methods: a reset by recovery email takes effect after,
+  say, 24 hours, while the mailbox is told and can cancel from any signed-in device.
+
+Not planned: SMS (a number can be moved to another SIM, and it needs a paid provider), and
+security questions (guessable; [NIST SP 800-63B](https://pages.nist.gov/800-63-4/sp800-63b.html)
+rules them out).
+
+## Passkeys
+
+Signing in with a device's lock screen, with the passkey synced between devices, so less
+is ever lost. It clashes with how Viauna works today: it needs the mailbox password to
+read mail over IMAP. With passkeys it would keep an app password for each mailbox,
+ideally sealed by the passkey itself (the WebAuthn PRF extension) so that the database
+alone still opens nothing. A project of its own, after app passwords.
+
 ## An example adapter: Mailu
 
 A small service next to Mailu, not code in Viauna. It holds Mailu's API key and does only
 these actions:
 
-- `status`: `GET /api/v1/user/{email}`;
-- `setPassword`: `PATCH /api/v1/user/{email}` with `raw_password`;
-- `close` and `reopen`: the same, with `enabled` false or true.
+- `changePassword` and `setPassword`: `PATCH /api/v1/user/{email}` with `raw_password`;
+- later, `status`: `GET /api/v1/user/{email}`, and `close` and `reopen`: the same
+  `PATCH`, with `enabled` false or true.
 
 Mailu's `enabled` only blocks sign-ins; mail to a disabled user is still delivered. So
-the adapter also answers a Postfix lookup (`check_recipient_access` over a socketmap)
-that refuses mail to disabled users, and to aliases that lead only to them. Mailu itself
-is unchanged. It starts in one deployment's own infrastructure, and may move into this
-repository as an optional image once the actions settle.
+for `close` the adapter will also answer a Postfix lookup (`check_recipient_access` over
+a socketmap) that refuses mail to disabled users, and to aliases that lead only to them.
+Mailu itself is unchanged. It starts in one deployment's own infrastructure, and may move
+into this repository as an optional image once the actions settle.
 
 ## In order
 
-1. The actions, the webhook and command backends, and the admin page: `status`, `close`,
-   `reopen`, and `setPassword` by an admin.
-2. Recovery.
-3. A second factor for signing in to Viauna.
+1. 0.7: `MAILBOX_ADMIN` with `capabilities`, `changePassword` and `setPassword`;
+   recovery; admin reset links; the breach check.
+2. Closing and reopening mailboxes, from the admin page.
+3. A second factor for signing in to Viauna, with an authenticator app.
 4. App passwords.
 
 ## Open questions
 
-- Fold `PASSWORD_CHANGE` into `MAILBOX_ADMIN` (one backend), or keep them apart because
-  one acts as the person and the other above them?
 - What a closed mailbox's owner sees at sign-in. The mail server only says the password
   was refused; Viauna could ask `status` and say the mailbox is closed, which also tells
   anyone trying that address.
 - Whether `status` should list mailboxes, so the admin page can show them all, or stay
   one mailbox at a time.
-- Exporting recovery methods and second factors along with the rest of a person's data,
-  as the backends rule asks.
+- Exporting recovery methods along with the rest of a person's data, as the backends rule
+  asks. (Backup codes can't be exported: only their hashes are kept.)
