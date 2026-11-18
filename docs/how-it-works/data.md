@@ -23,7 +23,10 @@ The **state store** (`state.db`, or your `DATABASE_URL` database) holds:
   changes;
 - contacts, each as its vCard, with their address books and what's still to sync;
 - calendars, and their events, each as its iCalendar object (see
-  [Calendar](./calendar.md)).
+  [Calendar](./calendar.md));
+- for a mailbox that set recovery up: its recovery address, a code's keyed hash while one
+  is waiting, and its backup codes, only as keyed hashes; and reset tokens, as keyed
+  hashes, until a day after they lapse (see [Getting back in](./recovery.md)).
 
 The **data directory** (`DATA_DIR`, `/data` in the image) holds:
 
@@ -82,7 +85,12 @@ state store and unaffected.
   directory; for a reset, the same without the current password. Your command or webhook
   is also asked which of those it does. See [Passwords](../self-hosting/passwords.md).
 - **To your SMTP server, as Viauna's own sender** (`SENDER_ADDRESS`), if set: each email
-  reminder, addressed to the mailbox's own address.
+  reminder, addressed to the mailbox's own address; recovery codes, to a recovery address;
+  and notices when recovery is set up or a password is reset, to the mailbox and its
+  recovery address.
+- **To Have I Been Pwned** (`api.pwnedpasswords.com`), for each new password while
+  `PASSWORD_BREACH_CHECK` is on: the first 5 hex characters of its SHA-1 hash, nothing
+  else. See [Breached passwords](./recovery.md#breached-passwords).
 - **For an address someone adds to send as**: the question whether the mail server takes
   it as a sender (a sign-in, the sender and a recipient, then nothing sent), and an email
   with a code to that address, as the mailbox. An address at another provider goes to

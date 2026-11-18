@@ -50,7 +50,13 @@ Notes:
   checks the current password and refuses breached ones:
   `MAILBOX_ADMIN: link` and
   `MAILBOX_ADMIN_URL: https://mail.example.com/admin/user/password`. See
-  [Passwords](./passwords.md).
+  [Passwords](./passwords.md). A link can't reset a forgotten password, though. For that,
+  Forgot password? and admins' reset links, use a [webhook](./passwords.md#a-webhook)
+  that sets the password with Mailu's API (`PATCH /api/v1/user/{email}` with
+  `raw_password`, and `API=true` in `mailu.env`). Mailu's API token can do anything to
+  your mail server, so run the webhook as its own small service, beside Mailu, allowing
+  only these requests; don't give the token to Viauna. Block `/api` from the internet in
+  your reverse proxy, so only that service reaches it.
 - Mailu refuses a sender a login doesn't own (its own address, and the aliases its admin
   pages give it), so `SEND_AS: server` lets Mailu's check confirm the addresses people add
   in "Send mail as", without codes. See

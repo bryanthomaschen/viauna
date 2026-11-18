@@ -118,6 +118,17 @@ Limits built into Viauna. The ones you can change are settings: see
 | A list setting (`ADMIN_ADDRESSES`, `ALLOWED_DOMAINS`) | 1,000 entries |
 | Changes shown | The newest 25 on the admin page, 50 with `viauna changes` |
 
+## Getting back in
+
+| Limit | Value |
+|---|---|
+| Forgot password? started | 10 per client address every 15 minutes |
+| Codes tried | 8 per address and 20 per client address every 15 minutes; 5 tries at one emailed code |
+| A code emailed | 60 minutes to confirm a recovery address, 15 for a reset |
+| Codes emailed | One a minute while one is waiting; 5 a day per mailbox |
+| Backup codes | 10 at a time, each good once |
+| A reset token | 15 minutes from recovery, 24 hours from an admin's link; one use |
+
 ## Waiting on other systems
 
 | Limit | Value |

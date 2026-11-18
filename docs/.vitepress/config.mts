@@ -31,6 +31,7 @@ export default defineConfig({
           { text: "Calendar", link: "/using/calendar" },
           { text: "Filters and vacation", link: "/using/filters" },
           { text: "Command menu and shortcuts", link: "/using/shortcuts" },
+          { text: "Getting back in", link: "/using/recovery" },
         ],
       },
       {
@@ -65,6 +66,7 @@ export default defineConfig({
           { text: "Sending as other addresses", link: "/how-it-works/sending" },
           { text: "Live updates and settings", link: "/how-it-works/live-updates" },
           { text: "Sessions", link: "/how-it-works/sessions" },
+          { text: "Getting back in", link: "/how-it-works/recovery" },
           { text: "Your data", link: "/how-it-works/data" },
           { text: "Filters", link: "/how-it-works/filters" },
           { text: "Contacts", link: "/how-it-works/contacts" },

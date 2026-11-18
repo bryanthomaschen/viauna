@@ -43,12 +43,12 @@ describe.each(ENGINES)("state store on $name", ({ url }) => {
   });
 
   it("keeps a password-change choice made on the admin page, under MAILBOX_ADMIN (0.7)", async () => {
-    // As 0.6 left it: the choice and its record under the old key, 0013 not yet run.
+    // As 0.6 left it: the choice and its record under the old key. Then 0013, as an upgrade
+    // runs it (directly: later migrations have run here, so Kysely won't run it again).
     await state().insertInto("instance_settings").values({ name: "passwordChange", value: '"link"', updated_at: 1, updated_by: "admin@example.test" }).execute();
     await state().insertInto("admin_log").values({ at: 1, actor: "admin@example.test", setting: "passwordChange", old_value: null, new_value: '"link"' }).execute();
-    await (store.db as any).deleteFrom("viauna_migrations").where("name", "=", "0013_mailbox_admin").execute();
-    const again = await openState(url, path.join(dir, "state.db"));
-    await again.db.destroy();
+    const all = await (await import("../server/state/migrations.ts")).migrations(store.dialect).getMigrations();
+    await all["0013_mailbox_admin"].up(store.db as any);
     expect(await state().selectFrom("instance_settings").select(["name", "value"]).execute()).toEqual([{ name: "mailboxAdmin", value: '"link"' }]);
     expect(await state().selectFrom("admin_log").select("setting").execute()).toEqual([{ setting: "mailboxAdmin" }]);
   });

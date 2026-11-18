@@ -258,7 +258,7 @@ interface Common<K extends string, V extends SettingValue> {
 }
 
 export type SettingDef =
-  | (Common<"allowCustomServers" | "contacts" | "contactsSync" | "calendar" | "calendarFeeds" | "calendarSecrets" | "browserNotifications" | "filters" | "vacation" | "filterForwarding" | "sendAsServers", boolean> & { type: "boolean" })
+  | (Common<"allowCustomServers" | "contacts" | "contactsSync" | "calendar" | "calendarFeeds" | "calendarSecrets" | "browserNotifications" | "filters" | "vacation" | "filterForwarding" | "sendAsServers" | "recoveryEmail" | "recoveryCodes" | "passwordBreachCheck", boolean> & { type: "boolean" })
   | (Common<"sessionDays" | "maxAccounts" | "maxUploadMb" | "cacheMb", number> & { type: "integer"; min: number; max: number; unit: string })
   | (Common<"appName", string> & { type: "text"; max: number; required?: boolean })
   | (Common<"admins" | "allowedDomains", string[]> & { type: "list"; item: "address" | "domain" })
@@ -289,6 +289,9 @@ export interface SettingValues {
   appName: string;
   links: Link[];
   mailboxAdmin: "off" | "link" | "command" | "webhook" | "ldap";
+  recoveryEmail: boolean;
+  recoveryCodes: boolean;
+  passwordBreachCheck: boolean;
 }
 
 /** In the order the admin page and `viauna settings` show them. */
@@ -409,6 +412,21 @@ export const SETTINGS: readonly SettingDef[] = [
     ],
     section: "Passwords", label: "Changing and resetting passwords",
     help: "How Viauna changes a mailbox's password (Settings > Accounts), and resets a forgotten one if the command, webhook or directory can, on your mail server. Where each one goes is set in the environment.",
+  },
+  {
+    key: "recoveryEmail", env: "PASSWORD_RECOVERY_EMAIL", type: "boolean", default: true,
+    section: "Passwords", label: "Forgot password? With a recovery address",
+    help: "Let people add a recovery email address, and choose a new password from the sign-in page with a code sent to it. Needs Viauna's own sender (SENDER_ADDRESS) and a way above that can reset passwords. Turned off, addresses already added are kept but not used.",
+  },
+  {
+    key: "recoveryCodes", env: "PASSWORD_RECOVERY_CODES", type: "boolean", default: true,
+    section: "Passwords", label: "Forgot password? With backup codes",
+    help: "Let people make a sheet of backup codes, each usable once to choose a new password from the sign-in page. Needs a way above that can reset passwords. Turned off, codes already made are kept but not accepted.",
+  },
+  {
+    key: "passwordBreachCheck", env: "PASSWORD_BREACH_CHECK", type: "boolean", default: true,
+    section: "Passwords", label: "Refuse breached passwords",
+    help: "Refuse a new password that appears in known data breaches, checked with Have I Been Pwned. Only the first 5 characters of the password's SHA-1 hash leave this server.",
   },
 ];
 

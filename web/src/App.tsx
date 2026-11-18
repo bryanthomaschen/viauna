@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Suspense, lazy, useEffect } from "react";
 import { Login } from "./components/Login";
+import { Recover } from "./components/Recover";
 import { Shell } from "./components/Shell";
 import { api } from "./lib/api";
 import { useConfig } from "./lib/config";
@@ -38,6 +39,7 @@ export function App() {
 
   useEffect(() => {
     if (!session.data) return;
+    if (route.name === "recover") return; // signed in or not
     if (!accounts.length && route.name !== "login") navigate("/login", { replace: true });
     else if (accounts.length && route.name === "login" && !adding) navigate("/u/0/inbox", { replace: true });
     else if (accounts.length && route.name === "none") navigate("/u/0/inbox", { replace: true });
@@ -59,6 +61,7 @@ export function App() {
       </div>
     );
   }
+  if (route.name === "recover") return <Recover config={config.data} signedIn={accounts.length > 0} />;
   if (route.name === "login" || !accounts.length) {
     return <Login config={config.data} adding={adding} accounts={accounts} />;
   }

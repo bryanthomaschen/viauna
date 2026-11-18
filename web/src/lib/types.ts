@@ -256,6 +256,22 @@ export interface AppConfig {
   /** Filters and the vacation responder can be used (the mail server's ManageSieve). */
   filters: boolean;
   vacation: boolean;
+  /** "Forgot password?" on the sign-in page, and which ways in it offers. */
+  recovery: { offered: boolean; email: boolean; codes: boolean };
+  /** New passwords are checked against known data breaches. */
+  breachCheck: boolean;
+}
+
+/** A mailbox's recovery: its address, and its backup codes (Settings > Accounts). */
+export interface RecoveryStatus {
+  offered: boolean;
+  emailOffered: boolean;
+  codesOffered: boolean;
+  address: string | null;
+  confirmed: boolean;
+  /** When a code to confirm the address went; null if none is waiting. */
+  codeSentAt: number | null;
+  backupCodes: { left: number; total: number; createdAt: number } | null;
 }
 
 // ---------------------------------------------------------------- filters
@@ -444,6 +460,8 @@ export interface AdminData {
   settings: AdminSetting[];
   changes: AdminChange[];
   server: ServerFacts;
+  /** Reset links can be made: the backend can set a password without the current one. */
+  resets: boolean;
 }
 
 // ---------------------------------------------------------------- calendar

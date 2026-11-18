@@ -8,6 +8,8 @@ export default defineConfig({
     // Test files that use the server databases (test/databases.ts) empty them first, so
     // they can't run side by side.
     fileParallelism: false,
-    env: { SECRET_KEY: "test-secret", DATA_DIR: "./data-test", LOG_LEVEL: "error", IMAP_HOST: "imap.internal.test", SMTP_HOST: "smtp.internal.test" },
+    env: { SECRET_KEY: "test-secret", DATA_DIR: "./data-test", LOG_LEVEL: "error", IMAP_HOST: "imap.internal.test", SMTP_HOST: "smtp.internal.test",
+      // Never ask the real Have I Been Pwned from a test; test/recovery.test.ts uses a stand-in.
+      PASSWORD_BREACH_CHECK: "false" },
   },
 });

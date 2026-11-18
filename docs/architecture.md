@@ -15,7 +15,9 @@ server/                Node (TypeScript, Hono)
   cli.ts               the `viauna` command
   log.ts               one-line JSON logs
   auth.ts              sign-in, sessions, rate limits, password change
-  password.ts          handing password changes to a link, command, webhook or LDAP directory
+  password.ts          password changes and resets (MAILBOX_ADMIN): link, command, webhook or LDAP; what each can do
+  recovery.ts          getting back in: recovery address, backup codes, Forgot password?, admins' reset links
+  breach.ts            new passwords: the rules, and the breached-password check (Pwned Passwords range API)
   crypto.ts            session cookies, credential encryption, the server secret
   netpolicy.ts         vetting servers entered at sign-in: public addresses only, pinned
   storage.ts           opens both stores at startup; upgrades older layouts
@@ -187,7 +189,8 @@ not built in.
 | Mail | Any IMAP/SMTP server | — | — | built |
 | Mail index, message cache | Local SQLite and disk | none, by design | — | built |
 | Accounts, sessions, settings | SQLite in `DATA_DIR` | PostgreSQL, MySQL/MariaDB | — | built |
-| Password change | Off | Link to the mail server's own page; LDAP | Webhook, command | built; no vendor drivers yet |
+| Password change and reset | Off | Link to the mail server's own page (changes only); LDAP | Webhook, command | built; no vendor drivers yet |
+| Breached passwords | Have I Been Pwned's range API (only a hash's first 5 characters leave) | Off | — | built |
 | Contacts | Viauna's database, vCard import/export | CardDAV sync, any server | — | built |
 | Calendars | Viauna's database, kept as iCalendar; .ics import and export | Calendars from the web by their address; a secret address for another app to read | — | built |
 | Invitations | Standard email invitations (iMIP), through the mailbox's own SMTP | — | — | built |

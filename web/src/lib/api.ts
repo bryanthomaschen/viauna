@@ -27,6 +27,7 @@ import type {
   MailboxesResponse,
   MessageRef,
   PasswordChange,
+  RecoveryStatus,
   RenderedMessage,
   SendAddress,
   SendAddresses,
@@ -231,6 +232,20 @@ export const api = {
   deleteLabel: (a: number, keyword: string) => request("DELETE", `${u(a)}/labels/${encodeURIComponent(keyword)}`),
 
   admin: (a: number) => request<AdminData>("GET", `/api/admin/${a}`),
+  resetLink: (a: number, address: string) =>
+    request<{ path: string; email: string; expiresAt: number; changes: AdminChange[] }>("POST", `/api/admin/${a}/reset-link`, { address }),
+  // Recovery, set up while signed in.
+  recovery: (a: number) => request<RecoveryStatus>("GET", `${u(a)}/recovery`),
+  setRecoveryAddress: (a: number, address: string, password: string) => request<RecoveryStatus>("PUT", `${u(a)}/recovery/address`, { address, password }),
+  sendRecoveryCode: (a: number) => request<RecoveryStatus>("POST", `${u(a)}/recovery/address/code`),
+  confirmRecoveryAddress: (a: number, code: string) => request<RecoveryStatus>("POST", `${u(a)}/recovery/address/confirm`, { code }),
+  removeRecoveryAddress: (a: number, password: string) => request<RecoveryStatus>("POST", `${u(a)}/recovery/address/remove`, { password }),
+  newBackupCodes: (a: number, password: string) => request<{ codes: string[]; status: RecoveryStatus }>("POST", `${u(a)}/recovery/backup-codes`, { password }),
+  // Forgot password?, and an admin's reset link: no session needed.
+  startRecovery: (email: string) => request<{ ok: true }>("POST", "/api/recovery/start", { email }),
+  verifyRecovery: (email: string, code: string) => request<{ token: string; email: string; expiresAt: number }>("POST", "/api/recovery/verify", { email, code }),
+  resetInfo: (token: string) => request<{ email: string; reason: "reset" | "admin"; expiresAt: number }>("POST", "/api/recovery/token", { token }),
+  finishReset: (token: string, password: string) => request<{ ok: true; email: string }>("POST", "/api/recovery/reset", { token, password }),
   saveAdmin: (a: number, patch: Record<string, SettingValue | null>) =>
     request<{ changed: string[]; settings: AdminSetting[]; changes: AdminChange[] }>("PUT", `/api/admin/${a}/settings`, patch),
 

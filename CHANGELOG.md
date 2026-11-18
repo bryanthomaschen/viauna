@@ -9,6 +9,27 @@ its notes before moving to it. A patch release (0.2.0 to 0.2.1) only fixes thing
 
 ## Unreleased
 
+### Getting back in
+
+- **Forgot password?** on the sign-in page. In Settings > Accounts, under Recovery,
+  people add a recovery address (confirmed with a code sent to it) and make ten backup
+  codes (shown once, to copy, download or print). With either, they choose a new
+  password without anyone's help. Every session signed in to the mailbox then ends, and
+  a notice goes to the mailbox and the recovery address. The page answers the same for
+  any address, so it can't be used to find out who has recovery set up. Needs a backend
+  that can reset passwords; a recovery address also needs Viauna's own sender. See
+  [Getting back in](https://bryanthomaschen.github.io/viauna/using/recovery).
+- **An admin's reset link**, from the admin page, for someone with no recovery set up: it
+  works once, for 24 hours, and they choose their own password, which the admin never
+  sees. Recorded in Recent changes.
+- **Each way in can be turned off**: `PASSWORD_RECOVERY_EMAIL`, `PASSWORD_RECOVERY_CODES`,
+  or from the admin page. What people set up is kept, and works again if it's turned
+  back on.
+- **No passwords from data breaches**: a new password, changed or reset, is checked
+  against Have I Been Pwned's list, sending only the first 5 characters of its SHA-1
+  hash (`PASSWORD_BREACH_CHECK`, on by default). If the list can't be reached, the
+  password is allowed and a warning is logged.
+
 ### Passwords
 
 - **`PASSWORD_CHANGE` is now `MAILBOX_ADMIN`**, and each `PASSWORD_CHANGE_*` variable is

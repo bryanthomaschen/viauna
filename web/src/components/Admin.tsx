@@ -108,6 +108,64 @@ export function show(value: SettingValue | null, unit?: string): string {
   return value === "" ? "None" : value;
 }
 
+/**
+ * A one-time link for someone locked out with no recovery set up (server/recovery.ts):
+ * they choose their own password, which the admin never sees.
+ */
+function ResetLink({ account, data }: { account: number; data: AdminData }) {
+  const client = useQueryClient();
+  const [address, setAddress] = useState("");
+  const [link, setLink] = useState<{ url: string; email: string; expiresAt: number } | null>(null);
+  const [busy, setBusy] = useState(false);
+  if (!data.resets) {
+    return (
+      <div className="setting" style={{ gridTemplateColumns: "1fr" }}>
+        <p className="setting-note" style={{ margin: 0 }}>
+          Needs a command, webhook or directory that can reset passwords: see Changing and resetting passwords, above.
+        </p>
+      </div>
+    );
+  }
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const r = await api.resetLink(account, address);
+      setLink({ url: `${location.origin}${r.path}`, email: r.email, expiresAt: r.expiresAt });
+      setAddress("");
+      client.setQueryData<AdminData>(["admin", account], (d) => d && { ...d, changes: r.changes });
+    } catch (err) {
+      toast((err as Error).message, { error: true });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="setting">
+      <div className="name">
+        Reset link
+        <small>For someone locked out with no recovery set up. They open it, choose a new password, and every browser signed in to the mailbox is signed out. You never see the password.</small>
+      </div>
+      <div className="options reset-link">
+        <form className="identity-act" onSubmit={(e) => void submit(e)}>
+          <input className="text-input" type="email" aria-label="Mailbox to reset" placeholder="ann@example.com" value={address} onChange={(e) => setAddress(e.target.value)} />
+          <button type="submit" className="btn btn-primary" disabled={busy || !address.trim()}>Make a link</button>
+        </form>
+        {link && (
+          <div className="reset-link-made" role="status">
+            <div>For <b>{link.email}</b>, until {longDate(link.expiresAt)}. It works once.</div>
+            <div className="identity-act">
+              <input className="text-input" readOnly aria-label={`Reset link for ${link.email}`} value={link.url} onFocus={(e) => e.target.select()} />
+              <button type="button" className="btn btn-outline" onClick={() => void navigator.clipboard.writeText(link.url).then(() => toast("Link copied."))}>Copy</button>
+            </div>
+            <small>Hand it over yourself, in person, by phone or in a chat: not by email to the mailbox that's locked. Anyone who has it can set the password.</small>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function AdminSettings({ account, data }: { account: number; data: AdminData }) {
   const save = useSave(account);
   const sections = [...new Set(data.settings.map((s) => s.section))];
@@ -121,6 +179,10 @@ function AdminSettings({ account, data }: { account: number; data: AdminData }) 
           ))}
         </section>
       ))}
+      <section>
+        <h2>Reset a password</h2>
+        <ResetLink account={account} data={data} />
+      </section>
       <section>
         <h2>This server</h2>
         <Facts server={data.server} />

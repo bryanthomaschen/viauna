@@ -17,6 +17,7 @@ import { ensureIndexAccount } from "./imap/store.ts";
 import { checkCustomHost } from "./netpolicy.ts";
 import type { AccountInfo } from "./imap/runtime.ts";
 import { log } from "./log.ts";
+import { MIN_PASSWORD, newPasswordProblem } from "./breach.ts";
 import { passwordChangeFor, runPasswordChange } from "./password.ts";
 import { type StateSchema, state, stateStore, toNumber } from "./state/db.ts";
 
@@ -135,7 +136,7 @@ export function take(key: string, max: number): boolean {
 }
 
 /** A successful login doesn't count against the account or the address. */
-function giveBack(key: string) {
+export function giveBack(key: string) {
   const entry = attempts.get(key);
   if (entry && entry.count > 0) entry.count--;
 }
@@ -316,8 +317,6 @@ async function upsertAccount(trx: Transaction<StateSchema>, values: Omit<Account
 
 export type PasswordChangeResult = { ok: true; signedOut: number } | { ok: false; status: number; error: string };
 
-const MIN_PASSWORD = 8;
-
 /**
  * Changes the mailbox password through the operator's command or webhook (password.ts),
  * after checking the current one with the mail server. Then this session keeps working
@@ -351,6 +350,10 @@ export async function changePassword(
       ? { ok: false, status: 400, error: "Your current password isn't right." }
       : { ok: false, status: 502, error: check.message };
   }
+
+  // After the current password is proven, so a wrong guess never asks the breach list.
+  const problem = await newPasswordProblem(next);
+  if (problem) return { ok: false, status: 400, error: problem };
 
   const result = await runPasswordChange({ login, email, currentPassword: current, newPassword: next });
   if (!result.ok) return { ok: false, status: 400, error: result.error };

@@ -270,3 +270,41 @@ other people's passwords: in OpenLDAP, add `by dn.exact="cn=viauna,ou=services,d
 to the rule for `userPassword`. Give it that and nothing else: its password is kept in
 Viauna's environment for as long as resets are on. If you'd rather it weren't, a webhook
 on another machine can make resets instead.
+
+## Forgot password?
+
+Once your backend can reset passwords (a command or webhook that answers `setPassword`
+in its capabilities, or LDAP with `MAILBOX_ADMIN_LDAP_RESET`), the sign-in page offers
+**Forgot password?**, and Settings > Accounts offers **Recovery**:
+
+| Way in | Needs | Turn off with |
+|---|---|---|
+| A recovery address, confirmed with a code; a code sent to it at a reset | [Viauna's own sender](./configuration.md#viauna-s-own-sender) (`SENDER_ADDRESS`), which sends the codes and notices | `PASSWORD_RECOVERY_EMAIL=false` |
+| Backup codes, ten at a time, each good once | Nothing more | `PASSWORD_RECOVERY_CODES=false` |
+
+Both are on by default, and can also be turned off from the admin page. Turned off, what
+people set up is kept but not used, and works again if it's turned back on.
+
+When someone proves who they are, Viauna sends your backend `setPassword` with `reason:
+"reset"`, signs the mailbox out of every session, and emails a notice to the mailbox and
+its recovery address. Only mailboxes on your own mail server (`IMAP_HOST`) that have
+signed in to Viauna can set recovery up. How it works, and its limits:
+[Getting back in](../how-it-works/recovery.md).
+
+## Reset links
+
+An admin can make a **reset link** on the admin page, for a mailbox with no recovery set
+up, or one that has never signed in to Viauna. It works once, for 24 hours; the person
+opens it and chooses their own password, and your backend gets `setPassword` with
+`reason: "admin"` and `by` set to the admin's login. See
+[The admin page](../administration/admin-page.md#reset-a-password).
+
+## Breached passwords
+
+A new password, changed or reset, must be at least 8 characters and, while
+`PASSWORD_BREACH_CHECK` is on (the default), not one known from a data breach. Viauna
+asks [Have I Been Pwned](https://haveibeenpwned.com/Passwords)'s range API, sending only
+the first 5 characters of the password's SHA-1 hash, so your server needs to reach
+`api.pwnedpasswords.com` over HTTPS. If it can't, the password is allowed and a warning
+is logged. Your backend may refuse passwords for its own reasons too; its message is
+shown. See [Breached passwords](../how-it-works/recovery.md#breached-passwords).

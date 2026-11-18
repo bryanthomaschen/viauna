@@ -58,7 +58,7 @@ export interface CalendarRoute {
 }
 
 export interface Route {
-  name: "login" | "mail" | "settings" | "contacts" | "calendar" | "admin" | "mailbox" | "none";
+  name: "login" | "recover" | "mail" | "settings" | "contacts" | "calendar" | "admin" | "mailbox" | "none";
   account: number;
   folder: Folder;
   thread: number | null;
@@ -78,6 +78,8 @@ export function parseRoute(path: string): Route {
   const parts = pathname.split("/").filter(Boolean);
   const none: Route = { name: "none", account: 0, folder: { kind: "inbox" }, thread: null, page: 0, calendar: null, contactsLabel: null, mailbox: null };
   if (parts[0] === "login") return { ...none, name: "login" };
+  // Forgot password? (/forgot), and an admin's reset link (/reset#token): signed in or not.
+  if ((parts[0] === "forgot" || parts[0] === "reset") && parts.length === 1) return { ...none, name: "recover" };
   if (parts[0] === "mailbox" && parts[1]) {
     return { ...none, name: "mailbox", account: -1, mailbox: { email: decodeURIComponent(parts[1]).toLowerCase(), rest: parts.slice(2).join("/") } };
   }

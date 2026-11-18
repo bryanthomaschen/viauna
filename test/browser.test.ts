@@ -41,6 +41,8 @@ describe.skipIf(!enabled)("in a browser", { timeout: 30_000 }, () => {
   let base = "";
   let dataDir = "";
   let stop: () => Promise<void> = async () => {};
+  /** Where the password backend (a command) records the resets it's asked for. */
+  let resetsFile = "";
 
   const press = (k: string) => page.keyboard.press(k);
   const where = () => new URL(page.url()).pathname;
@@ -114,6 +116,20 @@ describe.skipIf(!enabled)("in a browser", { timeout: 30_000 }, () => {
       localStorage.setItem("viauna.prefs", JSON.stringify({ ...prefs, shortcuts: true }));
     });
 
+  /** The password backend: says it changes and resets passwords, and records each request. */
+  const backendCommand = () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "viauna-kb-backend-"));
+    resetsFile = path.join(dir, "requests.jsonl");
+    const script = path.join(dir, "backend.mjs");
+    fs.writeFileSync(script, `import fs from "node:fs"; let s = ""; process.stdin.on("data", (d) => (s += d)).on("end", () => {
+      const r = JSON.parse(s);
+      if (r.action === "capabilities") console.log(JSON.stringify({ actions: ["changePassword", "setPassword"] }));
+      else fs.appendFileSync(${JSON.stringify(resetsFile)}, s);
+    });`);
+    return `"${process.execPath}" "${script}"`;
+  };
+  const backendRequests = () => (fs.existsSync(resetsFile) ? fs.readFileSync(resetsFile, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)) : []);
+
   beforeAll(async () => {
     const port = await freePort();
     base = `http://127.0.0.1:${port}`;
@@ -121,6 +137,7 @@ describe.skipIf(!enabled)("in a browser", { timeout: 30_000 }, () => {
       IMAP_HOST: "127.0.0.1", IMAP_PORT: "1143", IMAP_SECURITY: "none",
       SMTP_HOST: "127.0.0.1", SMTP_PORT: "1587", SMTP_SECURITY: "none",
       MANAGESIEVE_PORT: "14190", PUBLIC_URL: base, WEB_ROOT: path.resolve("dist/web"),
+      MAILBOX_ADMIN: "command", MAILBOX_ADMIN_COMMAND: backendCommand(),
     });
     if (!fs.existsSync("dist/web/index.html")) throw new Error("Build the web app first: npm run build");
     await promisify(execFile)(process.execPath, [path.resolve("node_modules/tsx/dist/cli.mjs"), "dev/seed.ts", user]);
@@ -597,6 +614,97 @@ describe.skipIf(!enabled)("in a browser", { timeout: 30_000 }, () => {
       await press("Tab");
       await until(tooltip, "the tooltip on More");
       await blur();
+    });
+  });
+
+  describe("getting back in", () => {
+    /** A page in a browser of its own, signed in to a mailbox of its own: a reset signs that one out everywhere. */
+    const signedInElsewhere = async () => {
+      const who = `kb-r-${crypto.randomBytes(4).toString("hex")}@example.test`;
+      const p = await (await browser.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
+      await p.goto(`${base}/login`);
+      await p.getByLabel("Email address").fill(who);
+      await p.getByLabel("Password").fill("pass");
+      await p.getByRole("button", { name: "Next" }).click();
+      await p.waitForURL(/\/u\/0\/inbox/, { timeout: 20_000 });
+      return { who, p };
+    };
+    const choosePassword = async (p: Page, email: string) => {
+      await p.getByRole("heading", { name: "Choose a new password" }).waitFor();
+      if (!(await p.getByText(`for ${email}`).count())) throw new Error(`the reset page doesn't name ${email}`);
+      await p.getByLabel("New password", { exact: true }).fill("a fresh password 1");
+      await p.getByLabel("Confirm new password").fill("a fresh password 1");
+      await p.getByRole("button", { name: "Change password" }).click();
+      await p.getByRole("heading", { name: "Password changed" }).waitFor();
+    };
+
+    it("makes backup codes in Settings, and one of them gets you a new password from the sign-in page", async () => {
+      const { who, p } = await signedInElsewhere();
+      try {
+        await p.goto(`${base}/u/0/settings?tab=accounts`);
+        await p.getByRole("button", { name: "Make backup codes" }).click();
+        await p.getByLabel(`Password for ${who}`).fill("pass");
+        await p.getByRole("button", { name: "Make codes" }).click();
+        const codes = await p.getByRole("list", { name: "Backup codes" }).locator("code").allTextContents();
+        if (codes.length !== 10 || !codes.every((c) => /^[0-9A-Z]{5}-[0-9A-Z]{5}$/.test(c))) throw new Error(`codes shown: ${JSON.stringify(codes)}`);
+        await p.getByRole("button", { name: "I've saved them" }).click();
+        await until(async () => (await p.getByText("10 of 10 left").count()) > 0, "the count of codes left");
+
+        // Signed out, as someone who forgot the password: from the sign-in page.
+        const out = await (await browser.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
+        try {
+          await out.goto(`${base}/login`);
+          await out.getByLabel("Email address").fill(who);
+          await out.getByRole("link", { name: "Forgot password?" }).click();
+          await out.waitForURL(/\/forgot\?email=/);
+          await out.getByRole("button", { name: "Next" }).click();
+          await out.getByLabel("Code").fill("WRONG-CODE0");
+          await out.getByRole("button", { name: "Next" }).click();
+          await out.getByText("That code isn't right, or it has expired.").waitFor();
+          await out.getByLabel("Code").fill(codes[0].toLowerCase());
+          await out.getByRole("button", { name: "Next" }).click();
+          await choosePassword(out, who);
+        } finally {
+          await out.context().close();
+        }
+        const done = backendRequests().filter((r) => r.action === "setPassword" && r.login === who);
+        if (done.length !== 1 || done[0].reason !== "reset" || done[0].newPassword !== "a fresh password 1") throw new Error(`backend got ${JSON.stringify(done)}`);
+        // The browser that made the codes was signed out by the reset.
+        await p.reload();
+        await p.waitForURL(/\/login/);
+      } finally {
+        await p.context().close();
+      }
+    });
+
+    it("lets an admin make a one-time reset link, which a person opens to choose their own password", async () => {
+      const { who } = await signedInElsewhere();
+      const { COMMAND_LINE, changeSettings } = await import("../server/instance.ts");
+      await changeSettings({ ADMIN_ADDRESSES: user }, COMMAND_LINE);
+      try {
+        await page.goto(`${base}/u/0/admin`);
+        await page.getByLabel("Mailbox to reset").fill(who);
+        await page.getByRole("button", { name: "Make a link" }).click();
+        const link = await page.getByLabel(`Reset link for ${who}`).inputValue();
+        if (!new RegExp(`^${base}/reset#[A-Za-z0-9_-]{43}$`).test(link)) throw new Error(`link: ${link}`);
+        const out = await (await browser.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
+        try {
+          await out.goto(link);
+          await choosePassword(out, who);
+          // The token left the address bar, and it works once.
+          if (out.url() !== `${base}/reset`) throw new Error(`still in the address: ${out.url()}`);
+          // Opened again (in a new tab: in the same one, only the #fragment would change).
+          const again = await out.context().newPage();
+          await again.goto(link);
+          await again.getByRole("heading", { name: "This link doesn't work" }).waitFor();
+        } finally {
+          await out.context().close();
+        }
+        const done = backendRequests().filter((r) => r.action === "setPassword" && r.login === who);
+        if (done.length !== 1 || done[0].reason !== "admin" || done[0].by !== user) throw new Error(`backend got ${JSON.stringify(done)}`);
+      } finally {
+        await changeSettings({ ADMIN_ADDRESSES: null }, COMMAND_LINE);
+      }
     });
   });
 

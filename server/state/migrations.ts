@@ -398,6 +398,48 @@ export function migrations(dialect: Dialect): MigrationProvider {
         await db.updateTable("admin_log").set({ setting: "mailboxAdmin" }).where("setting", "=", "passwordChange").execute();
       },
     },
+
+    // 0.7: getting back in (recovery.ts). A mailbox's recovery address, with the code
+    // waiting to be entered (to confirm the address, or to reset the password) kept as a
+    // keyed hash; its backup codes, only as keyed hashes; and the one-time tokens a reset
+    // is finished with, from recovery or an admin's link, also hashed. A reset may be for
+    // a mailbox that never signed in here, so those name the login, not an account.
+    "0014_recovery": {
+      async up(db: Kysely<any>) {
+        await table(db, "recovery_addresses")
+          .addColumn("account_id", "integer", (c) => c.primaryKey())
+          .addColumn("address", "varchar(320)", (c) => c.notNull())
+          .addColumn("confirmed_at", "bigint")
+          .addColumn("code_hash", "varchar(64)")
+          .addColumn("code_purpose", "varchar(8)") // "confirm" or "reset"
+          .addColumn("code_expires_at", "bigint")
+          .addColumn("code_tries", "integer", (c) => c.notNull().defaultTo(0))
+          .addColumn("code_sent_at", "bigint")
+          .addColumn("codes_day", "integer", (c) => c.notNull().defaultTo(0)) // days since the epoch
+          .addColumn("codes_sent", "integer", (c) => c.notNull().defaultTo(0)) // on that day
+          .addColumn("created_at", "bigint", (c) => c.notNull())
+          .addForeignKeyConstraint("recovery_addresses_account", ["account_id"], "accounts", ["id"], (fk) => fk.onDelete("cascade"))
+          .execute();
+        await table(db, "backup_codes")
+          .addColumn("account_id", "integer", (c) => c.notNull())
+          .addColumn("code_hash", "varchar(64)", (c) => c.notNull())
+          .addColumn("used_at", "bigint")
+          .addColumn("created_at", "bigint", (c) => c.notNull())
+          .addPrimaryKeyConstraint("backup_codes_key", ["account_id", "code_hash"])
+          .addForeignKeyConstraint("backup_codes_account", ["account_id"], "accounts", ["id"], (fk) => fk.onDelete("cascade"))
+          .execute();
+        await table(db, "password_resets")
+          .addColumn("token_hash", "varchar(64)", (c) => c.primaryKey())
+          .addColumn("login", "varchar(320)", (c) => c.notNull())
+          .addColumn("email", "varchar(320)", (c) => c.notNull())
+          .addColumn("reason", "varchar(8)", (c) => c.notNull()) // "reset" or "admin"
+          .addColumn("created_by", "varchar(320)", (c) => c.notNull()) // "recovery", or the admin's login
+          .addColumn("created_at", "bigint", (c) => c.notNull())
+          .addColumn("expires_at", "bigint", (c) => c.notNull())
+          .addColumn("used_at", "bigint")
+          .execute();
+      },
+    },
   };
   return { getMigrations: async () => all };
 }

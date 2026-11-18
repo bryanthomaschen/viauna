@@ -91,7 +91,22 @@ import { LabelError, createLabel, deleteLabel, listLabels, updateLabel } from ".
 import { attachmentList, editorHtml, render } from "./mail/render.ts";
 import { parseQuery, searchThreads } from "./mail/search.ts";
 import { type View, conversation, listThreads, parseView } from "./mail/views.ts";
-import { passwordChangeFor } from "./password.ts";
+import { canReset, passwordChangeFor } from "./password.ts";
+import {
+  RecoveryError,
+  confirmRecoveryAddress,
+  createResetLink,
+  finishReset,
+  newBackupCodes,
+  recoveryOffered,
+  recoveryStatus,
+  removeRecoveryAddress,
+  resendConfirmation,
+  resetTokenInfo,
+  setRecoveryAddress,
+  startRecovery,
+  verifyRecovery,
+} from "./recovery.ts";
 import { PushError, addSubscription, pushTo, removeSubscription, vapidPublicKey } from "./push.ts";
 import { type Notice, reminderEvents } from "./reminders.ts";
 import { emailReminders } from "./sender.ts";
@@ -208,6 +223,7 @@ export function createApp() {
     if (err instanceof ContactError) return c.json({ error: err.message }, err.status as 400);
     if (err instanceof FilterError) return c.json({ error: err.message }, err.status as 400);
     if (err instanceof IdentityError) return c.json({ error: err.message }, err.status);
+    if (err instanceof RecoveryError) return c.json({ error: err.message }, err.status);
     if (err instanceof CalendarError) return c.json({ error: err.message }, err.status as 400);
     if (err instanceof FeedError || err instanceof PushError) return c.json({ error: err.message }, 400);
     log.error("request failed", { path: c.req.path, error: (err as Error).message, stack: (err as Error).stack });
@@ -242,7 +258,7 @@ export function createApp() {
     await next();
   });
 
-  app.get("/api/config", (c) =>
+  app.get("/api/config", async (c) =>
     c.json({
       appName: config.appName,
       version: VERSION,
@@ -256,6 +272,10 @@ export function createApp() {
       pushKey: setting("calendar") && setting("browserNotifications") ? vapidPublicKey() : null,
       filters: setting("filters") && !!config.managesieve,
       vacation: setting("vacation") && !!config.managesieve,
+      // "Forgot password?" on the sign-in page, and whether it can email a code.
+      recovery: await recoveryOffered(),
+      // New passwords are checked against known breaches.
+      breachCheck: setting("passwordBreachCheck"),
     }),
   );
 
@@ -302,6 +322,21 @@ export function createApp() {
     }
     return c.json({ ok: true });
   });
+
+  // ---------------------------------------------------------------- Forgot password?
+
+  // Public, like signing in (recovery.ts). The token travels only in request bodies, never
+  // in an address a log or another site could keep.
+  app.post("/api/recovery/start", async (c) => {
+    await startRecovery(await c.req.json().catch(() => ({})), { ip: clientIp(c) });
+    return c.json({ ok: true });
+  });
+
+  app.post("/api/recovery/verify", async (c) => c.json(await verifyRecovery(await c.req.json().catch(() => ({})), { ip: clientIp(c) })));
+
+  app.post("/api/recovery/token", async (c) => c.json(await resetTokenInfo((await c.req.json().catch(() => ({}))).token)));
+
+  app.post("/api/recovery/reset", async (c) => c.json({ ok: true, ...(await finishReset(await c.req.json().catch(() => ({})), { ip: clientIp(c) })) }));
 
   // ---------------------------------------------------------------- per-account
 
@@ -948,6 +983,25 @@ export function createApp() {
     return c.json({ ok: true, signedOut: result.signedOut });
   });
 
+  // Recovery, set up while signed in (recovery.ts): changes need the password again.
+  acct.get("/recovery", async (c) => c.json(await recoveryStatus(c.get("rt").account)));
+
+  acct.put("/recovery/address", async (c) =>
+    c.json(await setRecoveryAddress(c.get("rt").account, await c.req.json().catch(() => ({})), { ip: clientIp(c) })),
+  );
+
+  acct.post("/recovery/address/code", async (c) => c.json(await resendConfirmation(c.get("rt").account)));
+
+  acct.post("/recovery/address/confirm", async (c) => c.json(await confirmRecoveryAddress(c.get("rt").account, await c.req.json().catch(() => ({})))));
+
+  acct.post("/recovery/address/remove", async (c) =>
+    c.json(await removeRecoveryAddress(c.get("rt").account, await c.req.json().catch(() => ({})), { ip: clientIp(c) })),
+  );
+
+  acct.post("/recovery/backup-codes", async (c) =>
+    c.json(await newBackupCodes(c.get("rt").account, await c.req.json().catch(() => ({})), { ip: clientIp(c) })),
+  );
+
   acct.put("/settings", async (c) => {
     const result = await updateSettings(c.get("rt").account.id, await c.req.json());
     if ("error" in result) return c.json(result, 400);
@@ -1085,8 +1139,15 @@ export function createApp() {
       settings: await describeSettings(),
       changes: await recentChanges(),
       server: serverFacts(),
+      // Reset links can be made: the backend can set a password without the current one.
+      resets: await canReset(),
     }),
   );
+
+  admin.post("/reset-link", async (c) => {
+    const link = await createResetLink(c.get("sa").account, await c.req.json().catch(() => ({})));
+    return c.json({ ...link, changes: await recentChanges() });
+  });
 
   admin.put("/settings", async (c) => {
     const body = await c.req.json().catch(() => null);

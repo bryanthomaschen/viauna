@@ -8,7 +8,7 @@ state in the data directory (`/data` in the container), or in your database if y
 
 | Path | Holds | If it's lost |
 |---|---|---|
-| `state.db` | Accounts and sessions; each mailbox's settings (name, signature, send-as addresses, image preference, page size); label names and colours; senders whose images are always shown; settings changed from the admin page, and the record of changes; contacts; calendars and their events. Not present if you use `DATABASE_URL`, which holds these instead. | Everyone signs in again, and those settings and colours are gone; so are admins, settings made on the admin page, everyone's contacts (unless they sync with a CardDAV server) and everyone's calendars, which exist nowhere else. Mail is untouched, and labels stay on the messages because they live on the server. **Back this up.** |
+| `state.db` | Accounts and sessions; each mailbox's settings (name, signature, send-as addresses, image preference, page size); label names and colours; senders whose images are always shown; settings changed from the admin page, and the record of changes; contacts; calendars and their events; recovery addresses and backup codes. Not present if you use `DATABASE_URL`, which holds these instead. | Everyone signs in again, and those settings and colours are gone; so are admins, settings made on the admin page, everyone's contacts (unless they sync with a CardDAV server) and everyone's calendars, which exist nowhere else. Mail is untouched, and labels stay on the messages because they live on the server. **Back this up.** |
 | `index.db` | The mail index: folders, conversations, message summaries, label keywords seen on messages, and the addresses you correspond with, for autocomplete | Nothing that matters: Viauna re-syncs from the mail server. |
 | `secret.key` | The generated server secret (absent if you set `SECRET_KEY`) | Everyone signs in again. |
 | `cache/` | Downloaded messages, trimmed to `CACHE_MB` | Nothing: they're fetched again. |
@@ -74,6 +74,14 @@ The version you're running is shown at the foot of the sign-in page, and by
   `setPassword` and `capabilities`. One set up under its old name is only ever sent
   password changes, so it keeps working unchanged. Rename its variable once it handles
   `action`; see [Passwords](./passwords.md#the-requests).
+- **Forgot password?** appears on the sign-in page once your backend can reset passwords,
+  with a recovery address if Viauna has [its own sender](./configuration.md#viauna-s-own-sender),
+  and backup codes. Turn either off with `PASSWORD_RECOVERY_EMAIL` and
+  `PASSWORD_RECOVERY_CODES`, or from the admin page. Admins can make reset links.
+- **New passwords are checked against known data breaches**, which needs the server to
+  reach `api.pwnedpasswords.com` over HTTPS. If it can't, passwords are allowed and a
+  warning is logged; set `PASSWORD_BREACH_CHECK=false` to stop asking.
+- New tables (recovery addresses, backup codes, reset tokens) are made on the first start.
 
 ### From 0.5 to 0.6
 

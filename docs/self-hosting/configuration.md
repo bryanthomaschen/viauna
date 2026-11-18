@@ -112,6 +112,9 @@ environment only.
 | `MAILBOX_ADMIN_LDAP_RESET` | `false` | Reset forgotten passwords too, bound as the service account, which the directory must allow to change passwords. |
 | `MAILBOX_ADMIN_LDAP_STARTTLS` | `true` | For `ldap://`: upgrade with StartTLS. `false` sends passwords unencrypted. |
 | `MAILBOX_ADMIN_LDAP_TLS_VERIFY` | `true` | Check the directory's certificate. |
+| `PASSWORD_RECOVERY_EMAIL` | `true` | **Live.** Forgot password? with a recovery address: a code sent to it lets someone choose a new password. Needs a backend that can reset, and [Viauna's own sender](#viauna-s-own-sender). See [Passwords](./passwords.md#forgot-password). |
+| `PASSWORD_RECOVERY_CODES` | `true` | **Live.** Forgot password? with backup codes, each good once. Needs a backend that can reset. |
+| `PASSWORD_BREACH_CHECK` | `true` | **Live.** Refuse a new password found in known data breaches, asked of Have I Been Pwned with only the first 5 characters of its SHA-1 hash. Turn off if the server may not reach `api.pwnedpasswords.com`. |
 
 ### Renamed in 0.7
 

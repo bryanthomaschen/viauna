@@ -53,6 +53,12 @@ export function Login({ config, adding, accounts }: { config: AppConfig | undefi
             value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
           <input className="text-input" type="password" autoComplete="current-password" placeholder="Password" aria-label="Password"
             value={password} onChange={(e) => setPassword(e.target.value)} required />
+          {config?.recovery?.offered && (
+            <a className="forgot-link" href="/forgot" onClick={(e) => {
+              e.preventDefault();
+              navigate(`/forgot${email ? `?email=${encodeURIComponent(email)}` : ""}`);
+            }}>Forgot password?</a>
+          )}
           {error && (
             <div className="error" role="alert"><CircleAlert size={16} /> {error}</div>
           )}

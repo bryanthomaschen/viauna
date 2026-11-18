@@ -439,6 +439,13 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
 .login-form details summary { cursor: pointer; color: var(--primary); font-size: 14px; }
 .login-form .servers { display: grid; grid-template-columns: 1fr 90px 110px; gap: 8px; margin-top: 8px; }
 .login-form > .text-input { height: 48px; font-size: 16px; }
+/* Forgot password? and its steps (Recover.tsx). */
+.recover-note { font-size: 14px; color: var(--text-2); margin: 0; line-height: 20px; }
+.link-button { background: none; border: 0; padding: 0; color: var(--primary); font: inherit; cursor: pointer; }
+.link-button:hover { text-decoration: underline; }
+.forgot-link { align-self: flex-start; font-size: 14px; }
+.forgot-link, .login-form .buttons > a { color: var(--primary); font-weight: 500; text-decoration: none; }
+.forgot-link:hover, .login-form .buttons > a:hover { text-decoration: underline; }
 .login-foot { margin-top: 16px; text-align: center; font-size: 12px; color: var(--text-muted); }
 
 /* ------------------------------------------------------------ settings */
@@ -471,6 +478,17 @@ kbd { font-family: inherit; font-size: 12px; padding: 1px 6px; border-radius: 4p
 .identity-act .identity-code { flex: 0 1 140px; letter-spacing: 1px; }
 .identity-tools { display: flex; margin: -10px -8px 0 0; }
 .add-identity { display: flex; flex-direction: column; gap: 8px; padding-top: 12px; }
+/* Recovery (Settings > Accounts): a recovery address, and backup codes. */
+.options.recovery { display: flex; flex-direction: column; gap: 16px; }
+.options.reset-link { display: flex; flex-direction: column; gap: 12px; }
+.reset-link-made { display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+.reset-link-made small { color: var(--text-2); }
+.recovery-part { display: flex; flex-direction: column; gap: 8px; }
+.recovery-head { font-size: 14px; font-weight: 500; }
+.recovery-part .identity-note { margin: 0; overflow-wrap: anywhere; }
+.recovery-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.backup-codes { columns: 2; gap: 24px; margin: 16px 0; padding-left: 28px; font-size: 16px; line-height: 32px; }
+.backup-codes code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 1px; }
 .add-identity-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .add-identity-server { display: grid; grid-template-columns: minmax(0, 1fr) 90px 120px; gap: 8px; }
 .add-identity .text-input { max-width: none; }

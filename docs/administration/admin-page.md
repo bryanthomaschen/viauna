@@ -73,6 +73,16 @@ What the page can change:
 | Name | `APP_NAME` | |
 | Links | `LINKS` | Links in the apps menu, each for everyone or for admins only: a label, a web address, and who sees it. |
 | Changing and resetting passwords | `MAILBOX_ADMIN` (`PASSWORD_CHANGE` before 0.7) | Off, or one of the ways the environment set up. See [Passwords](../self-hosting/passwords.md). |
+| Forgot password? with a recovery address, with backup codes | `PASSWORD_RECOVERY_EMAIL`, `PASSWORD_RECOVERY_CODES` | Each way in, on or off. Turned off, what people set up is kept but not used. See [Getting back in](../how-it-works/recovery.md). |
+| Refuse breached passwords | `PASSWORD_BREACH_CHECK` | See [Breached passwords](../how-it-works/recovery.md#breached-passwords). |
+
+### Reset a password
+
+For someone locked out with no recovery set up: enter their mailbox's address and choose
+**Make a link**. The link works once, for 24 hours. Hand it over yourself, in person, by
+phone or in a chat, not by email to the mailbox they can't open; they choose their own
+password, which you never see. Making one is recorded in Recent changes. It needs a
+backend that can reset passwords (see [Passwords](../self-hosting/passwords.md)).
 
 ### What the page can never change
 

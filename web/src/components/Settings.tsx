@@ -9,7 +9,7 @@ import { relative } from "../lib/format";
 import { disablePush, enablePush, pushOn, pushSupported, testPush } from "../lib/push";
 import { navigate, usePath } from "../lib/router";
 import { type Density, type Theme, prefs, toast } from "../lib/store";
-import type { Reminder, SendAddress, SendAddresses, SendAsPolicy, Settings } from "../lib/types";
+import type { RecoveryStatus, Reminder, SendAddress, SendAddresses, SendAsPolicy, Settings } from "../lib/types";
 import { IconButton, Modal, confirmDeleteFolder, confirmRemoveLabel } from "./common";
 import { EditorArea, FormatBar, useMailEditor } from "./Editor";
 import { MOD_KEY } from "./CommandMenu";
@@ -351,6 +351,7 @@ function Accounts() {
         </div>
       )}
       {changingPassword && <PasswordDialog onClose={() => setChangingPassword(false)} />}
+      <Recovery />
       <div className="setting">
         <div className="name">Signed-in accounts</div>
         <div className="options">
@@ -584,6 +585,211 @@ function AddIdentity({ servers, onDone }: { servers: boolean; onDone: (next: Sen
         <button type="button" className="btn btn-text" onClick={() => onDone(null)}>Cancel</button>
       </div>
     </form>
+  );
+}
+
+/**
+ * Ways back in if the password is forgotten (server/recovery.ts): a recovery address,
+ * confirmed with a code sent to it, and backup codes, shown once. Each change asks for the
+ * password again, so a browser left signed in can't add a way in for someone else.
+ */
+function Recovery() {
+  const acct = useAccount();
+  const client = useQueryClient();
+  const key = ["recovery", acct.index];
+  const status = useQuery({ queryKey: key, queryFn: () => api.recovery(acct.index) });
+  const [asking, setAsking] = useState<null | "address" | "remove" | "codes">(null);
+  const [code, setCode] = useState("");
+  const [codes, setCodes] = useState<string[] | null>(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const s = status.data;
+  if (!s || !s.offered && !s.address && !s.backupCodes) return null;
+  const update = (next: RecoveryStatus) => client.setQueryData(key, next);
+  const run = async (fn: () => Promise<void>) => {
+    setBusy(true);
+    setError("");
+    try {
+      await fn();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const waiting = !!s.address && !s.confirmed && s.codeSentAt !== null;
+  return (
+    <div className="setting">
+      <div className="name">
+        Recovery
+        <small>If you forget your password, these get you back in from the sign-in page, under Forgot password?</small>
+      </div>
+      <div className="options recovery">
+        {(s.emailOffered || s.address) && (
+          <div className="recovery-part">
+            <div className="recovery-head">Recovery address</div>
+            {!s.address && <p className="identity-note">An address of yours at another provider, which a code can be sent to.</p>}
+            {s.address && (
+              <p className="identity-note">
+                <b>{s.address}</b>{" "}
+                {!s.emailOffered ? "(not used: this server has turned recovery by email off)" : s.confirmed ? "can reset your password." : waiting ? `: enter the code sent to it ${relative(s.codeSentAt!)}.` : "isn't confirmed yet."}
+              </p>
+            )}
+            {s.emailOffered && s.address && !s.confirmed && (
+              <form className="identity-act" onSubmit={(e) => {
+                e.preventDefault();
+                void run(async () => {
+                  update(await api.confirmRecoveryAddress(acct.index, code));
+                  setCode("");
+                  toast(`${s.address} can now reset your password.`);
+                });
+              }}>
+                <input className="text-input identity-code" inputMode="numeric" autoComplete="one-time-code" placeholder="8-digit code" aria-label="Code from the recovery address"
+                  value={code} onChange={(e) => setCode(e.target.value)} />
+                <button type="submit" className="btn btn-primary" disabled={busy || !code.trim()}>Confirm</button>
+                <button type="button" className="btn btn-text" disabled={busy} onClick={() => void run(async () => {
+                  update(await api.sendRecoveryCode(acct.index));
+                  toast(`Another code is on its way to ${s.address}.`);
+                })}>Send another</button>
+              </form>
+            )}
+            <div className="recovery-buttons">
+              {s.emailOffered && <button type="button" className="btn btn-outline" onClick={() => setAsking("address")}>{s.address ? "Change" : "Add a recovery address"}</button>}
+              {s.address && <button type="button" className="btn btn-text" onClick={() => setAsking("remove")}>Remove</button>}
+            </div>
+          </div>
+        )}
+        {(s.codesOffered || s.backupCodes) && (
+          <div className="recovery-part">
+            <div className="recovery-head">Backup codes</div>
+            <p className="identity-note">
+              {!s.backupCodes
+                ? "Ten codes to print or save, each good for one reset. Keep them away from this computer."
+                : !s.codesOffered
+                  ? "Not used: this server has turned backup codes off."
+                  : `${s.backupCodes.left} of ${s.backupCodes.total} left, made ${relative(s.backupCodes.createdAt)}.`}
+            </p>
+            {s.codesOffered && (
+              <div className="recovery-buttons">
+                <button type="button" className="btn btn-outline" onClick={() => setAsking("codes")}>{s.backupCodes ? "Make new codes" : "Make backup codes"}</button>
+              </div>
+            )}
+          </div>
+        )}
+        {error && <div className="form-error" role="alert">{error}</div>}
+      </div>
+      {asking && (
+        <ConfirmWithPassword
+          what={asking}
+          email={acct.email}
+          current={s.address}
+          onClose={() => setAsking(null)}
+          onDone={(next, newCodes) => {
+            update(next);
+            setAsking(null);
+            if (newCodes) setCodes(newCodes);
+          }}
+        />
+      )}
+      {codes && <BackupCodes email={acct.email} codes={codes} onClose={() => setCodes(null)} />}
+    </div>
+  );
+}
+
+/** Asks for the password, and for an address when adding one, then makes the change. */
+function ConfirmWithPassword({ what, email, current, onClose, onDone }: {
+  what: "address" | "remove" | "codes";
+  email: string;
+  current: string | null;
+  onClose: () => void;
+  onDone: (next: RecoveryStatus, codes?: string[]) => void;
+}) {
+  const acct = useAccount();
+  const [address, setAddress] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const title = what === "address" ? (current ? "Change recovery address" : "Add a recovery address") : what === "remove" ? "Remove recovery address" : "Make backup codes";
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      if (what === "address") {
+        const next = await api.setRecoveryAddress(acct.index, address, password);
+        toast(`A code is on its way to ${next.address}.`);
+        onDone(next);
+      } else if (what === "remove") {
+        onDone(await api.removeRecoveryAddress(acct.index, password));
+        toast("Recovery address removed.");
+      } else {
+        const made = await api.newBackupCodes(acct.index, password);
+        onDone(made.status, made.codes);
+      }
+    } catch (err) {
+      setError((err as Error).message);
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal open onClose={onClose} title={title}>
+      <form className="password-form" onSubmit={(e) => void submit(e)}>
+        <input type="text" autoComplete="username" value={email} readOnly hidden />
+        {what === "address" && (
+          <input className="text-input" type="email" autoComplete="email" aria-label="Recovery address" placeholder="you@another-provider.com"
+            value={address} autoFocus onChange={(e) => setAddress(e.target.value)} />
+        )}
+        <input className="text-input" type="password" autoComplete="current-password" aria-label={`Password for ${email}`} placeholder={`Password for ${email}`}
+          value={password} autoFocus={what !== "address"} onChange={(e) => setPassword(e.target.value)} />
+        <p className="dialog-text" style={{ fontSize: 14 }}>
+          {what === "address" && "We'll email it a code to confirm it's yours. Until then it isn't used. Whoever can read its mail can reset this password."}
+          {what === "remove" && `${current} won't be able to reset your password any more.`}
+          {what === "codes" && "You'll see ten codes once. Making new ones stops any old ones working."}
+        </p>
+        {error && <div className="form-error" role="alert">{error}</div>}
+        <div className="buttons">
+          <button type="button" className="btn btn-text" onClick={onClose}>Cancel</button>
+          <button type="submit" className="btn btn-primary" disabled={busy || !password || (what === "address" && !address.trim())}>
+            {busy ? "Just a moment…" : what === "address" ? "Send a code" : what === "remove" ? "Remove" : "Make codes"}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+/** The new backup codes, shown once: to copy, download or print. */
+function BackupCodes({ email, codes, onClose }: { email: string; codes: string[]; onClose: () => void }) {
+  const sheet = `Backup codes for ${email}\nEach can be used once, under Forgot password? on the sign-in page.\n\n${codes.join("\n")}\n`;
+  const download = () => {
+    const url = URL.createObjectURL(new Blob([sheet], { type: "text/plain" }));
+    const a = Object.assign(document.createElement("a"), { href: url, download: `backup-codes-${email}.txt` });
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  const print = () => {
+    const w = window.open("", "_blank", "noopener=no,width=600,height=700");
+    if (!w) return;
+    const escape = (t: string) => t.replace(/[&<>]/g, (c) => `&#${c.charCodeAt(0)};`);
+    w.document.write(`<title>Backup codes</title><pre style="font: 16px/1.8 ui-monospace, monospace; padding: 24px">${escape(sheet)}</pre>`);
+    w.document.close();
+    w.print();
+  };
+  return (
+    <Modal open onClose={onClose} title="Your backup codes">
+      <p className="dialog-text" style={{ fontSize: 14 }}>
+        Save these now: they won't be shown again. Each works once. Keep them somewhere safe, away from this computer.
+      </p>
+      <ol className="backup-codes" aria-label="Backup codes">
+        {codes.map((c) => <li key={c}><code>{c}</code></li>)}
+      </ol>
+      <div className="buttons">
+        <button type="button" className="btn btn-text" onClick={() => void navigator.clipboard.writeText(sheet).then(() => toast("Copied."))}>Copy</button>
+        <button type="button" className="btn btn-text" onClick={download}>Download</button>
+        <button type="button" className="btn btn-text" onClick={print}>Print</button>
+        <button type="button" className="btn btn-primary" onClick={onClose}>I've saved them</button>
+      </div>
+    </Modal>
   );
 }
 

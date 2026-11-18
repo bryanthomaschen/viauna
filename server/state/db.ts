@@ -218,6 +218,40 @@ export interface IdentityTable {
   created_at: number;
 }
 
+/** A mailbox's recovery address, and the code waiting for it (recovery.ts). */
+export interface RecoveryAddressTable {
+  account_id: number;
+  address: string;
+  confirmed_at: number | null;
+  code_hash: string | null;
+  code_purpose: string | null;
+  code_expires_at: number | null;
+  code_tries: Generated<number>;
+  code_sent_at: number | null;
+  codes_day: Generated<number>;
+  codes_sent: Generated<number>;
+  created_at: number;
+}
+
+export interface BackupCodeTable {
+  account_id: number;
+  code_hash: string;
+  used_at: number | null;
+  created_at: number;
+}
+
+/** A one-time token that finishes a reset: from recovery, or an admin's link. */
+export interface PasswordResetTable {
+  token_hash: string;
+  login: string;
+  email: string;
+  reason: string;
+  created_by: string;
+  created_at: number;
+  expires_at: number;
+  used_at: number | null;
+}
+
 export interface StateSchema {
   accounts: AccountTable;
   sessions: SessionTable;
@@ -236,13 +270,16 @@ export interface StateSchema {
   events: EventTable;
   push_subscriptions: PushSubscriptionTable;
   identities: IdentityTable;
+  recovery_addresses: RecoveryAddressTable;
+  backup_codes: BackupCodeTable;
+  password_resets: PasswordResetTable;
 }
 
 /** In dependency order, for copying from one store to another. */
 export const STATE_TABLES = [
   "accounts", "sessions", "session_accounts", "labels", "trusted_senders", "instance_settings", "admin_log",
   "contact_books", "contacts", "contact_emails", "contact_deletions", "contact_labels", "contact_dates", "calendars", "events", "push_subscriptions",
-  "identities",
+  "identities", "recovery_addresses", "backup_codes", "password_resets",
 ] as const;
 
 export type Dialect = "sqlite" | "postgres" | "mysql";

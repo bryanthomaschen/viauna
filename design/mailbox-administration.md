@@ -1,10 +1,11 @@
 # Mailbox administration (design)
 
 > [!NOTE]
-> Being built for 0.7: changing and resetting passwords, recovery, and admin reset links.
-> Closing and reopening mailboxes, and everything under "Later", is still a proposal. This
-> folder isn't part of the docs site; when a feature ships, its pages go in `docs/` and
-> this note says so.
+> Built for 0.7 (on `main`, not yet released): changing and resetting passwords, recovery,
+> admin reset links and the breach check; see [Passwords](../docs/self-hosting/passwords.md)
+> and [Getting back in](../docs/how-it-works/recovery.md). Closing and reopening
+> mailboxes, and everything under "Later", is still a proposal. This folder isn't part of
+> the docs site.
 
 Viauna can't act on a mailbox itself, only on what's in it. Resetting a forgotten
 password, or closing a mailbox someone has stopped using, happens on the mail server, in
@@ -31,6 +32,8 @@ that Viauna asks a backend to carry out, so that:
   only the first five characters of the password's SHA-1 leave the server).
 - **`PASSWORD_CHANGE` is folded into `MAILBOX_ADMIN`**: one backend changes and resets
   passwords.
+- **Each recovery method is the admin's to turn off** (`PASSWORD_RECOVERY_EMAIL`,
+  `PASSWORD_RECOVERY_CODES`; one per method as more come), keeping what people set up.
 
 ## Why actions, and not a standard protocol
 
@@ -148,7 +151,7 @@ The pages answer the same whether or not the address exists or has recovery set 
 they can't be used to find out which do. Codes expire (15 minutes for one emailed at a
 reset), allow a few wrong tries, and are counted per mailbox and per client address. It's
 offered only when the backend supports `setPassword`, only for mailboxes on `IMAP_HOST`,
-and only while `PASSWORD_RECOVERY` is on (the default). A mailbox is only as safe as its
+and only for the methods the admin leaves on (both are, by default). A mailbox is only as safe as its
 weakest recovery method: whoever controls the recovery address can reset the password.
 
 ## An admin's reset link
