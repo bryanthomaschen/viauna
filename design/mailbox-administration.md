@@ -205,7 +205,13 @@ alone still opens nothing. A project of its own, after app passwords.
 A small service next to Mailu, not code in Viauna. It holds Mailu's API key and does only
 these actions:
 
-- `changePassword` and `setPassword`: `PATCH /api/v1/user/{email}` with `raw_password`;
+- `changePassword` and `setPassword`: `PATCH /api/v1/user/{email}` with `raw_password`.
+  A change checks the current password again with Mailu (`/internal/auth/basic`); a reset
+  is refused for global admins, domain managers and closed mailboxes, so the webhook
+  secret can't be turned into control of the server. It calls `admin:8080` directly on
+  Mailu's network: Mailu's admin serves the API whenever `API_TOKEN` is set, and `API=true`
+  would only expose it on `front` too, so `API` stays false (built 2026-11-19; see
+  [Running Viauna next to Mailu](../docs/self-hosting/mailu.md#a-webhook-for-resets));
 - later, `status`: `GET /api/v1/user/{email}`, and `close` and `reopen`: the same
   `PATCH`, with `enabled` false or true.
 
